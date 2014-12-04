@@ -1,0 +1,359 @@
+### TESTBEGIN tirpc.netpath (Verify netpath functions)
+### TESTBEGIN tirpc.netpath.testcase0 (verify default netpath)
+### TESTRESULT tirpc.netpath.testcase0: SUCCESS
+### TESTBEGIN tirpc.netpath.testcase1 (verify empty netpath)
+### TESTRESULT tirpc.netpath.testcase1: SUCCESS
+### TESTBEGIN tirpc.netpath.testcase2 (verify netpath "udp")
+### TESTRESULT tirpc.netpath.testcase2: SUCCESS
+### TESTBEGIN tirpc.netpath.testcase3 (verify netpath "tcp")
+### TESTRESULT tirpc.netpath.testcase3: SUCCESS
+### TESTBEGIN tirpc.netpath.testcase4 (verify netpath "tcp:udp6")
+### TESTRESULT tirpc.netpath.testcase4: SUCCESS
+### TESTBEGIN tirpc.netpath.testcase5 (verify netpath "local:tcp:udp")
+### TESTRESULT tirpc.netpath.testcase5: SUCCESS
+### TESTBEGIN tirpc.netpath.testcase6 (verify netpath "local:tcp::udp")
+### TESTRESULT tirpc.netpath.testcase6: SUCCESS
+### TESTRESULT tirpc.netpath: SUCCESS
+### TESTBEGIN tirpc.netconfig (Verify netconfig functions)
+### TESTBEGIN tirpc.netconfig.udp (Verifying netconfig for netid <udp>)
+### TESTRESULT tirpc.netconfig.udp: SUCCESS
+### TESTBEGIN tirpc.netconfig.tcp (Verifying netconfig for netid <tcp>)
+### TESTRESULT tirpc.netconfig.tcp: SUCCESS
+### TESTBEGIN tirpc.netconfig.udp6 (Verifying netconfig for netid <udp6>)
+### TESTRESULT tirpc.netconfig.udp6: SUCCESS
+### TESTBEGIN tirpc.netconfig.tcp6 (Verifying netconfig for netid <tcp6>)
+### TESTRESULT tirpc.netconfig.tcp6: SUCCESS
+### TESTBEGIN tirpc.netconfig.local (Verifying netconfig for netid <local>)
+### TESTRESULT tirpc.netconfig.local: SUCCESS
+### TESTBEGIN tirpc.netconfig.builtin (Verifying configured netids)
+### TESTRESULT tirpc.netconfig.builtin: SUCCESS
+### TESTRESULT tirpc.netconfig: SUCCESS
+### TESTBEGIN tirpc.sockinfo (Verify sockinfo functions)
+### TESTBEGIN tirpc.sockinfo.udp (Verifying sockinfo for netid <udp>)
+### TESTRESULT tirpc.sockinfo.udp: SUCCESS
+### TESTBEGIN tirpc.sockinfo.tcp (Verifying sockinfo for netid <tcp>)
+### TESTRESULT tirpc.sockinfo.tcp: SUCCESS
+### TESTBEGIN tirpc.sockinfo.udp6 (Verifying sockinfo for netid <udp6>)
+### TESTRESULT tirpc.sockinfo.udp6: SUCCESS
+### TESTBEGIN tirpc.sockinfo.tcp6 (Verifying sockinfo for netid <tcp6>)
+### TESTRESULT tirpc.sockinfo.tcp6: SUCCESS
+### TESTBEGIN tirpc.sockinfo.local (Verifying sockinfo for netid <local>)
+### TESTRESULT tirpc.sockinfo.local: SUCCESS
+### TESTRESULT tirpc.sockinfo: SUCCESS
+### TESTBEGIN tirpc.addrconv (Verify uaddr2taddr/taddr2uaddr functions)
+### TESTBEGIN tirpc.addrconv.udp (Verifying addr conversion for netid <udp>)
+### TESTRESULT tirpc.addrconv.udp: SUCCESS
+### TESTBEGIN tirpc.addrconv.tcp (Verifying addr conversion for netid <tcp>)
+### TESTRESULT tirpc.addrconv.tcp: SUCCESS
+### TESTBEGIN tirpc.addrconv.udp6 (Verifying addr conversion for netid <udp6>)
+### TESTRESULT tirpc.addrconv.udp6: SUCCESS
+### TESTBEGIN tirpc.addrconv.tcp6 (Verifying addr conversion for netid <tcp6>)
+### TESTRESULT tirpc.addrconv.tcp6: SUCCESS
+### TESTBEGIN tirpc.addrconv.local (Verifying addr conversion for netid <local>)
+### TESTRESULT tirpc.addrconv.local: SUCCESS
+### TESTRESULT tirpc.addrconv: SUCCESS
+### TESTBEGIN tirpc.socket (Verify socket functions)
+### TESTBEGIN tirpc.socket.udp (Trying to create socket for <udp>)
+### TESTRESULT tirpc.socket.udp: SUCCESS
+### TESTBEGIN tirpc.socket.tcp (Trying to create socket for <tcp>)
+### TESTRESULT tirpc.socket.tcp: SUCCESS
+### TESTBEGIN tirpc.socket.udp6 (Trying to create socket for <udp6>)
+### TESTRESULT tirpc.socket.udp6: SUCCESS
+### TESTBEGIN tirpc.socket.tcp6 (Trying to create socket for <tcp6>)
+### TESTRESULT tirpc.socket.tcp6: SUCCESS
+### TESTBEGIN tirpc.socket.local (Trying to create socket for <local>)
+### TESTRESULT tirpc.socket.local: SUCCESS
+### TESTRESULT tirpc.socket: SUCCESS
+### TESTBEGIN tirpc.portmap (Verify portmap client functions)
+### TESTBEGIN tirpc.portmap.testcase0 (Verifying pmap registration for portmapper (expect 6 regs))
+### TESTRESULT tirpc.portmap.testcase0: SUCCESS
+### TESTBEGIN tirpc.portmap.testcase1 (Verifying pmap_set operation for square program)
+### TESTRESULT tirpc.portmap.testcase1: SUCCESS
+### TESTBEGIN tirpc.portmap.testcase2 (Verifying pmap_unset operation for square program)
+### TESTRESULT tirpc.portmap.testcase2: SUCCESS
+### TESTRESULT tirpc.portmap: SUCCESS
+### TESTBEGIN tirpc.rpcbind (Verify rpcbind client functions)
+### TESTBEGIN tirpc.rpcbind.testcase0 (Trying rpcb_getmaps(tcp, NULL))
+### TESTRESULT tirpc.rpcbind.testcase0: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase0: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase1 (Trying rpcb_getmaps(udp, NULL))
+### TESTRESULT tirpc.rpcbind.testcase1: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase1: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase2 (Trying rpcb_getmaps(tcp6, NULL))
+### TESTRESULT tirpc.rpcbind.testcase2: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase2: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase3 (Trying rpcb_getmaps(udp6, NULL))
+### TESTRESULT tirpc.rpcbind.testcase3: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase3: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase4 (Trying rpcb_getmaps(local, NULL))
+### TESTRESULT tirpc.rpcbind.testcase4: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase4: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase5 (Trying rpcb_getmaps(local, localhost))
+### TESTRESULT tirpc.rpcbind.testcase5: FAILED (rpc_getmaps CRASHED with signal 11)
+### TESTBEGIN tirpc.rpcbind.testcase6 (Trying rpcb_getmaps(NULL, somehost))
+### TESTRESULT tirpc.rpcbind.testcase6: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase6: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase7 (Trying rpcb_getmaps(NULL, NULL))
+### TESTRESULT tirpc.rpcbind.testcase7: WARN (rpc_getmaps CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase7: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase8 (Verifying rpcb registration for rpcbind)
+### TESTRESULT tirpc.rpcbind.testcase8: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase9 (Verifying rpcb_set operation for square program)
+### TESTRESULT tirpc.rpcbind.testcase9: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase10 (Verifying portmap visibility of rpcb registration for square program)
+### TESTRESULT tirpc.rpcbind.testcase10: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase11 (Verifying rpcb_unset operation for square program)
+### TESTRESULT tirpc.rpcbind.testcase11: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase12 (Verifying rpcb_set operation for square program (talking to rpcb via tcp transport))
+### TESTRESULT tirpc.rpcbind.testcase12: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase13 (Verifying rpcb_unset operation for square program (talking to rpcb via tcp transport))
+### TESTRESULT tirpc.rpcbind.testcase13: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase14 (Verifying rpcb_set operation for square program (talking to rpcb via udp transport))
+### TESTRESULT tirpc.rpcbind.testcase14: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase15 (Verifying rpcb_unset operation for square program (talking to rpcb via udp transport))
+### TESTRESULT tirpc.rpcbind.testcase15: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase16 (Verifying rpcb_set operation for square program (talking to rpcb via tcp6 transport))
+### TESTRESULT tirpc.rpcbind.testcase16: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase17 (Verifying rpcb_unset operation for square program (talking to rpcb via tcp6 transport))
+### TESTRESULT tirpc.rpcbind.testcase17: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase18 (Verifying rpcb_set operation for square program (talking to rpcb via udp6 transport))
+### TESTRESULT tirpc.rpcbind.testcase18: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase19 (Verifying rpcb_unset operation for square program (talking to rpcb via udp6 transport))
+### TESTRESULT tirpc.rpcbind.testcase19: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase20 (Verifying rpcb_set operation for square program (talking to rpcb via local transport))
+### TESTRESULT tirpc.rpcbind.testcase20: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase21 (Verifying rpcb_unset operation for square program (talking to rpcb via local transport))
+### TESTRESULT tirpc.rpcbind.testcase21: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase22 (Verifying rpcb_getaddr for square program)
+### TESTRESULT tirpc.rpcbind.testcase22: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase23 (Verifying that getifaddrs returns proper interface index)
+::: Note: the following may crash on some versions of libtirpc due to a bug in getclienthandle
+### TESTRESULT tirpc.rpcbind.testcase23: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase24 (Verifying rpcb_set operation for square program (talking to rpcb at 127.0.0.1))
+### TESTRESULT tirpc.rpcbind.testcase24: WARN (rpcb_getaddr(202020, 2, tcp, bind=127.0.0.1) CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase24: WARN (rpcb_getaddr(202020, 2, udp, bind=127.0.0.1) CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase24: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase25 (Verifying rpcb_unset operation for square program (talking to rpcb at 127.0.0.1))
+### TESTRESULT tirpc.rpcbind.testcase25: WARN (rpcb_getaddr(202020, 2, tcp, bind=127.0.0.1) CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase25: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase26 (Verifying rpcb_set operation for square program (talking to rpcb at 127.0.0.2))
+### TESTRESULT tirpc.rpcbind.testcase26: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase27 (Verifying rpcb_unset operation for square program (talking to rpcb at 127.0.0.2))
+### TESTRESULT tirpc.rpcbind.testcase27: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase28 (Verifying rpcb_set operation for square program (talking to rpcb at 192.168.5.8))
+### TESTRESULT tirpc.rpcbind.testcase28: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase29 (Verifying rpcb_unset operation for square program (talking to rpcb at 192.168.5.8))
+### TESTRESULT tirpc.rpcbind.testcase29: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase30 (Verifying rpcb_set operation for square program (talking to rpcb at 192.168.178.8))
+### TESTRESULT tirpc.rpcbind.testcase30: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase31 (Verifying rpcb_unset operation for square program (talking to rpcb at 192.168.178.8))
+### TESTRESULT tirpc.rpcbind.testcase31: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase32 (Verifying rpcb_set operation for square program (talking to rpcb at 192.168.122.1))
+### TESTRESULT tirpc.rpcbind.testcase32: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase33 (Verifying rpcb_unset operation for square program (talking to rpcb at 192.168.122.1))
+### TESTRESULT tirpc.rpcbind.testcase33: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase34 (Verifying rpcb_set operation for square program (talking to rpcb at 10.163.0.89))
+### TESTRESULT tirpc.rpcbind.testcase34: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase35 (Verifying rpcb_unset operation for square program (talking to rpcb at 10.163.0.89))
+### TESTRESULT tirpc.rpcbind.testcase35: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase36 (Verifying rpcb_set operation for square program (talking to rpcb at ::1))
+### TESTRESULT tirpc.rpcbind.testcase36: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase37 (Verifying rpcb_unset operation for square program (talking to rpcb at ::1))
+### TESTRESULT tirpc.rpcbind.testcase37: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase38 (Verifying rpcb_set operation for square program (talking to rpcb at fe80::21c:c4ff:fe83:3fce%eth0))
+### TESTRESULT tirpc.rpcbind.testcase38: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase39 (Verifying rpcb_unset operation for square program (talking to rpcb at fe80::21c:c4ff:fe83:3fce%eth0))
+### TESTRESULT tirpc.rpcbind.testcase39: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase40 (Verify rpcb_gettime(localhost))
+### TESTRESULT tirpc.rpcbind.testcase40: WARN (rpcb_gettime(localhost) CRASHED with signal 11)
+### TESTRESULT tirpc.rpcbind.testcase40: SUCCESS
+### TESTBEGIN tirpc.rpcbind.testcase41 (Trying rpcb_taddr2uaddr(udp, 127.0.0.1))
+### TESTRESULT tirpc.rpcbind.testcase41: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN tirpc.rpcbind.testcase42 (Trying rpcb_uaddr2taddr(udp, 127.0.0.1.0.111))
+### TESTRESULT tirpc.rpcbind.testcase42: FAILED (rpcb_uaddr2taddr returned bad address length 11 (expect 16))
+### TESTBEGIN tirpc.rpcbind.testcase43 (Trying rpcb_taddr2uaddr(udp6, ::1))
+### TESTRESULT tirpc.rpcbind.testcase43: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN tirpc.rpcbind.testcase44 (Trying rpcb_uaddr2taddr(udp6, ::1.0.111))
+### TESTRESULT tirpc.rpcbind.testcase44: FAILED (rpcb_uaddr2taddr returned bad address length 5 (expect 28))
+### TESTBEGIN tirpc.rpcbind.testcase45 (Trying rpcb_taddr2uaddr(tcp, 127.0.0.1))
+### TESTRESULT tirpc.rpcbind.testcase45: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN tirpc.rpcbind.testcase46 (Trying rpcb_uaddr2taddr(tcp, 127.0.0.1.0.111))
+### TESTRESULT tirpc.rpcbind.testcase46: FAILED (rpcb_uaddr2taddr returned bad address length 11 (expect 16))
+### TESTBEGIN tirpc.rpcbind.testcase47 (Trying rpcb_taddr2uaddr(tcp6, ::1))
+### TESTRESULT tirpc.rpcbind.testcase47: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN tirpc.rpcbind.testcase48 (Trying rpcb_uaddr2taddr(tcp6, ::1.0.111))
+### TESTRESULT tirpc.rpcbind.testcase48: FAILED (rpcb_uaddr2taddr returned bad address length 5 (expect 28))
+### TESTRESULT tirpc.rpcbind: SUCCESS
+### TESTBEGIN tirpc.svcreg (Verify service registration functions)
+### TESTBEGIN tirpc.svcreg.testcase0 (Create service and register by nettype netpath)
+### TESTRESULT tirpc.svcreg.testcase0: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase1 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase1: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase2 (Testing reachability of square program via clnt_create(netpath))
+### TESTRESULT tirpc.svcreg.testcase2: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase3 (Testing reachability of square program via clnt_tp_create(udp+tcp+udp6+tcp6))
+### TESTRESULT tirpc.svcreg.testcase3: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase4 (Create service and register by nettype visible)
+### TESTRESULT tirpc.svcreg.testcase4: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase5 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase5: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase6 (Testing reachability of square program via clnt_create(visible))
+### TESTRESULT tirpc.svcreg.testcase6: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase7 (Testing reachability of square program via clnt_tp_create(udp+tcp+udp6+tcp6))
+### TESTRESULT tirpc.svcreg.testcase7: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase8 (Create service and register by nettype circuit_n)
+### TESTRESULT tirpc.svcreg.testcase8: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase9 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase9: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase10 (Testing reachability of square program via clnt_create(circuit_n))
+### TESTRESULT tirpc.svcreg.testcase10: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase11 (Testing reachability of square program via clnt_tp_create(tcp+tcp6))
+### TESTRESULT tirpc.svcreg.testcase11: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase12 (Create service and register by nettype datagram_n)
+### TESTRESULT tirpc.svcreg.testcase12: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase13 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase13: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase14 (Testing reachability of square program via clnt_create(datagram_n))
+### TESTRESULT tirpc.svcreg.testcase14: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase15 (Testing reachability of square program via clnt_tp_create(udp+udp6))
+### TESTRESULT tirpc.svcreg.testcase15: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase16 (Create service and register by nettype circuit_v)
+### TESTRESULT tirpc.svcreg.testcase16: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase17 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase17: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase18 (Testing reachability of square program via clnt_create(circuit_v))
+### TESTRESULT tirpc.svcreg.testcase18: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase19 (Testing reachability of square program via clnt_tp_create(tcp+tcp6))
+### TESTRESULT tirpc.svcreg.testcase19: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase20 (Create service and register by nettype datagram_v)
+### TESTRESULT tirpc.svcreg.testcase20: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase21 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase21: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase22 (Testing reachability of square program via clnt_create(datagram_v))
+### TESTRESULT tirpc.svcreg.testcase22: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase23 (Testing reachability of square program via clnt_tp_create(udp+udp6))
+### TESTRESULT tirpc.svcreg.testcase23: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase24 (Create service and register by nettype udp)
+### TESTRESULT tirpc.svcreg.testcase24: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase25 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase25: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase26 (Testing reachability of square program via clnt_create(udp))
+### TESTRESULT tirpc.svcreg.testcase26: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase27 (Testing reachability of square program via clnt_tp_create(udp+udp6))
+### TESTRESULT tirpc.svcreg.testcase27: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase28 (Create service and register by nettype tcp)
+### TESTRESULT tirpc.svcreg.testcase28: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase29 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase29: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase30 (Testing reachability of square program via clnt_create(tcp))
+### TESTRESULT tirpc.svcreg.testcase30: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase31 (Testing reachability of square program via clnt_tp_create(tcp+tcp6))
+### TESTRESULT tirpc.svcreg.testcase31: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase32 (Create service and register by netid (udp+tcp))
+### TESTRESULT tirpc.svcreg.testcase32: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase33 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase33: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase34 (Testing reachability of square program via clnt_tp_create(udp+tcp))
+### TESTRESULT tirpc.svcreg.testcase34: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase35 (Create service and register by netid (udp6+tcp6))
+### TESTRESULT tirpc.svcreg.testcase35: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase36 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase36: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase37 (Testing reachability of square program via clnt_tp_create(udp6+tcp6))
+### TESTRESULT tirpc.svcreg.testcase37: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase38 (Create service and register by netid (local))
+### TESTRESULT tirpc.svcreg.testcase38: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase39 (Verifying rpcb registration for square program)
+### TESTRESULT tirpc.svcreg.testcase39: SUCCESS
+### TESTBEGIN tirpc.svcreg.testcase40 (Testing reachability of square program via clnt_tp_create(local))
+### TESTRESULT tirpc.svcreg.testcase40: SUCCESS
+### TESTRESULT tirpc.svcreg: SUCCESS
+### TESTBEGIN tirpc.client (Verify client functions)
+### TESTBEGIN tirpc.client.testcase0 (Create service and register all transports)
+### TESTRESULT tirpc.client.testcase0: SUCCESS
+### TESTBEGIN tirpc.client.testcase1 (Verify clnt_create_vers(netpath))
+### TESTRESULT tirpc.client.testcase1: SUCCESS
+### TESTBEGIN tirpc.client.testcase2 (Verify clnt_create_vers(visible))
+### TESTRESULT tirpc.client.testcase2: SUCCESS
+### TESTBEGIN tirpc.client.testcase3 (Verify clnt_create_vers(circuit_n))
+### TESTRESULT tirpc.client.testcase3: SUCCESS
+### TESTBEGIN tirpc.client.testcase4 (Verify clnt_create_vers(datagram_n))
+### TESTRESULT tirpc.client.testcase4: SUCCESS
+### TESTBEGIN tirpc.client.testcase5 (Verify clnt_create_vers(circuit_v))
+### TESTRESULT tirpc.client.testcase5: SUCCESS
+### TESTBEGIN tirpc.client.testcase6 (Verify clnt_create_vers(datagram_v))
+### TESTRESULT tirpc.client.testcase6: SUCCESS
+### TESTBEGIN tirpc.client.testcase7 (Verify clnt_create_vers(udp))
+### TESTRESULT tirpc.client.testcase7: SUCCESS
+### TESTBEGIN tirpc.client.testcase8 (Verify clnt_create_vers(tcp))
+### TESTRESULT tirpc.client.testcase8: SUCCESS
+### TESTBEGIN tirpc.client.testcase9 (Verify clnttcp_create(127.0.0.1, 202020, 1))
+### TESTRESULT tirpc.client.testcase9: WARN (clnttcp_create bound to non-privileged port while running as root)
+### TESTRESULT tirpc.client.testcase9: SUCCESS
+### TESTBEGIN tirpc.client.testcase10 (Verify clntudp_create(127.0.0.1, 202020, 1))
+### TESTRESULT tirpc.client.testcase10: WARN (clntudp_create bound to non-privileged port while running as root)
+### TESTRESULT tirpc.client.testcase10: SUCCESS
+### TESTBEGIN tirpc.client.testcase11 (Verify clntunix_create())
+### TESTRESULT tirpc.client.testcase11: FAILED (clntunix_create(/var/tmp/square.sock, 202020, 1) CRASHED with signal 6)
+### TESTBEGIN tirpc.client.testcase12 (Verify callrpc(localhost, 202020, 1))
+### TESTRESULT tirpc.client.testcase12: SUCCESS
+### TESTBEGIN tirpc.client.testcase13 (Verify RPC error reporting for error 8 (RPC: Program unavailable))
+### TESTRESULT tirpc.client.testcase13: SUCCESS
+### TESTBEGIN tirpc.client.testcase14 (Verify RPC error reporting for error 9 (RPC: Program/version mismatch))
+### TESTRESULT tirpc.client.testcase14: SUCCESS
+### TESTBEGIN tirpc.client.testcase15 (Verify RPC error reporting for error 10 (RPC: Procedure unavailable))
+### TESTRESULT tirpc.client.testcase15: SUCCESS
+### TESTBEGIN tirpc.client.testcase16 (Verify RPC error reporting for error 11 (RPC: Server can't decode arguments))
+### TESTRESULT tirpc.client.testcase16: SUCCESS
+### TESTBEGIN tirpc.client.testcase17 (Verify RPC error reporting for error 12 (RPC: Remote system error))
+### TESTRESULT tirpc.client.testcase17: SUCCESS
+### TESTBEGIN tirpc.client.testcase18 (Verify RPC error reporting for error 7 (RPC: Authentication error))
+### TESTRESULT tirpc.client.testcase18: SUCCESS
+### TESTBEGIN tirpc.client.testcase19 (Verify RPC error reporting for error 1 (RPC: Can't encode arguments))
+### TESTRESULT tirpc.client.testcase19: SUCCESS
+### TESTBEGIN tirpc.client.testcase20 (Verify RPC error reporting for error 2 (RPC: Can't decode result))
+### TESTRESULT tirpc.client.testcase20: SUCCESS
+### TESTBEGIN tirpc.client.testcase21 (Verifying get_myaddress)
+### TESTRESULT tirpc.client.testcase21: SUCCESS
+### TESTBEGIN tirpc.client.testcase22 (Verify getrpcport())
+### TESTRESULT tirpc.client.testcase22: SUCCESS
+### TESTBEGIN tirpc.client.testcase23 (Verify TCP client with send size 4)
+### TESTRESULT tirpc.client.testcase23: SUCCESS
+### TESTBEGIN tirpc.client.testcase24 (Verify TCP client with send size 8)
+### TESTRESULT tirpc.client.testcase24: SUCCESS
+### TESTBEGIN tirpc.client.testcase25 (Verify TCP client with send size 12)
+### TESTRESULT tirpc.client.testcase25: SUCCESS
+### TESTBEGIN tirpc.client.testcase26 (Verify TCP client with send size 16)
+### TESTRESULT tirpc.client.testcase26: SUCCESS
+### TESTBEGIN tirpc.client.testcase27 (Verify TCP client with send size 31)
+### TESTRESULT tirpc.client.testcase27: SUCCESS
+### TESTBEGIN tirpc.client.testcase28 (Verify TCP client with send size 64)
+### TESTRESULT tirpc.client.testcase28: SUCCESS
+### TESTBEGIN tirpc.client.testcase29 (Verify TCP client with send size 77)
+### TESTRESULT tirpc.client.testcase29: SUCCESS
+### TESTBEGIN tirpc.client.testcase30 (Verify TCP client with send size 128)
+### TESTRESULT tirpc.client.testcase30: SUCCESS
+### TESTBEGIN tirpc.client.testcase31 (Verify TCP client with send size 256)
+### TESTRESULT tirpc.client.testcase31: SUCCESS
+### TESTBEGIN tirpc.client.testcase32 (Verify TCP client with send size 1024)
+### TESTRESULT tirpc.client.testcase32: SUCCESS
+### TESTBEGIN tirpc.client.testcase33 (Verify TCP client with send size 4096)
+### TESTRESULT tirpc.client.testcase33: SUCCESS
+### TESTBEGIN tirpc.client.testcase34 (Verify TCP client with send size 32768)
+### TESTRESULT tirpc.client.testcase34: SUCCESS
+### TESTBEGIN tirpc.client.testcase35 (Verify clnt_create with bad nettype)
+### TESTRESULT tirpc.client.testcase35: SUCCESS
+### TESTBEGIN tirpc.client.testcase36 (Verify clnt_create with huge nettype)
+### TESTRESULT tirpc.client.testcase36: SUCCESS
+### TESTBEGIN tirpc.client.testcase37 (Verify clnt_create with IPv4 address and IPv6 netid)
+### TESTRESULT tirpc.client.testcase37: SUCCESS
+### TESTBEGIN tirpc.client.testcase38 (Verify clnt_create with IPv6 address and IPv4 netid)
+### TESTRESULT tirpc.client.testcase38: SUCCESS
+### TESTBEGIN tirpc.client.testcase39 (Verify clnt_create with huge hostname)
+### TESTRESULT tirpc.client.testcase39: SUCCESS
+### TESTRESULT tirpc.client: SUCCESS
+====
+Summary:
+ 161 tests
+  10 failures
+  13 warnings
