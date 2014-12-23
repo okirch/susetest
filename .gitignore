@@ -1,0 +1,5 @@
+*.o
+*.so
+test-junit
+test-logging
+junit/python/test-report.xml
