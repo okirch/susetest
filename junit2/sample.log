@@ -1,0 +1,382 @@
+### TESTBEGIN rpctest.netpath (Verify netpath functions)
+### TESTBEGIN rpctest.netpath.testcase0 (verify default netpath)
+### TESTRESULT rpctest.netpath.testcase0: SUCCESS
+### TESTBEGIN rpctest.netpath.testcase1 (verify empty netpath)
+### TESTRESULT rpctest.netpath.testcase1: SUCCESS
+### TESTBEGIN rpctest.netpath.testcase2 (verify netpath "udp")
+### TESTRESULT rpctest.netpath.testcase2: SUCCESS
+### TESTBEGIN rpctest.netpath.testcase3 (verify netpath "tcp")
+### TESTRESULT rpctest.netpath.testcase3: SUCCESS
+### TESTBEGIN rpctest.netpath.testcase4 (verify netpath "tcp:udp6")
+### TESTRESULT rpctest.netpath.testcase4: SUCCESS
+### TESTBEGIN rpctest.netpath.testcase5 (verify netpath "local:tcp:udp")
+### TESTRESULT rpctest.netpath.testcase5: SUCCESS
+### TESTBEGIN rpctest.netpath.testcase6 (verify netpath "local:tcp::udp")
+### TESTRESULT rpctest.netpath.testcase6: SUCCESS
+### TESTRESULT rpctest.netpath: SUCCESS
+### TESTBEGIN rpctest.netconfig (Verify netconfig functions)
+### TESTBEGIN rpctest.netconfig.udp (Verifying netconfig for netid <udp>)
+### TESTRESULT rpctest.netconfig.udp: SUCCESS
+### TESTBEGIN rpctest.netconfig.tcp (Verifying netconfig for netid <tcp>)
+### TESTRESULT rpctest.netconfig.tcp: SUCCESS
+### TESTBEGIN rpctest.netconfig.udp6 (Verifying netconfig for netid <udp6>)
+### TESTRESULT rpctest.netconfig.udp6: SUCCESS
+### TESTBEGIN rpctest.netconfig.tcp6 (Verifying netconfig for netid <tcp6>)
+### TESTRESULT rpctest.netconfig.tcp6: SUCCESS
+### TESTBEGIN rpctest.netconfig.local (Verifying netconfig for netid <local>)
+### TESTRESULT rpctest.netconfig.local: SUCCESS
+### TESTBEGIN rpctest.netconfig.builtin (Verifying configured netids)
+### TESTRESULT rpctest.netconfig.builtin: SUCCESS
+### TESTRESULT rpctest.netconfig: SUCCESS
+### TESTBEGIN rpctest.sockinfo (Verify sockinfo functions)
+### TESTBEGIN rpctest.sockinfo.udp (Verifying sockinfo for netid <udp>)
+### TESTRESULT rpctest.sockinfo.udp: SUCCESS
+### TESTBEGIN rpctest.sockinfo.tcp (Verifying sockinfo for netid <tcp>)
+### TESTRESULT rpctest.sockinfo.tcp: SUCCESS
+### TESTBEGIN rpctest.sockinfo.udp6 (Verifying sockinfo for netid <udp6>)
+### TESTRESULT rpctest.sockinfo.udp6: SUCCESS
+### TESTBEGIN rpctest.sockinfo.tcp6 (Verifying sockinfo for netid <tcp6>)
+### TESTRESULT rpctest.sockinfo.tcp6: SUCCESS
+### TESTBEGIN rpctest.sockinfo.local (Verifying sockinfo for netid <local>)
+### TESTRESULT rpctest.sockinfo.local: SUCCESS
+### TESTRESULT rpctest.sockinfo: SUCCESS
+### TESTBEGIN rpctest.addrconv (Verify uaddr2taddr/taddr2uaddr functions)
+### TESTBEGIN rpctest.addrconv.udp (Verifying addr conversion for netid <udp>)
+### TESTRESULT rpctest.addrconv.udp: SUCCESS
+### TESTBEGIN rpctest.addrconv.tcp (Verifying addr conversion for netid <tcp>)
+### TESTRESULT rpctest.addrconv.tcp: SUCCESS
+### TESTBEGIN rpctest.addrconv.udp6 (Verifying addr conversion for netid <udp6>)
+### TESTRESULT rpctest.addrconv.udp6: SUCCESS
+### TESTBEGIN rpctest.addrconv.tcp6 (Verifying addr conversion for netid <tcp6>)
+### TESTRESULT rpctest.addrconv.tcp6: SUCCESS
+### TESTBEGIN rpctest.addrconv.local (Verifying addr conversion for netid <local>)
+### TESTRESULT rpctest.addrconv.local: SUCCESS
+### TESTRESULT rpctest.addrconv: SUCCESS
+### TESTBEGIN rpctest.socket (Verify socket functions)
+### TESTBEGIN rpctest.socket.udp (Trying to create socket for <udp>)
+### TESTRESULT rpctest.socket.udp: SUCCESS
+### TESTBEGIN rpctest.socket.tcp (Trying to create socket for <tcp>)
+### TESTRESULT rpctest.socket.tcp: SUCCESS
+### TESTBEGIN rpctest.socket.udp6 (Trying to create socket for <udp6>)
+### TESTRESULT rpctest.socket.udp6: SUCCESS
+### TESTBEGIN rpctest.socket.tcp6 (Trying to create socket for <tcp6>)
+### TESTRESULT rpctest.socket.tcp6: SUCCESS
+### TESTBEGIN rpctest.socket.local (Trying to create socket for <local>)
+### TESTRESULT rpctest.socket.local: SUCCESS
+### TESTRESULT rpctest.socket: SUCCESS
+### TESTBEGIN rpctest.portmap (Verify portmap client functions)
+### TESTBEGIN rpctest.portmap.testcase0 (Verifying pmap registration for portmapper (expect 6 regs))
+### TESTRESULT rpctest.portmap.testcase0: SUCCESS
+### TESTBEGIN rpctest.portmap.testcase1 (Verifying pmap_set operation for square program)
+### TESTRESULT rpctest.portmap.testcase1: SUCCESS
+### TESTBEGIN rpctest.portmap.testcase2 (Verifying pmap_unset operation for square program)
+### TESTRESULT rpctest.portmap.testcase2: SUCCESS
+### TESTRESULT rpctest.portmap: SUCCESS
+### TESTBEGIN rpctest.rpcbind (Verify rpcbind client functions)
+### TESTBEGIN rpctest.rpcbind.testcase0 (Trying rpcb_getmaps(tcp, NULL))
+### TESTRESULT rpctest.rpcbind.testcase0: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase1 (Trying rpcb_getaddr(tcp, NULL))
+### TESTRESULT rpctest.rpcbind.testcase1: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase2 (Trying rpcb_getmaps(udp, NULL))
+### TESTRESULT rpctest.rpcbind.testcase2: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase3 (Trying rpcb_getaddr(udp, NULL))
+### TESTRESULT rpctest.rpcbind.testcase3: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase4 (Trying rpcb_getmaps(tcp6, NULL))
+### TESTRESULT rpctest.rpcbind.testcase4: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase5 (Trying rpcb_getaddr(tcp6, NULL))
+### TESTRESULT rpctest.rpcbind.testcase5: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase6 (Trying rpcb_getmaps(udp6, NULL))
+### TESTRESULT rpctest.rpcbind.testcase6: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase7 (Trying rpcb_getaddr(udp6, NULL))
+### TESTRESULT rpctest.rpcbind.testcase7: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase8 (Trying rpcb_getmaps(local, NULL))
+### TESTRESULT rpctest.rpcbind.testcase8: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase9 (Trying rpcb_getaddr(local, NULL))
+### TESTRESULT rpctest.rpcbind.testcase9: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase10 (Trying rpcb_getmaps(local, localhost))
+### TESTRESULT rpctest.rpcbind.testcase10: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase11 (Trying rpcb_getaddr(local, localhost))
+### TESTRESULT rpctest.rpcbind.testcase11: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase12 (Trying rpcb_getmaps(NULL, somehost))
+### TESTRESULT rpctest.rpcbind.testcase12: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase13 (Trying rpcb_getaddr(NULL, somehost))
+### TESTRESULT rpctest.rpcbind.testcase13: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase14 (Trying rpcb_getmaps(NULL, NULL))
+### TESTRESULT rpctest.rpcbind.testcase14: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase15 (Trying rpcb_getaddr(NULL, NULL))
+### TESTRESULT rpctest.rpcbind.testcase15: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase16 (Verifying rpcb registration for rpcbind)
+### TESTRESULT rpctest.rpcbind.testcase16: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase17 (Verifying rpcb_set operation for square program)
+### TESTRESULT rpctest.rpcbind.testcase17: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase18 (Verifying portmap visibility of rpcb registration for square program)
+### TESTRESULT rpctest.rpcbind.testcase18: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase19 (Verifying rpcb_unset operation for square program)
+### TESTRESULT rpctest.rpcbind.testcase19: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase20 (Verifying rpcb_set operation for square program (talking to rpcb via tcp transport))
+### TESTRESULT rpctest.rpcbind.testcase20: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase21 (Verifying rpcb_unset operation for square program (talking to rpcb via tcp transport))
+### TESTRESULT rpctest.rpcbind.testcase21: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase22 (Verifying rpcb_set operation for square program (talking to rpcb via udp transport))
+### TESTRESULT rpctest.rpcbind.testcase22: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase23 (Verifying rpcb_unset operation for square program (talking to rpcb via udp transport))
+### TESTRESULT rpctest.rpcbind.testcase23: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase24 (Verifying rpcb_set operation for square program (talking to rpcb via tcp6 transport))
+### TESTRESULT rpctest.rpcbind.testcase24: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase25 (Verifying rpcb_unset operation for square program (talking to rpcb via tcp6 transport))
+### TESTRESULT rpctest.rpcbind.testcase25: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase26 (Verifying rpcb_set operation for square program (talking to rpcb via udp6 transport))
+### TESTRESULT rpctest.rpcbind.testcase26: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase27 (Verifying rpcb_unset operation for square program (talking to rpcb via udp6 transport))
+### TESTRESULT rpctest.rpcbind.testcase27: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase28 (Verifying rpcb_set operation for square program (talking to rpcb via local transport))
+### TESTRESULT rpctest.rpcbind.testcase28: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase29 (Verifying rpcb_unset operation for square program (talking to rpcb via local transport))
+### TESTRESULT rpctest.rpcbind.testcase29: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase30 (Verifying rpcb_getaddr for square program)
+### TESTRESULT rpctest.rpcbind.testcase30: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase31 (Verifying that getifaddrs returns proper interface index)
+::: Note: the following may crash on some versions of libtirpc due to a bug in getclienthandle
+### TESTRESULT rpctest.rpcbind.testcase31: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase32 (Verifying rpcb_set operation for square program (talking to rpcb at 127.0.0.1))
+### TESTRESULT rpctest.rpcbind.testcase32: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase33 (Verifying rpcb_unset operation for square program (talking to rpcb at 127.0.0.1))
+### TESTRESULT rpctest.rpcbind.testcase33: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase34 (Verifying rpcb_set operation for square program (talking to rpcb at 10.160.4.109))
+### TESTRESULT rpctest.rpcbind.testcase34: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase35 (Verifying rpcb_unset operation for square program (talking to rpcb at 10.160.4.109))
+### TESTRESULT rpctest.rpcbind.testcase35: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase36 (Verifying rpcb_set operation for square program (talking to rpcb at 192.168.121.1))
+### TESTRESULT rpctest.rpcbind.testcase36: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase37 (Verifying rpcb_unset operation for square program (talking to rpcb at 192.168.121.1))
+### TESTRESULT rpctest.rpcbind.testcase37: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase38 (Verifying rpcb_set operation for square program (talking to rpcb at ::1))
+### TESTRESULT rpctest.rpcbind.testcase38: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase39 (Verifying rpcb_unset operation for square program (talking to rpcb at ::1))
+### TESTRESULT rpctest.rpcbind.testcase39: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase40 (Verifying rpcb_set operation for square program (talking to rpcb at fe80::2ad2:44ff:fe57:d75a%eth0))
+### TESTRESULT rpctest.rpcbind.testcase40: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase41 (Verifying rpcb_unset operation for square program (talking to rpcb at fe80::2ad2:44ff:fe57:d75a%eth0))
+### TESTRESULT rpctest.rpcbind.testcase41: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase42 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:10:160:4:109))
+### TESTRESULT rpctest.rpcbind.testcase42: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase43 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:10:160:4:109))
+### TESTRESULT rpctest.rpcbind.testcase43: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase44 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:b157:356f:9dfd:8772))
+### TESTRESULT rpctest.rpcbind.testcase44: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase45 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:b157:356f:9dfd:8772))
+### TESTRESULT rpctest.rpcbind.testcase45: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase46 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:ec95:28df:e674:3fff))
+### TESTRESULT rpctest.rpcbind.testcase46: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase47 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:ec95:28df:e674:3fff))
+### TESTRESULT rpctest.rpcbind.testcase47: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase48 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:3959:3424:6c83:d656))
+### TESTRESULT rpctest.rpcbind.testcase48: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase49 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:3959:3424:6c83:d656))
+### TESTRESULT rpctest.rpcbind.testcase49: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase50 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:a97c:c49:1d6b:86fa))
+### TESTRESULT rpctest.rpcbind.testcase50: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase51 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:a97c:c49:1d6b:86fa))
+### TESTRESULT rpctest.rpcbind.testcase51: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase52 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:e53c:f81e:771:ecf4))
+### TESTRESULT rpctest.rpcbind.testcase52: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase53 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:e53c:f81e:771:ecf4))
+### TESTRESULT rpctest.rpcbind.testcase53: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase54 (Verifying rpcb_set operation for square program (talking to rpcb at 2620:113:80c0:8080:2ad2:44ff:fe57:d75a))
+### TESTRESULT rpctest.rpcbind.testcase54: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase55 (Verifying rpcb_unset operation for square program (talking to rpcb at 2620:113:80c0:8080:2ad2:44ff:fe57:d75a))
+### TESTRESULT rpctest.rpcbind.testcase55: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase56 (Verifying rpcb_set operation for square program (talking to rpcb at fe80::2ad2:44ff:fe57:d75a%br1))
+### TESTRESULT rpctest.rpcbind.testcase56: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase57 (Verifying rpcb_unset operation for square program (talking to rpcb at fe80::2ad2:44ff:fe57:d75a%br1))
+### TESTRESULT rpctest.rpcbind.testcase57: SUCCESS
+### TESTBEGIN rpctest.rpcbind.testcase58 (Verify rpcb_gettime(localhost))
+### TESTRESULT rpctest.rpcbind.testcase58: FAILED (rpcb_gettime doesn't clear upper bits of time_t)
+### TESTBEGIN rpctest.rpcbind.testcase59 (Trying rpcb_taddr2uaddr(udp, 127.0.0.1))
+### TESTRESULT rpctest.rpcbind.testcase59: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN rpctest.rpcbind.testcase60 (Trying rpcb_uaddr2taddr(udp, 127.0.0.1.0.111))
+### TESTRESULT rpctest.rpcbind.testcase60: FAILED (rpcb_uaddr2taddr returned bad address length 11 (expect 16))
+### TESTBEGIN rpctest.rpcbind.testcase61 (Trying rpcb_taddr2uaddr(udp6, ::1))
+### TESTRESULT rpctest.rpcbind.testcase61: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN rpctest.rpcbind.testcase62 (Trying rpcb_uaddr2taddr(udp6, ::1.0.111))
+### TESTRESULT rpctest.rpcbind.testcase62: FAILED (rpcb_uaddr2taddr returned bad address length 5 (expect 28))
+### TESTBEGIN rpctest.rpcbind.testcase63 (Trying rpcb_taddr2uaddr(tcp, 127.0.0.1))
+### TESTRESULT rpctest.rpcbind.testcase63: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN rpctest.rpcbind.testcase64 (Trying rpcb_uaddr2taddr(tcp, 127.0.0.1.0.111))
+### TESTRESULT rpctest.rpcbind.testcase64: FAILED (rpcb_uaddr2taddr returned bad address length 11 (expect 16))
+### TESTBEGIN rpctest.rpcbind.testcase65 (Trying rpcb_taddr2uaddr(tcp6, ::1))
+### TESTRESULT rpctest.rpcbind.testcase65: FAILED (rpcb_taddr2uaddr: server was unable to translate address)
+### TESTBEGIN rpctest.rpcbind.testcase66 (Trying rpcb_uaddr2taddr(tcp6, ::1.0.111))
+### TESTRESULT rpctest.rpcbind.testcase66: FAILED (rpcb_uaddr2taddr returned bad address length 5 (expect 28))
+### TESTRESULT rpctest.rpcbind: SUCCESS
+### TESTBEGIN rpctest.svcreg (Verify service registration functions)
+### TESTBEGIN rpctest.svcreg.testcase0 (Create service and register by nettype netpath)
+### TESTRESULT rpctest.svcreg.testcase0: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase1 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase1: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase2 (Testing reachability of square program via clnt_create(netpath))
+### TESTRESULT rpctest.svcreg.testcase2: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase3 (Testing reachability of square program via clnt_tp_create(udp+tcp+udp6+tcp6))
+### TESTRESULT rpctest.svcreg.testcase3: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase4 (Create service and register by nettype visible)
+### TESTRESULT rpctest.svcreg.testcase4: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase5 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase5: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase6 (Testing reachability of square program via clnt_create(visible))
+### TESTRESULT rpctest.svcreg.testcase6: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase7 (Testing reachability of square program via clnt_tp_create(udp+tcp+udp6+tcp6))
+### TESTRESULT rpctest.svcreg.testcase7: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase8 (Create service and register by nettype circuit_n)
+### TESTRESULT rpctest.svcreg.testcase8: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase9 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase9: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase10 (Testing reachability of square program via clnt_create(circuit_n))
+### TESTRESULT rpctest.svcreg.testcase10: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase11 (Testing reachability of square program via clnt_tp_create(tcp+tcp6))
+### TESTRESULT rpctest.svcreg.testcase11: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase12 (Create service and register by nettype datagram_n)
+### TESTRESULT rpctest.svcreg.testcase12: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase13 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase13: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase14 (Testing reachability of square program via clnt_create(datagram_n))
+### TESTRESULT rpctest.svcreg.testcase14: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase15 (Testing reachability of square program via clnt_tp_create(udp+udp6))
+### TESTRESULT rpctest.svcreg.testcase15: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase16 (Create service and register by nettype circuit_v)
+### TESTRESULT rpctest.svcreg.testcase16: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase17 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase17: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase18 (Testing reachability of square program via clnt_create(circuit_v))
+### TESTRESULT rpctest.svcreg.testcase18: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase19 (Testing reachability of square program via clnt_tp_create(tcp+tcp6))
+### TESTRESULT rpctest.svcreg.testcase19: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase20 (Create service and register by nettype datagram_v)
+### TESTRESULT rpctest.svcreg.testcase20: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase21 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase21: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase22 (Testing reachability of square program via clnt_create(datagram_v))
+### TESTRESULT rpctest.svcreg.testcase22: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase23 (Testing reachability of square program via clnt_tp_create(udp+udp6))
+### TESTRESULT rpctest.svcreg.testcase23: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase24 (Create service and register by nettype udp)
+### TESTRESULT rpctest.svcreg.testcase24: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase25 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase25: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase26 (Testing reachability of square program via clnt_create(udp))
+### TESTRESULT rpctest.svcreg.testcase26: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase27 (Testing reachability of square program via clnt_tp_create(udp+udp6))
+### TESTRESULT rpctest.svcreg.testcase27: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase28 (Create service and register by nettype tcp)
+### TESTRESULT rpctest.svcreg.testcase28: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase29 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase29: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase30 (Testing reachability of square program via clnt_create(tcp))
+### TESTRESULT rpctest.svcreg.testcase30: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase31 (Testing reachability of square program via clnt_tp_create(tcp+tcp6))
+### TESTRESULT rpctest.svcreg.testcase31: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase32 (Create service and register by netid (udp+tcp))
+### TESTRESULT rpctest.svcreg.testcase32: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase33 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase33: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase34 (Testing reachability of square program via clnt_tp_create(udp+tcp))
+### TESTRESULT rpctest.svcreg.testcase34: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase35 (Create service and register by netid (udp6+tcp6))
+### TESTRESULT rpctest.svcreg.testcase35: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase36 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase36: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase37 (Testing reachability of square program via clnt_tp_create(udp6+tcp6))
+### TESTRESULT rpctest.svcreg.testcase37: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase38 (Create service and register by netid (local))
+### TESTRESULT rpctest.svcreg.testcase38: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase39 (Verifying rpcb registration for square program)
+### TESTRESULT rpctest.svcreg.testcase39: SUCCESS
+### TESTBEGIN rpctest.svcreg.testcase40 (Testing reachability of square program via clnt_tp_create(local))
+### TESTRESULT rpctest.svcreg.testcase40: SUCCESS
+### TESTRESULT rpctest.svcreg: SUCCESS
+### TESTBEGIN rpctest.client (Verify client functions)
+### TESTBEGIN rpctest.client.testcase0 (Create service and register all transports)
+### TESTRESULT rpctest.client.testcase0: SUCCESS
+### TESTBEGIN rpctest.client.testcase1 (Verify clnt_create_vers(netpath))
+### TESTRESULT rpctest.client.testcase1: SUCCESS
+### TESTBEGIN rpctest.client.testcase2 (Verify clnt_create_vers(visible))
+### TESTRESULT rpctest.client.testcase2: SUCCESS
+### TESTBEGIN rpctest.client.testcase3 (Verify clnt_create_vers(circuit_n))
+### TESTRESULT rpctest.client.testcase3: SUCCESS
+### TESTBEGIN rpctest.client.testcase4 (Verify clnt_create_vers(datagram_n))
+### TESTRESULT rpctest.client.testcase4: SUCCESS
+### TESTBEGIN rpctest.client.testcase5 (Verify clnt_create_vers(circuit_v))
+### TESTRESULT rpctest.client.testcase5: SUCCESS
+### TESTBEGIN rpctest.client.testcase6 (Verify clnt_create_vers(datagram_v))
+### TESTRESULT rpctest.client.testcase6: SUCCESS
+### TESTBEGIN rpctest.client.testcase7 (Verify clnt_create_vers(udp))
+### TESTRESULT rpctest.client.testcase7: SUCCESS
+### TESTBEGIN rpctest.client.testcase8 (Verify clnt_create_vers(tcp))
+### TESTRESULT rpctest.client.testcase8: SUCCESS
+### TESTBEGIN rpctest.client.testcase9 (Verify clnttcp_create(127.0.0.1, 202020, 1))
+### TESTRESULT rpctest.client.testcase9: SUCCESS
+### TESTBEGIN rpctest.client.testcase10 (Verify clntudp_create(127.0.0.1, 202020, 1))
+### TESTRESULT rpctest.client.testcase10: SUCCESS
+### TESTBEGIN rpctest.client.testcase11 (Verify clntunix_create())
+### TESTRESULT rpctest.client.testcase11: SUCCESS
+### TESTBEGIN rpctest.client.testcase12 (Verify callrpc(localhost, 202020, 1))
+### TESTRESULT rpctest.client.testcase12: SUCCESS
+### TESTBEGIN rpctest.client.testcase13 (Verify RPC error reporting for error 8 (RPC: Program unavailable))
+### TESTRESULT rpctest.client.testcase13: SUCCESS
+### TESTBEGIN rpctest.client.testcase14 (Verify RPC error reporting for error 9 (RPC: Program/version mismatch))
+### TESTRESULT rpctest.client.testcase14: SUCCESS
+### TESTBEGIN rpctest.client.testcase15 (Verify RPC error reporting for error 10 (RPC: Procedure unavailable))
+### TESTRESULT rpctest.client.testcase15: SUCCESS
+### TESTBEGIN rpctest.client.testcase16 (Verify RPC error reporting for error 11 (RPC: Server can't decode arguments))
+### TESTRESULT rpctest.client.testcase16: SUCCESS
+### TESTBEGIN rpctest.client.testcase17 (Verify RPC error reporting for error 12 (RPC: Remote system error))
+### TESTRESULT rpctest.client.testcase17: SUCCESS
+### TESTBEGIN rpctest.client.testcase18 (Verify RPC error reporting for error 7 (RPC: Authentication error))
+### TESTRESULT rpctest.client.testcase18: SUCCESS
+### TESTBEGIN rpctest.client.testcase19 (Verify RPC error reporting for error 1 (RPC: Can't encode arguments))
+### TESTRESULT rpctest.client.testcase19: SUCCESS
+### TESTBEGIN rpctest.client.testcase20 (Verify RPC error reporting for error 2 (RPC: Can't decode result))
+### TESTRESULT rpctest.client.testcase20: SUCCESS
+### TESTBEGIN rpctest.client.testcase21 (Verifying get_myaddress)
+### TESTRESULT rpctest.client.testcase21: SUCCESS
+### TESTBEGIN rpctest.client.testcase22 (Verify getrpcport())
+### TESTRESULT rpctest.client.testcase22: SUCCESS
+### TESTBEGIN rpctest.client.testcase23 (Verify TCP client with send size 4)
+### TESTRESULT rpctest.client.testcase23: SUCCESS
+### TESTBEGIN rpctest.client.testcase24 (Verify TCP client with send size 8)
+### TESTRESULT rpctest.client.testcase24: SUCCESS
+### TESTBEGIN rpctest.client.testcase25 (Verify TCP client with send size 12)
+### TESTRESULT rpctest.client.testcase25: SUCCESS
+### TESTBEGIN rpctest.client.testcase26 (Verify TCP client with send size 16)
+### TESTRESULT rpctest.client.testcase26: SUCCESS
+### TESTBEGIN rpctest.client.testcase27 (Verify TCP client with send size 31)
+### TESTRESULT rpctest.client.testcase27: SUCCESS
+### TESTBEGIN rpctest.client.testcase28 (Verify TCP client with send size 64)
+### TESTRESULT rpctest.client.testcase28: SUCCESS
+### TESTBEGIN rpctest.client.testcase29 (Verify TCP client with send size 77)
+### TESTRESULT rpctest.client.testcase29: SUCCESS
+### TESTBEGIN rpctest.client.testcase30 (Verify TCP client with send size 128)
+### TESTRESULT rpctest.client.testcase30: SUCCESS
+### TESTBEGIN rpctest.client.testcase31 (Verify TCP client with send size 256)
+### TESTRESULT rpctest.client.testcase31: SUCCESS
+### TESTBEGIN rpctest.client.testcase32 (Verify TCP client with send size 1024)
+### TESTRESULT rpctest.client.testcase32: SUCCESS
+### TESTBEGIN rpctest.client.testcase33 (Verify TCP client with send size 4096)
+### TESTRESULT rpctest.client.testcase33: SUCCESS
+### TESTBEGIN rpctest.client.testcase34 (Verify TCP client with send size 32768)
+### TESTRESULT rpctest.client.testcase34: SUCCESS
+### TESTBEGIN rpctest.client.testcase35 (Verify clnt_create with bad nettype)
+### TESTRESULT rpctest.client.testcase35: SUCCESS
+### TESTBEGIN rpctest.client.testcase36 (Verify clnt_create with huge nettype)
+### TESTRESULT rpctest.client.testcase36: SUCCESS
+### TESTBEGIN rpctest.client.testcase37 (Verify clnt_create with IPv4 address and IPv6 netid)
+### TESTRESULT rpctest.client.testcase37: SUCCESS
+### TESTBEGIN rpctest.client.testcase38 (Verify clnt_create with IPv6 address and IPv4 netid)
+### TESTRESULT rpctest.client.testcase38: SUCCESS
+### TESTBEGIN rpctest.client.testcase39 (Verify clnt_create with huge hostname)
+### TESTRESULT rpctest.client.testcase39: SUCCESS
+### TESTRESULT rpctest.client: SUCCESS
+====
+Summary:
+ 179 tests
+   9 failures
+   0 warnings
