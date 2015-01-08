@@ -2,7 +2,7 @@ all: check
 
 check:
 	make -C src
-	src/to_junit sample2.log > report.xml
+	src/to_junit sample.log > report.xml
 	xmllint --noout --schema JUnit.xsd report.xml 
 
 doc:	junit.md
