@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "to_junit.h"
 #include "decomposition.h"
