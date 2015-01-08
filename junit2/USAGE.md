@@ -1,5 +1,6 @@
 # Producing JUnit output from your tests #
 
+
 ## Presentation ##
 
 Jenkins can provide summaries of your test results, taking
@@ -342,6 +343,25 @@ The text following `####junit error` on the same line is as follows:
 </table>
 
 The `<error>` tag in the output also contains a dump of stderr.
+
+
+## The helper script ##
+
+The script `jlogger.sh` can help you generate more easily these
+log entries. For example :
+
+	./jlogger.sh testsuite -t "Testing the calculator functions"
+	
+	./jlogger.sh testcase -t "verify addition"
+	./jlogger.sh success
+	
+	./jlogger.sh testcase -t "verify division"
+	./jlogger.sh failure -T "Segmentation failure"
+	
+	./jlogger.sh endsuite
+
+For the various options of this helper script, read its online help
+that you would obtain by running it without arguments.
 
 <!-- vim: ts=4 syntax=markdown
 -->
