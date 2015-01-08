@@ -140,7 +140,7 @@ The text following `####junit testsuite` on the same line is as follows:
   </tr>
   <tr>
     <td>`host=""`</td>
-    <td>any text describing the test suite</td>
+    <td>name of host where the suite is run</td>
     <td>[xs:token](http://www.w3schools.com/schema/schema_dtypes_string.asp)</td>
     <td>`localhost`</td>
     <td>`hostname=""`</td>
