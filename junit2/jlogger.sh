@@ -25,7 +25,7 @@ function usage
 }
 
 TIME=$(date +%Y-%m-%dT%H:%M:%S.%N | cut -c 1-23)
-OUT="####junit $1 time=\"$TIME\""
+OUT="###junit $1 time=\"$TIME\""
 HELPER=$(basename "$0")
 
 case "$1" in

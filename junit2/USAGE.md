@@ -14,7 +14,7 @@ you to deal with XML tags.
 ### Basic syntax ###
 
 This format can be intermingled with the normal output of your
-tests. Only the lines starting with `####junit` will be processed,
+tests. Only the lines starting with `###junit` will be processed,
 all other lines will be ignored.
 
 The basic syntax is as follows:
@@ -26,30 +26,30 @@ The basic syntax is as follows:
      <th>Junit mapping</th>
   </tr>
   <tr>
-     <td>`####junit testsuite`</td>
+     <td>`###junit testsuite`</td>
      <td>Start a new series of tests</td>
      <td>`<testsuite>`</td>
   </tr>
   <tr>
-     <td>`####junit endsuite`</td>
+     <td>`###junit endsuite`</td>
      <td>End up current series of tests</td>
   </tr>
   <tr>
-     <td>`####junit testcase`</td>
+     <td>`###junit testcase`</td>
      <td>Start new test case</td>
      <td>`<testcase>`</td>
   </tr>
   <tr>
-     <td>`####junit success`</td>
+     <td>`###junit success`</td>
      <td>End up current test case as successful</td>
   </tr>
   <tr>
-     <td>`####junit failure`</td>
+     <td>`###junit failure`</td>
      <td>End up current test case as failed</td>
      <td>`<failure>`</td>
   </tr>
   <tr>
-     <td>`####junit error`</td>
+     <td>`###junit error`</td>
      <td>End up current test case as aborted because of an internal error</td>
      <td>`<error>`</td>
   </tr>
@@ -79,7 +79,7 @@ Here is how the output of your test program could look like:
 	
 	Goodbye!
 
-### Conformance ####
+### Conformance ###
 
 Since JUnit normally refers to Java testing, the semantics of a few fields
 is abused. For example, `text=""` text, which we use for an arbitrary description,
@@ -95,7 +95,7 @@ Below are detailed the already supported options, all with syntax
 
 Note that embedded quotes are legal. For example,
 
-	####junit testsuite text="Tests for "Calculator" program"
+	###junit testsuite text="Tests for "Calculator" program"
 
 with embedded quotes around `"Calculator"` is legal.
 It is not needed (nor possible) to escape the embedded quotes.
@@ -104,11 +104,11 @@ To accomodate for future extensions, unrecognized text is simply ignored.
 
 ### testsuite ###
 
-Your test program should output `####junit testsuite` text first,
+Your test program should output `###junit testsuite` text first,
 to introduce a new series of test cases.
 Use it as many times as you have different test suites.
 
-The text following `####junit testsuite` on the same line is as follows:
+The text following `###junit testsuite` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -151,9 +151,9 @@ The text following `####junit testsuite` on the same line is as follows:
 ### endsuite ###
 
 After a series of related test cases,
-your test program should output `####junit endsuite`.
+your test program should output `###junit endsuite`.
 
-The text following `####junit endsuite` on the same line is as follows:
+The text following `###junit endsuite` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -204,9 +204,9 @@ The following JUnit XML attributes and tags are generated automatically:
 ### testcase ###
 
 When it starts a new test case as part of a test suite,
-your test program should output `####junit testcase`.
+your test program should output `###junit testcase`.
 
-The text following `####junit testcase` on the same line is as follows:
+The text following `###junit testcase` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -241,9 +241,9 @@ The text following `####junit testcase` on the same line is as follows:
 ### success ###
 
 When the current test case succeeds (that is, the tested software behaved
-as expected), your test program should output `####junit success`.
+as expected), your test program should output `###junit success`.
 
-The text following `####junit success` on the same line is as follows:
+The text following `###junit success` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -265,10 +265,10 @@ The text following `####junit success` on the same line is as follows:
 ### failure ###
 
 When the current test case failed (that is, the tested software did not behave
-as expected), your test program should output `####junit failure` and provide
+as expected), your test program should output `###junit failure` and provide
 some diagnostic.
 
-The text following `####junit failure` on the same line is as follows:
+The text following `###junit failure` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -306,10 +306,10 @@ The `<failure>` tag in the output also contains a dump of stderr.
 ### error ###
 
 When the test case itself was not able to complete, because of an
-internal error, your test program should output `####junit error` and provide
+internal error, your test program should output `###junit error` and provide
 some diagnostic.
 
-The text following `####junit error` on the same line is as follows:
+The text following `###junit error` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
