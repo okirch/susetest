@@ -1,8 +1,24 @@
+#include <QtCore/QtGlobal>
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "to_junit.h"
 #include "decomposition.h"
+
+// Compute the time span in seconds between two dates
+float ToJunit::timeSpan(QDateTime &date1, QDateTime &date2) const
+{
+  long msecs;
+#if QT_VERSION >= 0x040700
+  msecs = date2.toMSecsSinceEpoch() - date1.toMSecsSinceEpoch();
+#else
+  // This is merely a workaround:
+  // it will not work if both dates are on different days.
+  msecs = date1.time().msecsTo(date2.time());
+#endif
+  return (float) msecs / 1000.0;
+}
 
 // Constructor
 ToJunit::ToJunit()
@@ -82,7 +98,7 @@ void ToJunit::closeTestsuite(const Decomposition *d)
 
   time = d->getValue("time", "1970-01-01T00:00:00.000");
   endTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");
-  span = (float) (endTime.toMSecsSinceEpoch() - suiteTime.toMSecsSinceEpoch()) / 1000.0;
+  span = timeSpan(suiteTime, endTime);
 
   testsuite.setAttribute("id", suites);
   testsuite.setAttribute("tests", tests);
@@ -110,7 +126,7 @@ void ToJunit::closeTestcase(const Decomposition *d)
 
   time = d->getValue("time", "1970-01-01T00:00:00.000");
   endTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");
-  span = (float) (endTime.toMSecsSinceEpoch() - caseTime.toMSecsSinceEpoch()) / 1000.0;
+  span = timeSpan(caseTime, endTime);
 
   testcase.setAttribute("time", span);
 }
