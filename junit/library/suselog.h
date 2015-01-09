@@ -77,6 +77,7 @@ extern void		suselog_success(suselog_journal_t *);
 extern void		suselog_success_msg(suselog_journal_t *, const char *fmt, ...);
 extern void		suselog_warning(suselog_journal_t *, const char *fmt, ...);
 extern void		suselog_failure(suselog_journal_t *, const char *, ...);
+extern void		suselog_fatal(suselog_journal_t *, const char *, ...);
 extern void		suselog_error(suselog_journal_t *, const char *, ...);
 extern void		suselog_info(suselog_journal_t *, const char *, ...);
 

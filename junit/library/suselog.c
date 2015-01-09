@@ -221,6 +221,16 @@ __suselog_vlogmsg(suselog_journal_t *journal, suselog_severity_t severity, const
 }
 
 void
+suselog_logmsg(suselog_journal_t *journal, suselog_severity_t severity, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	__suselog_vlogmsg(journal, severity, fmt, ap);
+	va_end(ap);
+}
+
+void
 suselog_success(suselog_journal_t *journal)
 {
 	suselog_test_finish(journal, SUSELOG_STATUS_SUCCESS);
@@ -284,6 +294,23 @@ suselog_error(suselog_journal_t *journal, const char *fmt, ...)
 	va_end(ap);
 
 	suselog_test_finish(journal, SUSELOG_STATUS_ERROR);
+}
+
+void
+suselog_fatal(suselog_journal_t *journal, const char *fmt, ...)
+{
+	va_list ap;
+
+	suselog_logmsg(journal, SUSELOG_MSG_ERROR, "FATAL ERROR");
+
+	va_start(ap, fmt);
+	__suselog_vlogmsg(journal, SUSELOG_MSG_ERROR, fmt, ap);
+	va_end(ap);
+
+	suselog_test_finish(journal, SUSELOG_STATUS_ERROR);
+
+	suselog_journal_write(journal);
+	exit(1);
 }
 
 static suselog_group_t *
