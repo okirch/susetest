@@ -13,7 +13,7 @@ class ToJunit
       { none = 0, test_suite, test_case } state;
     int suites, tests, failures, errors;
     QString suiteText, caseText;
-    QDateTime suiteTime, caseTime;
+    struct timeval suiteTime, caseTime;
 
     void recordLine(const char *line);
     void openTestsuite(const Decomposition *d);
@@ -23,6 +23,9 @@ class ToJunit
     void createFailure(const Decomposition *d);
     void createError(const Decomposition *d);
     void directive(const char *line);
+
+    QString getTimeAttrString(const Decomposition *d);
+    struct timeval getTimeAttr(const Decomposition *d);
 
   public:
     ToJunit();

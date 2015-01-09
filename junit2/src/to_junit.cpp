@@ -1,7 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
 
 #include "to_junit.h"
 #include "decomposition.h"
+
+
+static QString	printTimeISO(time_t);
+static float	elapsedMS(const struct timeval *now, const struct timeval *since);
 
 // Constructor
 ToJunit::ToJunit()
@@ -39,15 +45,14 @@ void ToJunit::openTestsuite(const Decomposition *d)
   QString time;
   QDomElement properties;
 
-  time = d->getValue("time", "1970-01-01T00:00:00.000");
-  suiteTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");
+  suiteTime = getTimeAttr(d);
 
   testsuite = output.createElement("testsuite");
   root.appendChild(testsuite);
 
   testsuite.setAttribute("package", d->getValue("id", "(unknown)"));
   testsuite.setAttribute("name", d->getValue("text", "(unknown)"));
-  testsuite.setAttribute("timestamp", suiteTime.toString(Qt::ISODate));
+  testsuite.setAttribute("timestamp", printTimeISO(suiteTime.tv_sec));
   testsuite.setAttribute("hostname", d->getValue("host", "localhost"));
 
   properties = output.createElement
@@ -60,8 +65,7 @@ void ToJunit::openTestcase(const Decomposition *d)
 {
   QString time;
 
-  time = d->getValue("time", "1970-01-01T00:00:00.000");
-  caseTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");
+  caseTime = getTimeAttr(d);
 
   testcase = output.createElement("testcase");
   testsuite.appendChild(testcase);
@@ -73,21 +77,20 @@ void ToJunit::openTestcase(const Decomposition *d)
 // Close a testsuite
 void ToJunit::closeTestsuite(const Decomposition *d)
 {
-  QString time;
-  QDateTime endTime;
-  float span;
+  struct timeval endTime;
   QDomElement systemOut, systemErr;
   QDomText errText;
+  QString timeAttr;
 
-  time = d->getValue("time", "1970-01-01T00:00:00.000");
-  endTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");
-  span = (float) (endTime.toMSecsSinceEpoch() - suiteTime.toMSecsSinceEpoch()) / 1000.0;
+  endTime = getTimeAttr(d);
+
+  timeAttr.setNum(elapsedMS(&endTime, &suiteTime), 'f');
 
   testsuite.setAttribute("id", suites);
   testsuite.setAttribute("tests", tests);
   testsuite.setAttribute("failures", failures);
   testsuite.setAttribute("errors", errors);
-  testsuite.setAttribute("time", span);
+  testsuite.setAttribute("time", timeAttr);
 
 // TBD: we currently arbitrarily assume that all output was sent to stderr
 //      this could be determined from some setting
@@ -103,15 +106,11 @@ void ToJunit::closeTestsuite(const Decomposition *d)
 // Close a testcase
 void ToJunit::closeTestcase(const Decomposition *d)
 {
-  QString time;
-  QDateTime endTime;
-  float span;
+  struct timeval endTime = getTimeAttr(d);
+  QString timeAttr;
 
-  time = d->getValue("time", "1970-01-01T00:00:00.000");
-  endTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");
-  span = (float) (endTime.toMSecsSinceEpoch() - caseTime.toMSecsSinceEpoch()) / 1000.0;
-
-  testcase.setAttribute("time", span);
+  timeAttr.setNum(elapsedMS(&endTime, &caseTime), 'f');
+  testcase.setAttribute("time", timeAttr);
 }
 
 // Create a failure
@@ -222,3 +221,71 @@ void ToJunit::print(FILE *fp) const
 {
   fputs(output.toString(2).toLatin1(), fp);
 }
+
+// Helper functions
+QString ToJunit::getTimeAttrString(const Decomposition *d)
+{
+  return d->getValue("time", "1970-01-01T00:00:00.000");
+}
+
+struct timeval ToJunit::getTimeAttr(const Decomposition *d)
+{
+  struct timeval result = { 0, 0 };
+  QString timeString;
+  struct tm tm;
+  const char *s;
+  time_t seconds;
+
+  timeString = getTimeAttrString(d);
+  if (timeString.isEmpty())
+    return result;
+
+  QByteArray ba(timeString.toUtf8());
+  s = ba.constData();
+  if (s == 0)
+    return result;
+
+  memset(&tm, 0, sizeof(tm));
+
+  s = strptime(s, "%Y-%m-%dT%H:%M:%S", &tm);
+  if (s == NULL)
+    return result;
+
+  if (*s == '.') {
+    // Consume the .<millisecs> portion
+    result.tv_usec = strtoul(s + 1, (char **) &s, 10);
+  }
+
+  if (*s != '\0')
+    return result;
+
+  seconds = mktime(&tm);
+  if (seconds == (time_t) -1)
+    return result;
+
+  result.tv_sec = seconds;
+  return result;
+}
+
+static QString	printTimeISO(time_t time)
+{
+  char buffer[128];
+  struct tm *tm;
+
+  tm = localtime(&time);
+  if (tm == NULL)
+    return QString::null;
+
+  strftime(buffer, sizeof(buffer), "%FT%T", tm);
+  return QString(buffer);
+}
+
+static float
+elapsedMS(const struct timeval *now, const struct timeval *since)
+{
+  struct timeval diff;
+
+  timersub(now, since, &diff);
+  return diff.tv_sec + 1e-6 * diff.tv_usec;
+}
+
