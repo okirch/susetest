@@ -29,6 +29,7 @@ main(int argc, char **argv)
 	suselog_group_t *group;
 
 	journal = suselog_journal_new("mytest", suselog_writer_normal());
+	suselog_journal_set_pathname(journal, "test-report.xml");
 
 	group = suselog_group_begin(journal, NULL, NULL);
 	suselog_test_begin(journal, "testfoo", "testing the foo thing");
@@ -44,7 +45,7 @@ main(int argc, char **argv)
 	suselog_test_begin(journal, "frobnication", "frobnication is tricky");
 	suselog_error(journal, "argh!");
 
-	suselog_journal_write(journal, "test-report.xml");
+	suselog_journal_write(journal);
 	suselog_journal_free(journal);
 	return 0;
 }

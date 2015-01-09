@@ -111,6 +111,7 @@ struct suselog_journal  {
 	suselog_common_t	common;
 	suselog_autoname_t	autoname;
 	suselog_stats_t		stats;
+	char *			pathname;
 	char *			hostname;
 	suselog_writer_t *	writer;
 

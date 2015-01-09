@@ -168,8 +168,15 @@ suselog_journal_free(suselog_journal_t *journal)
 	suselog_writer_end_testsuite(journal);
 
 	__drop_string(&journal->hostname);
+	__drop_string(&journal->pathname);
 	suselog_autoname_destroy(&journal->autoname);
 	LIST_DROP(&journal->groups, suselog_group_free);
+}
+
+void
+suselog_journal_set_pathname(suselog_journal_t *journal, const char *pathname)
+{
+	__set_string(&journal->pathname, pathname);
 }
 
 void
@@ -542,18 +549,27 @@ static void		__suselog_junit_stats(xml_node_t *, const suselog_stats_t *);
 static const char *	__suselog_junit_timestamp(const struct timeval *);
 
 void
-suselog_journal_write(suselog_journal_t *journal, const char *filename)
+suselog_journal_write(suselog_journal_t *journal)
 {
+	const char *outfile;
 	xml_document_t *doc;
 	xml_node_t *root;
+	int rv;
 
 	doc = xml_document_new();
 	root = __suselog_junit_journal(journal);
 	xml_document_set_root(doc, root);
 
-	if (xml_document_write(doc, filename) < 0)
-		fprintf(stderr, "unable to write test document to %s: %m\n", filename);
-	printf("Wrote test doc to %s\n", filename);
+	if ((outfile = journal->pathname) == NULL) {
+		outfile = "<stdout>";
+		rv = xml_document_print(doc, stdout);
+	} else {
+		rv = xml_document_write(doc, outfile);
+	}
+	if (rv < 0)
+		fprintf(stderr, "unable to write test document to %s: %m\n", outfile);
+	else
+		printf("Wrote test doc to %s\n", outfile);
 	xml_document_free(doc);
 }
 

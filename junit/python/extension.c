@@ -144,12 +144,12 @@ Journal_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int
 Journal_init(suselog_Journal *self, PyObject *args, PyObject *kwds)
 {
-	char *name, *writerId = NULL;
+	char *name, *writerId = NULL, *pathname = NULL;
 	suselog_writer_t *writer = NULL;
 
-	static char *kwlist[] = {"name", "writer", NULL};
+	static char *kwlist[] = {"name", "writer", "path", NULL};
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", kwlist, &name, &writerId))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|ss", kwlist, &name, &writerId, &pathname))
 		return -1; 
 
 	if (writerId == NULL || !strcmp(writerId, "standard"))
@@ -164,6 +164,10 @@ Journal_init(suselog_Journal *self, PyObject *args, PyObject *kwds)
 		suselog_Exception("Unable to create log journal");
 		return -1;
 	}
+
+	if (pathname)
+		suselog_journal_set_pathname(self->journal, pathname);
+
 	return 0;
 }
 
@@ -362,7 +366,7 @@ Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds)
 	if ((journal = Journal_handle(self)) == NULL)
 		return NULL;
 
-	suselog_journal_write(journal, pathname);
+	suselog_journal_write(journal);
 	Py_INCREF(Py_None);
 	return Py_None;
 }
