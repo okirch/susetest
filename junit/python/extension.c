@@ -34,6 +34,7 @@ static int		Journal_init(suselog_Journal *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_beginGroup(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_finishGroup(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_info(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_success(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_failure(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_warning(PyObject *self, PyObject *args, PyObject *kwds);
@@ -63,6 +64,9 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"beginTest", (PyCFunction) Journal_beginTest, METH_VARARGS | METH_KEYWORDS,
 	"Begin a test case"
+      },
+      {	"info", (PyCFunction) Journal_info, METH_VARARGS | METH_KEYWORDS,
+	"Log an information message"
       },
       {	"success", (PyCFunction) Journal_success, METH_VARARGS | METH_KEYWORDS,
 	"Report success for current test case"
@@ -265,6 +269,28 @@ Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 	Py_INCREF(Py_None);
 	return Py_None;
 }
+
+/*
+ * log info message
+ */
+static PyObject *
+Journal_info(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = { "message", NULL };
+	suselog_journal_t *journal;
+	char *message = NULL;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &message))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	suselog_info(journal, "%s", message);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 
 /*
  * test case succeeeded
