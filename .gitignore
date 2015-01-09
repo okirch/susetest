@@ -1,5 +1,8 @@
+*.swp
 *.o
 *.so
 test-junit
 test-logging
+to_junit
 junit/python/test-report.xml
+junit2/report.xml
