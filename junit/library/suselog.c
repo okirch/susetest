@@ -522,9 +522,10 @@ suselog_test_finish(suselog_journal_t *journal, suselog_status_t status)
 			suselog_group_t *group = suselog_current_group(journal);
 
 			suselog_common_update_duration(&test->common);
-			test->status = status;
 
-			suselog_stats_update(&group->stats, status);
+			if (test->status == SUSELOG_STATUS_RUNNING)
+				suselog_stats_update(&group->stats, status);
+			test->status = status;
 
 			/* Write to stdout */
 			suselog_writer_end_test(journal, test);
