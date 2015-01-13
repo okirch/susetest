@@ -953,8 +953,8 @@ __suselog_writer_normal_end_test(const suselog_test_t *test)
 
 	switch (test->status) {
 	case SUSELOG_STATUS_SUCCESS:
-		/* Nothing */
-		return;
+		fprintf(stderr, "SUCCESS");
+		break;
 
 	case SUSELOG_STATUS_FAILURE:
 		fprintf(stderr, "FAIL");
