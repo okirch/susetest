@@ -212,10 +212,19 @@ Journal_beginGroup(PyObject *self, PyObject *args, PyObject *kwds)
 		NULL
 	};
 	suselog_journal_t *journal;
+	PyObject *nameObject;
 	char *name = NULL, *description = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", kwlist, &name, &description))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|s", kwlist, &nameObject, &description))
 		return NULL;
+
+	if (nameObject != Py_None) {
+		if (!PyString_Check(nameObject)) {
+			PyErr_SetString(PyExc_TypeError, "Journal.beginGroup: first argument must be None or string");
+			return NULL;
+		}
+		name = PyString_AsString(nameObject);
+	}
 
 	if ((journal = Journal_handle(self)) == NULL)
 		return NULL;
@@ -257,10 +266,19 @@ Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 		NULL
 	};
 	suselog_journal_t *journal;
+	PyObject *nameObject;
 	char *name = NULL, *description = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", kwlist, &name, &description))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|s", kwlist, &nameObject, &description))
 		return NULL;
+
+	if (nameObject != Py_None) {
+		if (!PyString_Check(nameObject)) {
+			PyErr_SetString(PyExc_TypeError, "Journal.beginGroup: first argument must be None or string");
+			return NULL;
+		}
+		name = PyString_AsString(nameObject);
+	}
 
 	if ((journal = Journal_handle(self)) == NULL)
 		return NULL;
@@ -407,11 +425,10 @@ Journal_warning(PyObject *self, PyObject *args, PyObject *kwds)
 static PyObject *
 Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds)
 {
-	static char *kwlist[] = { "pathname", NULL };
+	static char *kwlist[] = { NULL };
 	suselog_journal_t *journal;
-	char *pathname = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &pathname))
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
 		return NULL;
 
 	if ((journal = Journal_handle(self)) == NULL)
