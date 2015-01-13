@@ -421,6 +421,10 @@ suselog_test_begin(suselog_journal_t *journal, const char *name, const char *des
 	if ((group = journal->current.group) == NULL)
 		group = suselog_group_begin(journal, NULL, NULL);
 
+	if ((test = journal->current.test) != NULL
+	 && test->status == SUSELOG_STATUS_RUNNING)
+		suselog_test_finish(journal, SUSELOG_STATUS_SUCCESS);
+
 	if (name == NULL)
 		name = suselog_autoname_next(&group->autoname);
 
