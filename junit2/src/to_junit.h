@@ -38,7 +38,7 @@ class ToJunit
     QString suiteText, caseText;
     QDateTime suiteTime, caseTime;
 
-    float timeSpan(QDateTime &date1, QDateTime &date2) const;
+    double timeSpan(QDateTime &date1, QDateTime &date2) const;
     void recordLine(const char *line);
     void openTestsuite(const Decomposition *d);
     void openTestcase(const Decomposition *d);

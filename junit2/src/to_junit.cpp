@@ -29,18 +29,19 @@
 #include "to_junit.h"
 #include "decomposition.h"
 
+#define MSECS_IN_A_DAY 86400000L // 24 x 60 x 60 x 1000
+
 // Compute the time span in seconds between two dates
-float ToJunit::timeSpan(QDateTime &date1, QDateTime &date2) const
+double ToJunit::timeSpan(QDateTime &date1, QDateTime &date2) const
 {
-  long msecs;
+  long long msecs;
 #if QT_VERSION >= 0x040700
   msecs = date2.toMSecsSinceEpoch() - date1.toMSecsSinceEpoch();
 #else
-  // This is merely a workaround:
-  // it will not work if both dates are on different days.
-  msecs = date1.time().msecsTo(date2.time());
+  msecs = date1.time().msecsTo(date2.time()) +
+          MSECS_IN_A_DAY * (date1.date().daysTo(date2.date()));
 #endif
-  return (float) msecs / 1000.0;
+  return (double) msecs / 1000.0;
 }
 
 // Constructor
@@ -115,7 +116,7 @@ void ToJunit::closeTestsuite(const Decomposition *d)
 {
   QString time;
   QDateTime endTime;
-  float span;
+  double span;
   QDomElement systemOut, systemErr;
   QDomText errText;
 
@@ -145,7 +146,7 @@ void ToJunit::closeTestcase(const Decomposition *d)
 {
   QString time;
   QDateTime endTime;
-  float span;
+  double span;
 
   time = d->getValue("time", "1970-01-01T00:00:00.000");
   endTime = QDateTime::fromString(time, "yyyy-MM-ddThh:mm:ss.zzz");

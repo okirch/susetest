@@ -1,5 +1,5 @@
 # If we decide to use Qt5, we need to use
-#   -I/usr/include/qt5
+#   -I/usr/include/qt5 -fPIC
 # and
 #   -lQt5Xml -lQt5Core 
 # instead.
