@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////////////
 // Test logging facilities for SUSE test automation
 //
-// Copyright (C) 2015 Eric Bischoff <ebischoff@suse.de>
+// Copyright (C) 2015 SUSE Linux products
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

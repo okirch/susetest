@@ -1,8 +1,7 @@
 //////////////////////////////////////////////////////////////////
-//
 // Test logging facilities for SUSE test automation
 //
-// Copyright (C) 2015 Eric Bischoff <ebischoff@suse.de>
+// Copyright (C) 2015 SUSE Linux products
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,8 +17,10 @@
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
+//
+// output decomposed data to junit xml
+//
 //////////////////////////////////////////////////////////////////
-
 #include <QtCore/QDateTime>
 #include <QtXml/QDomDocument>
 
@@ -35,8 +36,9 @@ class ToJunit
       { none = 0, test_suite, test_case } state;
     int suites, tests, failures, errors;
     QString suiteText, caseText;
-    struct timeval suiteTime, caseTime;
+    QDateTime suiteTime, caseTime;
 
+    float timeSpan(QDateTime &date1, QDateTime &date2) const;
     void recordLine(const char *line);
     void openTestsuite(const Decomposition *d);
     void openTestcase(const Decomposition *d);
@@ -45,9 +47,6 @@ class ToJunit
     void createFailure(const Decomposition *d);
     void createError(const Decomposition *d);
     void directive(const char *line);
-
-    QString getTimeAttrString(const Decomposition *d);
-    struct timeval getTimeAttr(const Decomposition *d);
 
   public:
     ToJunit();

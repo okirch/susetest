@@ -11,45 +11,171 @@ that your tests can produce. This format will get converted
 automatically to JUnit XML result format without any need for
 you to deal with XML tags.
 
+This format can be intermingled with the normal output of your
+tests. Only the lines starting with `###junit` will be processed,
+all other lines will be stored "as is" in the JUnit XML results.
+
+To make things even easier, assuming that your test script is
+written in bash, we also provide a script named `jlogger.sh` that
+can help you generate more easily these log entries.
+test cases can be written in any programming language, and the
+use of this script is optional.
+
+In Jenkins, the text output by your script will be converted
+into JUnit XML result by a program named `to_junit`, then
+exported on the Jenkins web site.
+
+
+## The helper script ##
+
+The helper script `jlogger.sh` produces the desired log entries
+from a shell command line.
+
+It has normally be installed on the ISO image that you will
+use to create the system under tests, so it should be available
+with no further installation.
+
+### Example ###
+
+	jlogger.sh testsuite -t "Testing the calculator functions"
+
+	jlogger.sh testcase -t "verify addition"
+	jlogger.sh success
+
+	jlogger.sh testcase -t "verify division"
+	jlogger.sh failure -T "Segmentation failure"
+
+	jlogger.sh endsuite
+
+These calls can be mixed with normal output, that will simply
+be stored unchanged when converted to real JUnit XML result
+syntax
+
 ### Basic syntax ###
 
-This format can be intermingled with the normal output of your
-tests. Only the lines starting with `####junit` will be processed,
-all other lines will be ignored.
+	jlogger.sh testsuite [-i <identifier>] [-t <text>] [-h <hostname>]
+	  start test suite
 
-The basic syntax is as follows:
+	jlogger.sh endsuite
+	  end test suite
+
+	jlogger.sh testcase [-i <identifier>] [-t <text>]
+	  start test case
+
+	jlogger.sh success
+	  end succesful test case
+
+	jlogger.sh failure [-T <type>] [-t <text>]
+	  end failed test case
+
+	jlogger.sh error [-T <type>] [-t <text>]
+	  end test case aborted due to internal error
+
+### testsuite keyword ###
+
+	jlogger.sh testsuite [-i <identifier>] [-t <text>] [-h <hostname>]
+
+Start the test suite.
+
+`-i` introduces an arbitrary identifier for the test suite.
+It is ignored by Jenkins, so there is not much point in using it.
+
+`-t` introduces a text describing the test suite.
+
+`-h` introduces the name of the host the test suite is run on.
+
+### endsuite keyword ###
+
+	jlogger.sh endsuite
+
+End the test suite.
+
+### testcase keyword ###
+
+	jlogger.sh testcase [-i <identifier>] [-t <text>]
+
+Start a test case.
+
+`-i` introduces an arbitrary identifier for the test case. Jenkins
+works best with dotted syntax. In Java world, that would be something
+of the form `package.class.method`.
+
+`-t` introduces a text describing the test suite.
+
+### success keyword ###
+
+	jlogger.sh success
+
+Marks the successful end of a test case.
+
+### failure keyword ###
+
+	jlogger.sh failure [-T <type>] [-t <text>]
+
+Marks the end of a test case that did not provide the
+expected results.
+
+`-T` introduces an error type. It could be the name of an
+exception.
+
+`-t` introduces an error message.
+
+### error keyword ###
+
+	jlogger.sh error [-T <type>] [-t <text>]
+
+Marks the end of a test case that could not be run because
+of an internal error in the test suite.
+
+`-T` introduces an error type. It could be the name of an
+exception.
+
+`-t` introduces an error message.
+
+
+## The text output ##
+
+You don't necessarily use= `jlogger.sh` to produce the
+needed text output. Any programming language that
+can output text will do. Below is what your test script
+should produce.
+
+### Basic output syntax ###
+
+The basic syntax of the text produced by your script
+is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
      <th>Text</th>
      <th>Meaning</th>
-     <th>Junit mapping</th>
+     <th>JUnit mapping</th>
   </tr>
   <tr>
-     <td>`####junit testsuite`</td>
+     <td>`###junit testsuite`</td>
      <td>Start a new series of tests</td>
      <td>`<testsuite>`</td>
   </tr>
   <tr>
-     <td>`####junit endsuite`</td>
+     <td>`###junit endsuite`</td>
      <td>End up current series of tests</td>
   </tr>
   <tr>
-     <td>`####junit testcase`</td>
+     <td>`###junit testcase`</td>
      <td>Start new test case</td>
      <td>`<testcase>`</td>
   </tr>
   <tr>
-     <td>`####junit success`</td>
+     <td>`###junit success`</td>
      <td>End up current test case as successful</td>
   </tr>
   <tr>
-     <td>`####junit failure`</td>
+     <td>`###junit failure`</td>
      <td>End up current test case as failed</td>
      <td>`<failure>`</td>
   </tr>
   <tr>
-     <td>`####junit error`</td>
+     <td>`###junit error`</td>
      <td>End up current test case as aborted because of an internal error</td>
      <td>`<error>`</td>
   </tr>
@@ -79,7 +205,7 @@ Here is how the output of your test program could look like:
 	
 	Goodbye!
 
-### Conformance ####
+### Conformance ###
 
 Since JUnit normally refers to Java testing, the semantics of a few fields
 is abused. For example, `text=""` text, which we use for an arbitrary description,
@@ -95,7 +221,7 @@ Below are detailed the already supported options, all with syntax
 
 Note that embedded quotes are legal. For example,
 
-	####junit testsuite text="Tests for "Calculator" program"
+	###junit testsuite text="Tests for "Calculator" program"
 
 with embedded quotes around `"Calculator"` is legal.
 It is not needed (nor possible) to escape the embedded quotes.
@@ -104,11 +230,11 @@ To accomodate for future extensions, unrecognized text is simply ignored.
 
 ### testsuite ###
 
-Your test program should output `####junit testsuite` text first,
+Your test program should output `###junit testsuite` text first,
 to introduce a new series of test cases.
 Use it as many times as you have different test suites.
 
-The text following `####junit testsuite` on the same line is as follows:
+The text following `###junit testsuite` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -148,12 +274,14 @@ The text following `####junit testsuite` on the same line is as follows:
   </tr>
 </table>
 
+`id=""` is ignored by Jenkins.
+
 ### endsuite ###
 
 After a series of related test cases,
-your test program should output `####junit endsuite`.
+your test program should output `###junit endsuite`.
 
-The text following `####junit endsuite` on the same line is as follows:
+The text following `###junit endsuite` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -204,9 +332,9 @@ The following JUnit XML attributes and tags are generated automatically:
 ### testcase ###
 
 When it starts a new test case as part of a test suite,
-your test program should output `####junit testcase`.
+your test program should output `###junit testcase`.
 
-The text following `####junit testcase` on the same line is as follows:
+The text following `###junit testcase` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -238,12 +366,15 @@ The text following `####junit testcase` on the same line is as follows:
   </tr>
 </table>
 
+Jenkins works best with an identifier in dotted syntax.
+In Java world, that would be something of the form `package.class.method`.
+
 ### success ###
 
 When the current test case succeeds (that is, the tested software behaved
-as expected), your test program should output `####junit success`.
+as expected), your test program should output `###junit success`.
 
-The text following `####junit success` on the same line is as follows:
+The text following `###junit success` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -265,10 +396,10 @@ The text following `####junit success` on the same line is as follows:
 ### failure ###
 
 When the current test case failed (that is, the tested software did not behave
-as expected), your test program should output `####junit failure` and provide
+as expected), your test program should output `###junit failure` and provide
 some diagnostic.
 
-The text following `####junit failure` on the same line is as follows:
+The text following `###junit failure` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -306,10 +437,10 @@ The `<failure>` tag in the output also contains a dump of stderr.
 ### error ###
 
 When the test case itself was not able to complete, because of an
-internal error, your test program should output `####junit error` and provide
+internal error, your test program should output `###junit error` and provide
 some diagnostic.
 
-The text following `####junit error` on the same line is as follows:
+The text following `###junit error` on the same line is as follows:
 <br></br>
 <table border="1" cellpadding="4">
   <tr>
@@ -343,25 +474,6 @@ The text following `####junit error` on the same line is as follows:
 </table>
 
 The `<error>` tag in the output also contains a dump of stderr.
-
-
-## The helper script ##
-
-The script `jlogger.sh` can help you generate more easily these
-log entries. For example :
-
-	./jlogger.sh testsuite -t "Testing the calculator functions"
-	
-	./jlogger.sh testcase -t "verify addition"
-	./jlogger.sh success
-	
-	./jlogger.sh testcase -t "verify division"
-	./jlogger.sh failure -T "Segmentation failure"
-	
-	./jlogger.sh endsuite
-
-For the various options of this helper script, read its online help
-that you would obtain by running it without arguments.
 
 <!-- vim: ts=4 syntax=markdown
 -->
