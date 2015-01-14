@@ -1007,7 +1007,7 @@ __escape_one_mb(struct stringbuf *result, const unsigned char *data, size_t len)
 		return n;
 	}
 
-	if (iswprint(wc) || wc == '\n') {
+	if (iswprint(wc) || wc == '\n' || wc == '\t') {
 		/* Append multibyte sequence as-is */
 		stringbuf_append(result, data, n);
 	} else {
