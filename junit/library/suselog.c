@@ -600,8 +600,10 @@ suselog_stats_aggregate(suselog_stats_t *agg, const suselog_stats_t *sub)
 static xml_node_t *	__suselog_junit_journal(suselog_journal_t *);
 static xml_node_t *	__suselog_junit_group(suselog_group_t *, xml_node_t *);
 static xml_node_t *	__suselog_junit_test(suselog_test_t *, xml_node_t *);
+static xml_node_t *	__suselog_junit_system_out(suselog_group_t *, xml_node_t *);
 static xml_node_t *	__suselog_junit_pre_string(xml_node_t *, const char *, const char *,
 				const suselog_test_t *, suselog_severity_t);
+static void		__suselog_junit_pre_string_append(FILE *, const suselog_test_t *);
 static void		__suselog_junit_stats(xml_node_t *, const suselog_stats_t *);
 static const char *	__suselog_junit_timestamp(const struct timeval *);
 
@@ -670,6 +672,8 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 		__suselog_junit_test(test, node);
 	}
 
+	__suselog_junit_system_out(group, node);
+
 	return node;
 }
 
@@ -726,6 +730,29 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 #endif
 
 	return node;
+}
+
+static xml_node_t *
+__suselog_junit_system_out(suselog_group_t *group, xml_node_t *node)
+{
+	FILE *fp;
+	char *string;
+	size_t len;
+	suselog_test_t *test;
+	xml_node_t *out;
+
+	fp = open_memstream(&string, &len);
+	for (test = group->tests.head; test; test = test->next) {
+		fprintf(fp, "# %s (%s)\n", test->common.name, test->common.description);
+		__suselog_junit_pre_string_append(fp, test);
+	}
+	fclose(fp);
+
+	out = xml_node_new("system-out", node);
+	xml_cdata_new(out, string);
+	free(string);
+
+	return out;
 }
 
 static const char *
