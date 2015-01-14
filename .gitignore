@@ -1,6 +1,7 @@
 *.swp
 *.o
 *.so
+*.so.*
 test-junit
 test-logging
 to_junit
