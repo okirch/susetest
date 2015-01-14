@@ -42,6 +42,9 @@ typedef enum {
 	SUSELOG_MSG_WARNING,
 	SUSELOG_MSG_FAILURE,
 	SUSELOG_MSG_ERROR,
+
+	SUSELOG_MSG_STDOUT,
+	SUSELOG_MSG_STDERR,
 } suselog_severity_t;
 
 typedef struct suselog_test suselog_test_t;
@@ -80,6 +83,8 @@ extern void		suselog_failure(suselog_journal_t *, const char *, ...);
 extern void		suselog_fatal(suselog_journal_t *, const char *, ...);
 extern void		suselog_error(suselog_journal_t *, const char *, ...);
 extern void		suselog_info(suselog_journal_t *, const char *, ...);
+extern void		suselog_record_stdout(suselog_journal_t *journal, const char *data, size_t len);
+extern void		suselog_record_stderr(suselog_journal_t *journal, const char *data, size_t len);
 
 extern suselog_writer_t *suselog_writer_normal(void);
 

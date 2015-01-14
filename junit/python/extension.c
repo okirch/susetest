@@ -40,6 +40,8 @@ static PyObject *	Journal_failure(PyObject *self, PyObject *args, PyObject *kwds
 static PyObject *	Journal_warning(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_error(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_fatal(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_record_stdout(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_record_stderr(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds);
 
 /*
@@ -82,6 +84,12 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"fatal", (PyCFunction) Journal_fatal, METH_VARARGS | METH_KEYWORDS,
 	"Report a fatal error and exit",
+      },
+      {	"recordStdout", (PyCFunction) Journal_record_stdout, METH_VARARGS | METH_KEYWORDS,
+	"Record stdout for current test",
+      },
+      {	"recordStderr", (PyCFunction) Journal_record_stderr, METH_VARARGS | METH_KEYWORDS,
+	"Record stderr for current test",
       },
       {	"writeReport", (PyCFunction) Journal_writeReport, METH_VARARGS | METH_KEYWORDS,
 	"Write the test report"
@@ -417,6 +425,58 @@ Journal_warning(PyObject *self, PyObject *args, PyObject *kwds)
 	suselog_warning(journal, "%s", message);
 	Py_INCREF(Py_None);
 	return Py_None;
+}
+
+/*
+ * Record stdout
+ */
+static PyObject *
+Journal_record_common(PyObject *self, PyObject *args, PyObject *kwds, void (*func)(suselog_journal_t *, const char *, size_t))
+{
+	static char *kwlist[] = { "buffer", NULL };
+	suselog_journal_t *journal;
+	PyObject *object;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &object))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	if (PyString_Check(object)) {
+		const char *str = PyString_AsString(object);
+
+		if (str && *str)
+			func(journal, str, strlen(str));
+	} else
+	if (PyByteArray_Check(object)) {
+		unsigned int count = PyByteArray_Size(object);
+		const char *data;
+
+		if (count != 0) {
+			data = PyByteArray_AsString(object);
+			func(journal, data, count);
+		}
+	} else {
+		PyErr_SetString(PyExc_TypeError, "first argument must be bytearray or string");
+		return NULL;
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
+static PyObject *
+Journal_record_stdout(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	return Journal_record_common(self, args, kwds, suselog_record_stdout);
+}
+
+static PyObject *
+Journal_record_stderr(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	return Journal_record_common(self, args, kwds, suselog_record_stderr);
 }
 
 /*

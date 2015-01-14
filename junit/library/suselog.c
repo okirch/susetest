@@ -29,6 +29,8 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <assert.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #include "suselog_p.h"
 #include "xml.h"
@@ -40,6 +42,7 @@ static void		suselog_test_free(suselog_test_t *);
 static void		suselog_info_free(suselog_info_t *);
 static int		__suselog_test_running(const suselog_journal_t *journal);
 static void		__suselog_test_log_extra(suselog_test_t *, suselog_severity_t, const char *);
+static void		__suselog_test_log_output(suselog_test_t *, suselog_severity_t, const char *, size_t len);
 static const char *	__suselog_test_fullname(const suselog_journal_t *, const suselog_group_t *, const suselog_test_t *);
 static void		suselog_common_init(suselog_common_t *, const char *, const char *);
 static void		suselog_common_destroy(suselog_common_t *);
@@ -311,6 +314,28 @@ suselog_fatal(suselog_journal_t *journal, const char *fmt, ...)
 
 	suselog_journal_write(journal);
 	exit(1);
+}
+
+void
+suselog_record_stdout(suselog_journal_t *journal, const char *data, size_t len)
+{
+	suselog_test_t *test;
+
+	if ((test = journal->current.test) != NULL)
+		__suselog_test_log_output(test, SUSELOG_MSG_STDOUT, data, len);
+
+	//append data to overall stdout buffer;
+}
+
+void
+suselog_record_stderr(suselog_journal_t *journal, const char *data, size_t len)
+{
+	suselog_test_t *test;
+
+	if ((test = journal->current.test) != NULL)
+		__suselog_test_log_output(test, SUSELOG_MSG_STDERR, data, len);
+
+	//append data to overall stderr buffer;
 }
 
 static suselog_group_t *
@@ -725,33 +750,62 @@ __suselog_junit_escape_attr(const char *string)
 	return temp;
 }
 
+static void
+__suselog_junit_pre_string_append(FILE *fp, const suselog_test_t *test)
+{
+	suselog_info_t *info;
+
+	for (info = test->extra_info.head; info; info = info->next) {
+		int n;
+
+		switch (info->severity) {
+		case SUSELOG_MSG_FAILURE:
+			fputs("FAIL: ", fp);
+			break;
+
+		case SUSELOG_MSG_ERROR:
+			fputs("ERROR: ", fp);
+			break;
+
+		case SUSELOG_MSG_STDOUT:
+			fputs("standard output:\n", fp);
+			break;
+
+		case SUSELOG_MSG_STDERR:
+			fputs("standard output:\n", fp);
+			break;
+
+		default: ;
+		}
+
+		fputs(info->message, fp);
+
+		n = strlen(info->message);
+		if (n && info->message[n-1] != '\n')
+			fputc('\n', fp);
+	}
+}
+
 static xml_node_t *
 __suselog_junit_pre_string(xml_node_t *parent, const char *name, const char *type,
 				const suselog_test_t *test, suselog_severity_t severity)
 {
 	xml_node_t *node = NULL;
-	suselog_info_t *info;
 	FILE *fp;
 	char *string;
 	size_t len;
 
 	fp = open_memstream(&string, &len);
-	for (info = test->extra_info.head; info; info = info->next) {
-		if (info->severity != severity)
-			continue;
-
-		if (node == NULL) {
-			node = xml_node_new(name, parent);
-			xml_node_add_attr(node, "type", type);
-			xml_node_add_attr(node, "message", __suselog_junit_escape_attr(info->message));
-		}
-
-		fprintf(fp, "%s\n", info->message);
-	}
-
+	__suselog_junit_pre_string_append(fp, test);
 	fclose(fp);
 
 	if (string) {
+		const char *msg;
+
+		node = xml_node_new(name, parent);
+		xml_node_add_attr(node, "type", type);
+		if ((msg = suselog_test_get_message(test, severity)) != NULL)
+			xml_node_add_attr(node, "message", __suselog_junit_escape_attr(msg));
 		xml_cdata_new(node, string);
 		free(string);
 	}
@@ -789,68 +843,6 @@ __suselog_junit_timestamp(const struct timeval *tv)
 	return timebuf;
 }
 
-#if 0
-void
-suselog_success(suselog_journal_t *journal)
-{
-	suselog_test_finish(journal, SUSELOG_STATUS_SUCCESS);
-}
-
-void
-suselog_success_msg(suselog_journal_t *journal)
-{
-	suselog_test_t *test;
-
-	if (!(test = suselog_current_test(journal)))
-		return;
-
-	if (fmt) {
-		va_list ap;
-
-		va_start(ap, fmt);
-		suselog_test_vlog_extra(test, SUSELOG_MSG_INFO, fmt, ap);
-		va_end(ap);
-	}
-	suselog_test_finish(journal, SUSELOG_STATUS_SUCCESS);
-}
-
-void
-suselog_failure(suselog_journal_t *journal, const char *fmt, ...)
-{
-	suselog_test_t *test;
-
-	if (!(test = suselog_current_test(journal)))
-		return;
-
-	if (fmt) {
-		va_list ap;
-
-		va_start(ap, fmt);
-		suselog_test_vlog_extra(test, SUSELOG_MSG_FAILURE, fmt, ap);
-		va_end(ap);
-	}
-	suselog_test_finish(journal, SUSELOG_STATUS_FAILURE);
-}
-
-void
-suselog_error(suselog_journal_t *journal, const char *fmt, ...)
-{
-	suselog_test_t *test;
-
-	if (!(test = suselog_current_test(journal)))
-		return;
-
-	if (fmt) {
-		va_list ap;
-
-		va_start(ap, fmt);
-		suselog_test_vlog_extra(test, SUSELOG_MSG_ERROR, fmt, ap);
-		va_end(ap);
-	}
-	suselog_test_finish(journal, SUSELOG_STATUS_ERROR);
-}
-#endif
-
 /*
  * Log messages as extra_info to the currently running test
  */
@@ -876,6 +868,149 @@ void
 __suselog_test_log_extra(suselog_test_t *test, suselog_severity_t severity, const char *msg)
 {
 	LIST_APPEND(&test->extra_info, suselog_info_new(severity, msg));
+}
+
+/*
+ * Log raw stdout/stderr as extra info (this will be included in the <failure>
+ * and <error> elements)
+ */
+struct stringbuf {
+	char *		data;
+	unsigned int	len, size, incr;
+};
+
+void
+stringbuf_init(struct stringbuf *sb)
+{
+	memset(sb, 0, sizeof(*sb));
+}
+
+void
+stringbuf_destroy(struct stringbuf *sb)
+{
+	if (sb->data)
+		free(sb->data);
+	memset(sb, 0, sizeof(*sb));
+}
+
+void
+stringbuf_append(struct stringbuf *sb, const void *data, unsigned int len)
+{
+	unsigned int need = len + 1;
+
+	if (sb->size - sb->len < need) {
+		if (need < sb->incr) {
+			sb->size += sb->incr;
+			if (sb->incr < 65536)
+				sb->incr *= 2;
+		} else {
+			sb->size += need;
+		}
+		sb->data = realloc(sb->data, sb->size);
+		assert(sb->data != NULL);
+	}
+	memcpy(sb->data + sb->len, data, len);
+	sb->len += len;
+	sb->data[sb->len] = '\0';
+}
+
+void
+stringbuf_puts(struct stringbuf *sb, const char *data)
+{
+	stringbuf_append(sb, data, strlen(data));
+}
+
+void
+stringbuf_putc(struct stringbuf *sb, char cc)
+{
+	stringbuf_append(sb, &cc, 1);
+}
+
+static void
+__escape_one_char(struct stringbuf *result, unsigned char cc)
+{
+	char buffer[6];
+
+	if (cc == '\f') {
+		stringbuf_puts(result, "\\f");
+	} else if (cc == '\v') {
+		stringbuf_puts(result, "\\v");
+	} else if (cc == '\r') {
+		stringbuf_puts(result, "\\r");
+	} else if (cc == '\0') {
+		stringbuf_puts(result, "\\0");
+	} else {
+		snprintf(buffer, sizeof(buffer), "\\%03o", cc);
+		stringbuf_puts(result, buffer);
+	}
+}
+
+static unsigned int
+__escape_one_mb(struct stringbuf *result, const unsigned char *data, size_t len)
+{
+	mbstate_t mbs;
+	wchar_t wc;
+	int n;
+
+	if (data[0] == '\0') {
+		__escape_one_char(result, '\0');
+		return 1;
+	}
+
+	memset(&mbs, 0, sizeof(mbs));
+	n = mbrtowc(&wc, (const char *) data, len, &mbs);
+	if (n == -2) {
+		/* Incomplete multibyte sequence. Just escape what's left
+		 * of this string. */
+		unsigned int k;
+
+		for (k = 0; k < len; ++k)
+			__escape_one_char(result, data[k]);
+		return len;
+	} else if (n <= 0) {
+		/* Invalid multibyte sequence, or something that decodes to
+		 * the L'0' wchar.
+		 * Just escape the next byte and see if we can resync */
+		__escape_one_char(result, *data);
+		return 1;
+	}
+
+	if (wc == '\f' || wc == '\v' || wc == '\r') {
+		__escape_one_char(result, wc);
+		return n;
+	}
+
+	if (iswprint(wc) || wc == '\n') {
+		/* Append multibyte sequence as-is */
+		stringbuf_append(result, data, n);
+	} else {
+		int k;
+
+		for (k = 0; k < n; ++k)
+			__escape_one_char(result, data[k]);
+	}
+
+	return n;
+}
+
+void
+__suselog_test_log_output(suselog_test_t *test, suselog_severity_t severity, const char *data, size_t len)
+{
+	struct stringbuf result;
+
+	stringbuf_init(&result);
+	while (len) {
+		unsigned int n;
+
+		n = __escape_one_mb(&result, (unsigned char *) data, len);
+		assert(n);
+
+		data += n;
+		len -= n;
+	}
+
+	__suselog_test_log_extra(test, severity, result.data);
+	stringbuf_destroy(&result);
 }
 
 void
