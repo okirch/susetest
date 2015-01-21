@@ -1,6 +1,8 @@
 .PHONY: all install clean
 
-VERSION	= 0.1.0
+MAJOR	= 0
+MINOR	= 1
+VERSION	= $(MAJOR).$(MINOR)
 
 ifdef RPM_OPTIMIZE
 CCOPT	= $(RPM_OPTIMIZE)
@@ -18,13 +20,16 @@ LIB_OBJS= config.o
 all: libsusetest.so
 
 libsusetest.so: susetest.h $(LIB_OBJS) Makefile
-	$(CC) $(CFLAGS) -o $@ --shared -Wl,-soname,libsusetest.so.0 $(LIB_OBJS)
+	$(CC) $(CFLAGS) -o $@ --shared -Wl,-soname,$@.$(VERSION) $(LIB_OBJS)
 
 install: libsusetest.so susetest.h
-	mkdir -p $(DESTDIR)$(LIBDIR)
-	install -m555 libsusetest.so $(DESTDIR)$(LIBDIR)/libsusetest.so.$(VERSION)
-	mkdir -p $(DESTDIR)$(INCDIR)
+	install -d $(DESTDIR)$(INCDIR)
 	install -m444 susetest.h $(DESTDIR)$(INCDIR)
+	install -d $(DESTDIR)$(LIBDIR)
+	install -m555 libsusetest.so $(DESTDIR)$(LIBDIR)/libsusetest.so.$(VERSION)
+	ln -s libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so.$(MAJOR)
+	ln -s libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so
+
 
 config.o: config.c susetest.h
 

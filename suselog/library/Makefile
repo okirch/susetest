@@ -11,14 +11,26 @@ LIBOBJS	= suselog.o \
 	  xml-reader.o \
 	  xml-writer.o
 
+MAJOR	= 0
+MINOR	= 1
+VERSION = $(MAJOR).$(MINOR)
+
 all: $(TARGETS)
+
+install: $(TARGETS)
+	install -d $(DESTDIR)/usr/include
+	install -m 444 suselog.h $(DESTDIR)/usr/include
+	install -d $(DESTDIR)/usr/lib64
+	install -m 555 libsuselog.so $(DESTDIR)/usr/lib64/libsuselog.so.$(VERSION)
+	ln -s libsuselog.so.$(VERSION) $(DESTDIR)/usr/lib64/libsuselog.so.$(MAJOR)
+	ln -s libsuselog.so.$(VERSION) $(DESTDIR)/usr/lib64/libsuselog.so
 
 clean distclean::
 	rm -f $(TARGETS) *.o
 	rm -f test-report.xml
 
 libsuselog.so: $(LIBOBJS)
-	$(CC) $(CFLAGS) -shared -o $@ $(LIBOBJS)
+	$(CC) $(CFLAGS) -o $@ -shared -Wl,-soname,$@.$(VERSION) $(LIBOBJS)
 
 suselog.o: suselog.c suselog.h suselog_p.h
 	$(CC) $(CFLAGS) -c -o $@ suselog.c

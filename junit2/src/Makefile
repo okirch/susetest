@@ -10,6 +10,10 @@ OBJS	= main.o to_junit.o decomposition.o
 
 all: to_junit
 
+install: to_junit
+	install -d $(DESTDIR)/usr/bin
+	install -m555 to_junit $(DESTDIR)/usr/bin/
+
 to_junit: $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDLIBS)
 

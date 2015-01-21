@@ -1,7 +1,7 @@
 
 CFLAGS	= -fPIC -I/usr/include/python2.6 -I../library -Wall -g
 
-PYDIR  ?= /usr/lib64/python2.6/site-packages
+PYDIR  := $(shell readlink -f /usr/lib64/python/site-packages)
 
 all:	suselog.so
 
@@ -15,5 +15,5 @@ distclean::
 	rm -f test-report.xml
 
 install:
-	mkdir -p $(DESTDIR)$(PYDIR)
-	cp suselog.so $(DESTDIR)$(PYDIR)
+	install -d $(DESTDIR)$(PYDIR)
+	install -m555 suselog.so $(DESTDIR)$(PYDIR)

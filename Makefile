@@ -1,6 +1,6 @@
 
 SUBDIRS	= suselog susetest junit2
 
-all clean distclean::
+all install clean distclean::
 	for dir in $(SUBDIRS); do make -C $$dir $@; done
 
