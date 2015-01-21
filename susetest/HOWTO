@@ -1,0 +1,77 @@
+
+susetest config file handling
+=============================
+
+Any test using susetest with twopence should provide a configuration file
+named susetest.conf.in in its main installation directory.
+
+At a minimum, this file should contain a list of nodes needed, with a
+nickname assigned to them:
+
+	node client
+	node server
+
+Optionally, the configuration file can contain attributes. These attributes
+may be global, or per-node.
+
+For instance, global attributes could be used to set default values
+for twopence, such as the user to run all tests as, or the default
+timeout for all commands.
+
+Per-node attribute could be used to further specify what type of SUT node
+should be allocated (eg there may be restrictions on the type of hardware
+that should be present, or a set of packages that should be installed.
+
+Here's what a more complex configuration file might look like:
+
+	attr user root
+	attr timeout 60
+	node server
+	node client
+
+
+Processing the configuration file
+=================================
+
+The susetest command provides a number of ways to modify the config file
+from the command line. First, you need to copy susetest.conf.in to
+susetest.conf in your workspace directory.
+
+Then, loop over all nodes:
+
+	for nodename in `susetest config node-names`; do
+		target=`susetest config node-get-attr target`
+		if [ -n "$target" ]; then
+			# Someone already assigned a target
+			continue;
+		fi
+
+		# This is some function provided by Erics Magic Jenkins
+		# machinery to claim a node and initialize it
+		target=`eric_magic_claim_sut`
+
+		# Update the config file with the twopence target we
+		# claimed
+		susetest config node-set-attr $nodename target=$target
+
+		pkglist=`susetest config node-get-attr $nodename packages`
+		if [ -n "$pkglist" ]; then
+			# Another function that calls out to
+			# Erics Magic Jenkins machinery
+			eric_magic_install_pkgs $target $pkglist
+		fi
+
+		# We may need to assign IP addresses and hostnames
+		# to each SUT node
+		ipaddr=`eric_magic_claim_ip $target`
+		if [ -n "$ipaddr" ]; then
+			susetest config node-set-attr $nodename ipaddr=$ipaddr
+		fi
+
+		hostname=`eric_magic_claim_hostname $target`
+		if [ -n "$hostname" ]; then
+			susetest config node-set-attr $nodename hostname=$hostname
+		fi
+	done
+
+	# Now we have a complete susetest.conf and can start the test script
