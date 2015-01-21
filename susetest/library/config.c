@@ -32,30 +32,30 @@ struct susetest_config_attr {
 	char *				value;
 };
 
-struct susetest_target_config {
-	susetest_target_config_t *	next;
+struct susetest_node_config {
+	susetest_node_config_t *	next;
 
 	/* A shorthand name, like "client" or "server" */
 	char *				name;
 
 	/* The target spec, eg "ssh:somehost" */
-	char *				spec;
+	char *				target;
 
 	/* Attributes */
 	susetest_config_attr_t *	attrs;
 };
 
 struct susetest_config {
-	susetest_target_config_t *	targets;
+	susetest_node_config_t *	nodes;
 	susetest_config_attr_t *	attrs;
 };
 
-static void	__susetest_target_config_free(susetest_target_config_t *);
-static void	__susetest_config_attrs_free(susetest_config_attr_t **);
-static void	__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
-static const char *__susetest_config_get_attr(susetest_config_attr_t **, const char *);
-static void	__susetest_config_attrs_write(FILE *fp, const susetest_config_attr_t *list);
-static const char **__susetest_config_attr_names(susetest_config_attr_t * const*);
+static void		__susetest_node_config_free(susetest_node_config_t *);
+static void		__susetest_config_attrs_free(susetest_config_attr_t **);
+static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
+static const char *	__susetest_config_get_attr(susetest_config_attr_t **, const char *);
+static void		__susetest_config_attrs_write(FILE *fp, const susetest_config_attr_t *list);
+static const char **	__susetest_config_attr_names(susetest_config_attr_t * const*);
 
 susetest_config_t *
 susetest_config_new(void)
@@ -69,12 +69,12 @@ susetest_config_new(void)
 void
 susetest_config_free(susetest_config_t *cfg)
 {
-	if (cfg->targets) {
-		susetest_target_config_t *tgt;
+	if (cfg->nodes) {
+		susetest_node_config_t *node;
 
-		while ((tgt = cfg->targets) != NULL) {
-			cfg->targets = tgt->next;
-			__susetest_target_config_free(tgt);
+		while ((node = cfg->nodes) != NULL) {
+			cfg->nodes = node->next;
+			__susetest_node_config_free(node);
 		}
 	}
 
@@ -82,36 +82,36 @@ susetest_config_free(susetest_config_t *cfg)
 	free(cfg);
 }
 
-susetest_target_config_t *
-susetest_config_get_target(susetest_config_t *cfg, const char *name)
+susetest_node_config_t *
+susetest_config_get_node(susetest_config_t *cfg, const char *name)
 {
-	susetest_target_config_t *tgt;
+	susetest_node_config_t *node;
 
-	for (tgt = cfg->targets; tgt; tgt = tgt->next) {
-		if (!strcmp(tgt->name, name))
-			return tgt;
+	for (node = cfg->nodes; node; node = node->next) {
+		if (!strcmp(node->name, name))
+			return node;
 	}
 	return NULL;
 }
 
-susetest_target_config_t *
-susetest_config_add_target(susetest_config_t *cfg, const char *name, const char *spec)
+susetest_node_config_t *
+susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *target)
 {
-	susetest_target_config_t *tgt;
+	susetest_node_config_t *node;
 
-	if (susetest_config_get_target(cfg, name) != NULL) {
-		fprintf(stderr, "duplicate target name \"%s\"\n", name);
+	if (susetest_config_get_node(cfg, name) != NULL) {
+		fprintf(stderr, "duplicate node name \"%s\"\n", name);
 		return NULL;
 	}
 
-	tgt = (susetest_target_config_t *) calloc(1, sizeof(*tgt));
-	tgt->name = strdup(name);
-	tgt->spec = strdup(spec);
+	node = (susetest_node_config_t *) calloc(1, sizeof(*node));
+	node->name = strdup(name);
+	susetest_node_config_set_target(node, target);
 
-	tgt->next = cfg->targets;
-	cfg->targets = tgt;
+	node->next = cfg->nodes;
+	cfg->nodes = node;
 
-	return tgt;
+	return node;
 }
 
 void
@@ -126,37 +126,65 @@ susetest_config_get_attr(susetest_config_t *cfg, const char *name)
 	return __susetest_config_get_attr(&cfg->attrs, name);
 }
 
-const char *
-susetest_target_config_get_spec(susetest_target_config_t *cfg)
+const char **
+susetest_config_get_nodes(const susetest_config_t *cfg)
 {
-	return cfg->spec;
+	const susetest_node_config_t *node;
+	unsigned int n, count;
+	const char **result;
+
+	for (count = 0, node = cfg->nodes; node; node = node->next, ++count)
+		;
+
+	result = calloc(count + 1, sizeof(result[0]));
+	for (n = 0, node = cfg->nodes; node; node = node->next)
+		result[n++] = node->name;
+	result[n++] = NULL;
+
+	return result;
 }
 
 void
-susetest_target_config_set_attr(susetest_target_config_t *tgt, const char *name, const char *value)
+susetest_node_config_set_target(susetest_node_config_t *cfg, const char *target)
 {
-	__susetest_config_set_attr(&tgt->attrs, name, value);
+	if (cfg->target)
+		free(cfg->target);
+	cfg->target = NULL;
+	if (target)
+		cfg->target = strdup(target);
 }
 
 const char *
-susetest_target_config_get_attr(susetest_target_config_t *tgt, const char *name)
+susetest_node_config_get_target(susetest_node_config_t *cfg)
 {
-	return __susetest_config_get_attr(&tgt->attrs, name);
+	return cfg->target;
+}
+
+void
+susetest_node_config_set_attr(susetest_node_config_t *node, const char *name, const char *value)
+{
+	__susetest_config_set_attr(&node->attrs, name, value);
+}
+
+const char *
+susetest_node_config_get_attr(susetest_node_config_t *node, const char *name)
+{
+	return __susetest_config_get_attr(&node->attrs, name);
 }
 
 const char **
-susetest_target_config_attr_names(const susetest_target_config_t *tgt)
+susetest_node_config_attr_names(const susetest_node_config_t *node)
 {
-	return __susetest_config_attr_names(&tgt->attrs);
+	return __susetest_config_attr_names(&node->attrs);
 }
 
 void
-__susetest_target_config_free(susetest_target_config_t *tgt)
+__susetest_node_config_free(susetest_node_config_t *node)
 {
-	__susetest_config_attrs_free(&tgt->attrs);
-	free(tgt->name);
-	free(tgt->spec);
-	free(tgt);
+	__susetest_config_attrs_free(&node->attrs);
+	susetest_node_config_set_target(node, NULL);
+	free(node->name);
+	free(node);
 }
 
 static susetest_config_attr_t *
@@ -247,7 +275,7 @@ __susetest_config_attrs_free(susetest_config_attr_t **list)
 int
 susetest_config_write(susetest_config_t *cfg, const char *path)
 {
-	susetest_target_config_t *tgt;
+	susetest_node_config_t *node;
 	FILE *fp;
 
 	if ((fp = fopen(path, "w")) == NULL) {
@@ -257,9 +285,12 @@ susetest_config_write(susetest_config_t *cfg, const char *path)
 
 	__susetest_config_attrs_write(fp, cfg->attrs);
 
-	for (tgt = cfg->targets; tgt; tgt = tgt->next) {
-		fprintf(fp, "target %s %s\n", tgt->name, tgt->spec);
-		__susetest_config_attrs_write(fp, tgt->attrs);
+	for (node = cfg->nodes; node; node = node->next) {
+		if (node->target)
+			fprintf(fp, "node %s %s\n", node->name, node->target);
+		else
+			fprintf(fp, "node %s\n", node->name);
+		__susetest_config_attrs_write(fp, node->attrs);
 	}
 
 	fclose(fp);
@@ -307,7 +338,7 @@ susetest_config_t *
 susetest_config_read(const char *path)
 {
 	susetest_config_t *cfg;
-	susetest_target_config_t *tgt = NULL;
+	susetest_node_config_t *node = NULL;
 	susetest_config_attr_t **attr_list;
 	char buffer[1024];
 	FILE *fp;
@@ -340,22 +371,24 @@ susetest_config_read(const char *path)
 
 			__susetest_config_set_attr(attr_list, name, value);
 		} else
-		if (!strcmp(kwd, "target")) {
-			char *name, *spec;
+		if (!strcmp(kwd, "node")) {
+			char *name, *target;
 
-			if ((name = __get_token(&pos)) == NULL
-			 || (spec = __get_token(&pos)) == NULL) {
+			if ((name = __get_token(&pos)) == NULL) {
 				fprintf(stderr, "Missing token after \"%s\" keyword\n", kwd);
 				goto failed;
 			}
 
-			tgt = susetest_config_add_target(cfg, name, spec);
-			if (tgt == NULL) {
-				fprintf(stderr, "Duplicate target name \"%s\" in config file\n", name);
+			/* The target does not have to be set yet. */
+			target = __get_token(&pos);
+
+			node = susetest_config_add_node(cfg, name, target);
+			if (node == NULL) {
+				fprintf(stderr, "Duplicate node name \"%s\" in config file\n", name);
 				goto failed;
 			}
 
-			attr_list = &tgt->attrs;
+			attr_list = &node->attrs;
 		} else {
 			fprintf(stderr, "Unexpected keyword \"%s\"\n", kwd);
 			goto failed;
