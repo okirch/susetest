@@ -34,7 +34,7 @@ int
 main(int argc, char *argv[])
 {
 	char *cmd;
-	int rv;
+	int rv = 1;
 
 	if (argc <= 1)
 		show_usage(0);

@@ -1,7 +1,9 @@
 
-CFLAGS	= -fPIC -I/usr/include/python2.6 -I../library -Wall -g
+CFLAGS	= -fPIC -I/usr/include/python -I../library -Wall -g
 
 PYDIR  := $(shell readlink -f /usr/lib64/python/site-packages)
+
+OBJS	= extension.o
 
 all:	suselog.so
 

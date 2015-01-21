@@ -29,7 +29,7 @@ static void		Config_dealloc(susetest_Config *self);
 static PyObject *	Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static int		Config_init(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_target(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_buildAttrs(susetest_target_config_t *tgt);
+static PyObject *	Config_buildAttrs(susetest_node_config_t *tgt);
 
 /*
  * Define the python bindings of class "Config"
@@ -130,17 +130,17 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 		NULL
 	};
 	char *name = NULL;
-	susetest_target_config_t *target_conf;
+	susetest_node_config_t *node_conf;
 	PyObject *result = NULL;
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
 		return NULL;
 
-	target_conf = susetest_config_get_target(self->config, name);
-	if (target_conf == NULL) {
+	node_conf = susetest_config_get_node(self->config, name);
+	if (node_conf == NULL) {
 		PyErr_Format(PyExc_AttributeError, "Unknown target \"%s\"", name);
 	} else {
-		const char *target_spec = susetest_target_config_get_spec(target_conf);
+		const char *target_spec = susetest_node_config_get_target(node_conf);
 		PyObject *args = PyTuple_New(3);
 		PyObject *attrs;
 		PyObject *target_type = NULL;
@@ -148,7 +148,7 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 		if (!(target_type = susetest_importType("twopence", "Target")))
 			return NULL;
 
-		if (!(attrs = Config_buildAttrs(target_conf)))
+		if (!(attrs = Config_buildAttrs(node_conf)))
 			return NULL;
 
 		PyTuple_SET_ITEM(args, 0, PyString_FromString(target_spec));
@@ -164,13 +164,13 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 }
 
 PyObject *
-Config_buildAttrs(susetest_target_config_t *tgt)
+Config_buildAttrs(susetest_node_config_t *tgt)
 {
 	PyObject *dict;
 	const char **names;
 	unsigned int i;
 	
-	names = susetest_target_config_attr_names(tgt);
+	names = susetest_node_config_attr_names(tgt);
 	if (names == NULL) {
 		PyErr_SetString(PyExc_RuntimeError, "cannot build attribute name list for twopence target");
 		return NULL;
@@ -180,7 +180,7 @@ Config_buildAttrs(susetest_target_config_t *tgt)
 	for (i = 0; names[i]; ++i) {
 		const char *value;
 
-		value = susetest_target_config_get_attr(tgt, names[i]);
+		value = susetest_node_config_get_attr(tgt, names[i]);
 		if (value != NULL)
 			PyDict_SetItemString(dict, names[i], PyString_FromString(value));
 	}
