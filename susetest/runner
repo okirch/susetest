@@ -1,0 +1,71 @@
+#!/bin/bash
+#
+# This wrapper script takes the environment variables currently set by
+# Eric's jenkins scripts and puts everything into the config file.
+# It uses the config template and expands it.
+#
+# If you want to use run your twopence test script and take advantage of
+# the config file mechanism, just symlink your 01_run.sh file to this
+# script:
+#
+#  ln -s /usr/lib/susetest/runner $MY_TEST_DIR/bin/01_run.sh
+#
+# 
+
+myname=`readlink -f $0`
+
+basedir=`dirname $0`
+
+if [ -f "$basedir/twopence/susetest.conf.in" ]; then
+	template="$basedir/twopence/susetest.conf.in"
+elif [ -f "$basedir/susetest.conf.in" ]; then
+	template="$basedir/susetest.conf.in"
+else
+	echo "No template file found" >&2
+	exit 1
+fi
+
+if [ -x "$basedir/twopence/run" ]; then
+	runscript="$basedir/twopence/run"
+else
+	echo "No run script found" >&2
+	exit 1
+fi
+
+TWOPENCE_CONFIG_PATH=`mktemp /tmp/susetestXXXXXX.conf`
+trap "rm -f $TWOPENCE_CONFIG_PATH" 0 1 2 15
+
+cp $template $TWOPENCE_CONFIG_PATH
+export TWOPENCE_CONFIG_PATH
+
+for node in `susetest config node-names`; do
+	eval target=\"\$TARGET_$node\"
+	if [ -n "$target" ]; then
+		susetest config node-set-attr "$node" target="$target"
+	else
+		echo "No twopence target for node \"$node\"" >&2
+		exit 1
+	fi
+
+	eval value=\"\$IP_$node\"
+	if [ -n "$value" ]; then
+		susetest config node-set-attr "$node" ipaddr="$value"
+	fi
+
+	eval value=\"\$IP6_$node\"
+	if [ -n "$value" ]; then
+		susetest config node-set-attr "$node" ip6addr="$value"
+	fi
+
+	eval value=\"\$SYSTEM_$node\"
+	if [ -n "$value" ]; then
+		susetest config node-set-attr "$node" system="$value"
+	fi
+
+	for pkg in `susetest config node-get-attr "$node" packages`; do
+		echo "Need to install $pkg on node $node"
+		twopence_command "$target" "zypper install $pkg"
+	done
+done
+
+$runscript
