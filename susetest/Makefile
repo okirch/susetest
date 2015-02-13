@@ -6,6 +6,6 @@ all install clean distclean::
 
 install::
 	install -d $(DESTDIR)/usr/lib/susetest
-	install -m555 runner $(DESTDIR)/usr/lib/susetest/runner
+	install -m555 build-config $(DESTDIR)/usr/lib/susetest/build-config
 	install -d $(DESTDIR)/usr/share/susetest
 	install -m444 HOWTO $(DESTDIR)/usr/share/susetest/README.config
