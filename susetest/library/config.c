@@ -45,68 +45,171 @@ struct susetest_config_group {
 	susetest_config_group_t *	children;
 };
 
-static void		__susetest_node_config_free(susetest_node_config_t *);
 static void		__susetest_config_attrs_free(susetest_config_attr_t **);
 static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
 static const char *	__susetest_config_get_attr(susetest_config_attr_t **, const char *);
 static void		__susetest_config_attrs_write(FILE *fp, const susetest_config_attr_t *list);
 static const char **	__susetest_config_attr_names(susetest_config_attr_t * const*);
 
-susetest_config_t *
-susetest_config_new(void)
+static inline int
+xstrcmp(const char *a, const char *b)
 {
-	susetest_config_t *cfg;
+	if (a == NULL || b == NULL)
+		return a == b;
+	return strcmp(a, b);
+}
 
-	cfg = (susetest_config_t *) calloc(1, sizeof(*cfg));
+susetest_config_group_t *
+susetest_config_group_new(const char *type, const char *name)
+{
+	susetest_config_group_t *cfg;
+
+	cfg = (susetest_config_group_t *) calloc(1, sizeof(*cfg));
+	cfg->type = type? strdup(type) : NULL;
+	cfg->name = name? strdup(name) : NULL;
 	return cfg;
 }
 
 void
-susetest_config_free(susetest_config_t *cfg)
+susetest_config_group_free(susetest_config_group_t *cfg)
 {
 	if (cfg->children) {
-		susetest_node_config_t *node;
+		susetest_config_group_t *child;
 
-		while ((node = cfg->children) != NULL) {
-			cfg->children = node->next;
-			__susetest_node_config_free(node);
+		while ((child = cfg->children) != NULL) {
+			cfg->children = child->next;
+			susetest_config_group_free(child);
 		}
 	}
+
+	if (cfg->type)
+		free(cfg->type);
+	cfg->type = NULL;
+
+	if (cfg->name)
+		free(cfg->name);
+	cfg->name = NULL;
 
 	__susetest_config_attrs_free(&cfg->attrs);
 	free(cfg);
 }
 
+susetest_config_group_t *
+susetest_config_group_get_child(const susetest_config_group_t *cfg, const char *type, const char *name)
+{
+	susetest_config_group_t *child;
+
+	for (child = cfg->children; child; child = child->next) {
+		if (type && xstrcmp(child->type, type))
+			continue;
+		if (name && xstrcmp(child->name, name))
+			continue;
+		return child;
+	}
+	return NULL;
+}
+
+susetest_config_group_t *
+susetest_config_group_add_child(susetest_config_t *cfg, const char *type, const char *name, bool unique)
+{
+	susetest_config_group_t *child;
+
+	if (unique && susetest_config_group_get_child(cfg, type, name) != NULL) {
+		fprintf(stderr, "duplicate %s group named \"%s\"\n", type, name);
+		return NULL;
+	}
+
+	child = susetest_config_group_new(type, name);
+
+	child->next = cfg->children;
+	cfg->children = child;
+
+	return child;
+}
+
+const char **
+susetest_config_group_get_children(const susetest_config_t *cfg, const char *type)
+{
+	const susetest_node_config_t *node;
+	unsigned int n, count;
+	const char **result;
+
+	for (count = 0, node = cfg->children; node; node = node->next, ++count)
+		;
+
+	result = calloc(count + 1, sizeof(result[0]));
+	for (n = 0, node = cfg->children; node; node = node->next) {
+		if (type == NULL || !xstrcmp(node->type, type))
+			result[n++] = node->name;
+	}
+	result[n++] = NULL;
+
+	return result;
+}
+
+const char **
+susetest_config_group_get_attr_names(const susetest_config_group_t *cfg)
+{
+	return __susetest_config_attr_names(&cfg->attrs);
+}
+
+/*
+ * Accessor functions for susetest_config_t
+ */
+susetest_config_t *
+susetest_config_new(void)
+{
+	return susetest_config_group_new("root", NULL);
+}
+
+void
+susetest_config_free(susetest_config_t *cfg)
+{
+	susetest_config_group_free(cfg);
+}
+
+susetest_config_t *
+susetest_config_get_child(susetest_config_t *cfg, const char *type, const char *name)
+{
+	return susetest_config_group_get_child(cfg, type, name);
+}
+
+susetest_config_t *
+susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name)
+{
+	return susetest_config_group_add_child(cfg, type, name, true);
+}
+
+const char **
+susetest_config_get_children(const susetest_config_t *cfg, const char *type)
+{
+	return susetest_config_group_get_children(cfg, type);
+}
+
+const char **
+susetest_config_get_attr_names(const susetest_config_t *cfg)
+{
+	return susetest_config_group_get_attr_names(cfg);
+}
+
+/*
+ * Backward compatibility
+ */
 susetest_node_config_t *
 susetest_config_get_node(susetest_config_t *cfg, const char *name)
 {
-	susetest_node_config_t *node;
-
-	for (node = cfg->children; node; node = node->next) {
-		if (!strcmp(node->name, name))
-			return node;
-	}
-	return NULL;
+	return susetest_config_group_get_child(cfg, "node", name);
 }
 
 susetest_node_config_t *
 susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *target)
 {
-	susetest_node_config_t *node;
+	susetest_config_group_t *node;
 
-	if (susetest_config_get_node(cfg, name) != NULL) {
-		fprintf(stderr, "duplicate node name \"%s\"\n", name);
+	if (!(node = susetest_config_group_add_child(cfg, "node", name, true)))
 		return NULL;
-	}
 
-	node = (susetest_node_config_t *) calloc(1, sizeof(*node));
-	node->type = strdup("node");
-	node->name = strdup(name);
 	susetest_node_config_set_target(node, target);
-
-	node->next = cfg->children;
-	cfg->children = node;
-
 	return node;
 }
 
@@ -125,19 +228,7 @@ susetest_config_get_attr(susetest_config_t *cfg, const char *name)
 const char **
 susetest_config_get_nodes(const susetest_config_t *cfg)
 {
-	const susetest_node_config_t *node;
-	unsigned int n, count;
-	const char **result;
-
-	for (count = 0, node = cfg->children; node; node = node->next, ++count)
-		;
-
-	result = calloc(count + 1, sizeof(result[0]));
-	for (n = 0, node = cfg->children; node; node = node->next)
-		result[n++] = node->name;
-	result[n++] = NULL;
-
-	return result;
+	return susetest_config_group_get_children(cfg, "node");
 }
 
 void
@@ -168,15 +259,6 @@ const char **
 susetest_node_config_attr_names(const susetest_node_config_t *node)
 {
 	return __susetest_config_attr_names(&node->attrs);
-}
-
-void
-__susetest_node_config_free(susetest_node_config_t *node)
-{
-	__susetest_config_attrs_free(&node->attrs);
-	susetest_node_config_set_target(node, NULL);
-	free(node->name);
-	free(node);
 }
 
 static susetest_config_attr_t *

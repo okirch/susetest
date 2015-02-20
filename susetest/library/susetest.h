@@ -21,6 +21,8 @@
 #ifndef SUSETEST_H
 #define SUSETEST_H
 
+#include <stdbool.h>
+
 /*
  * Handling susetest config information
  */
@@ -32,10 +34,15 @@ extern susetest_config_t *	susetest_config_new(void);
 extern void			susetest_config_free(susetest_config_t *);
 extern int			susetest_config_write(susetest_config_t *cfg, const char *path);
 extern susetest_config_t *	susetest_config_read(const char *path);
-extern susetest_node_config_t *	susetest_config_get_node(susetest_config_t *cfg, const char *name);
-extern susetest_node_config_t *	susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *spec);
+extern susetest_config_t *	susetest_config_get_child(susetest_config_t *cfg, const char *type, const char *name);
+extern susetest_config_t *	susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name);
+extern const char **		susetest_config_get_children(const susetest_config_t *, const char *type);
+extern const char **		susetest_config_get_attr_names(const susetest_config_t *);
 extern void			susetest_config_set_attr(susetest_config_t *cfg, const char *name, const char *value);
 extern const char *		susetest_config_get_attr(susetest_config_t *cfg, const char *name);
+
+extern susetest_node_config_t *	susetest_config_get_node(susetest_config_t *cfg, const char *name);
+extern susetest_node_config_t *	susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *spec);
 extern const char **		susetest_config_get_nodes(const susetest_config_t *);
 extern const char *		susetest_node_config_get_target(susetest_node_config_t *node);
 extern void			susetest_node_config_set_target(susetest_node_config_t *node, const char *target);
