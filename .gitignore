@@ -9,3 +9,4 @@ to_junit
 junit/python/test-report.xml
 junit2/report.xml
 susetest/tests/curlies-test
+susetest/shell/susetest
