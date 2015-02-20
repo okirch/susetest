@@ -12,14 +12,20 @@ EOF
 	exit 1
 fi
 
-template=$1
+nodes_file=$1
 TWOPENCE_CONFIG_PATH=$2
 
-cp $template $TWOPENCE_CONFIG_PATH
+cp /dev/null $TWOPENCE_CONFIG_PATH
 export TWOPENCE_CONFIG_PATH
 
-for node in `susetest config node-names`; do
-	eval target=\"\$TARGET_$node\"
+nodes=`sed -r 's/^node[[:space:]]+(.*)/\1/;t;d' $nodes_file`
+
+for node in $nodes; do
+	susetest config add-node $node
+
+	NODE=`echo $node|tr a-z A-Z`
+
+	eval target=\"\$TARGET_$NODE\"
 	if [ -n "$target" ]; then
 		susetest config node-set-attr "$node" target="$target"
 	else
@@ -27,23 +33,18 @@ for node in `susetest config node-names`; do
 		exit 1
 	fi
 
-	eval value=\"\$IP_$node\"
+	eval value=\"\$EXTERNAL_IP_$NODE\"
 	if [ -n "$value" ]; then
 		susetest config node-set-attr "$node" ipaddr="$value"
 	fi
 
-	eval value=\"\$IP6_$node\"
+	eval value=\"\$EXTERNAL_IP6_$NODE\"
 	if [ -n "$value" ]; then
 		susetest config node-set-attr "$node" ip6addr="$value"
 	fi
 
-	eval value=\"\$SYSTEM_$node\"
+	eval value=\"\$SYSTEM_$NODE\"
 	if [ -n "$value" ]; then
 		susetest config node-set-attr "$node" system="$value"
 	fi
-
-	for pkg in `susetest config node-get-attr "$node" packages`; do
-		echo "Need to install $pkg on node $node"
-		twopence_command "$target" "zypper install $pkg"
-	done
 done

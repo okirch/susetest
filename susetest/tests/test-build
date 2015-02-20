@@ -1,0 +1,27 @@
+#!/bin/bash
+
+export TARGET_SERVER=ssh:127.0.0.1
+export INTERNAL_IP_SERVER=192.168.123.22
+export EXTERNAL_IP_SERVER=10.162.188.179
+export SYSTEM_SERVER=SLE-12
+export ARCH_SERVER=x86-64
+
+export TARGET_CLIENT=ssh:1.2.3.4
+export INTERNAL_IP_CLIENT=192.168.123.23
+export EXTERNAL_IP_CLIENT=10.162.188.180
+export SYSTEM_CLIENT=SLE-12
+export ARCH_CLIENT=x86-64
+
+cat >tests/nodes <<-EOF
+	node	client
+	repo	http://some/where
+	install	somepkg
+
+	node	server
+	repo	http://some/where/else
+EOF
+
+./build-config tests/nodes tests/out-config
+
+cat tests/out-config
+rm -f tests/out-config tests/nodes
