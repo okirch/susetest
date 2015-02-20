@@ -32,19 +32,17 @@ struct susetest_config_attr {
 	char *				value;
 };
 
-struct susetest_node_config {
-	susetest_node_config_t *	next;
+struct susetest_config_group {
+	susetest_config_group_t *	next;
 
-	/* A shorthand name, like "client" or "server" */
+	/* The group's type (eg "node") and name (eg "client", "server") */
+	char *				type;
 	char *				name;
 
 	/* Attributes */
 	susetest_config_attr_t *	attrs;
-};
 
-struct susetest_config {
-	susetest_node_config_t *	nodes;
-	susetest_config_attr_t *	attrs;
+	susetest_config_group_t *	children;
 };
 
 static void		__susetest_node_config_free(susetest_node_config_t *);
@@ -66,11 +64,11 @@ susetest_config_new(void)
 void
 susetest_config_free(susetest_config_t *cfg)
 {
-	if (cfg->nodes) {
+	if (cfg->children) {
 		susetest_node_config_t *node;
 
-		while ((node = cfg->nodes) != NULL) {
-			cfg->nodes = node->next;
+		while ((node = cfg->children) != NULL) {
+			cfg->children = node->next;
 			__susetest_node_config_free(node);
 		}
 	}
@@ -84,7 +82,7 @@ susetest_config_get_node(susetest_config_t *cfg, const char *name)
 {
 	susetest_node_config_t *node;
 
-	for (node = cfg->nodes; node; node = node->next) {
+	for (node = cfg->children; node; node = node->next) {
 		if (!strcmp(node->name, name))
 			return node;
 	}
@@ -102,11 +100,12 @@ susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *t
 	}
 
 	node = (susetest_node_config_t *) calloc(1, sizeof(*node));
+	node->type = strdup("node");
 	node->name = strdup(name);
 	susetest_node_config_set_target(node, target);
 
-	node->next = cfg->nodes;
-	cfg->nodes = node;
+	node->next = cfg->children;
+	cfg->children = node;
 
 	return node;
 }
@@ -130,11 +129,11 @@ susetest_config_get_nodes(const susetest_config_t *cfg)
 	unsigned int n, count;
 	const char **result;
 
-	for (count = 0, node = cfg->nodes; node; node = node->next, ++count)
+	for (count = 0, node = cfg->children; node; node = node->next, ++count)
 		;
 
 	result = calloc(count + 1, sizeof(result[0]));
-	for (n = 0, node = cfg->nodes; node; node = node->next)
+	for (n = 0, node = cfg->children; node; node = node->next)
 		result[n++] = node->name;
 	result[n++] = NULL;
 
@@ -278,7 +277,7 @@ susetest_config_write(susetest_config_t *cfg, const char *path)
 
 	__susetest_config_attrs_write(fp, cfg->attrs);
 
-	for (node = cfg->nodes; node; node = node->next) {
+	for (node = cfg->children; node; node = node->next) {
 		fprintf(fp, "node %s\n", node->name);
 		__susetest_config_attrs_write(fp, node->attrs);
 	}

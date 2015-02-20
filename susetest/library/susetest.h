@@ -24,8 +24,9 @@
 /*
  * Handling susetest config information
  */
-typedef struct susetest_config susetest_config_t;
-typedef struct susetest_node_config susetest_node_config_t;
+typedef struct susetest_config_group susetest_config_t;
+typedef struct susetest_config_group susetest_node_config_t;
+typedef struct susetest_config_group susetest_config_group_t;
 
 extern susetest_config_t *	susetest_config_new(void);
 extern void			susetest_config_free(susetest_config_t *);
