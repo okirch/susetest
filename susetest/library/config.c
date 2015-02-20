@@ -23,27 +23,7 @@
 #include <ctype.h>
 
 #include "susetest.h"
-
-typedef struct susetest_config_attr susetest_config_attr_t;
-
-struct susetest_config_attr {
-	susetest_config_attr_t *	next;
-	char *				name;
-	char *				value;
-};
-
-struct susetest_config_group {
-	susetest_config_group_t *	next;
-
-	/* The group's type (eg "node") and name (eg "client", "server") */
-	char *				type;
-	char *				name;
-
-	/* Attributes */
-	susetest_config_attr_t *	attrs;
-
-	susetest_config_group_t *	children;
-};
+#include "config.h"
 
 static void		__susetest_config_attrs_free(susetest_config_attr_t **);
 static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
