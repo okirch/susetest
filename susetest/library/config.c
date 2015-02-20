@@ -23,12 +23,11 @@
 #include <ctype.h>
 
 #include "susetest.h"
-#include "config.h"
+#include "curlies.h"
 
 static void		__susetest_config_attrs_free(susetest_config_attr_t **);
 static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
 static const char *	__susetest_config_get_attr(susetest_config_attr_t **, const char *);
-static void		__susetest_config_attrs_write(FILE *fp, const susetest_config_attr_t *list);
 static const char **	__susetest_config_attr_names(susetest_config_attr_t * const*);
 
 static inline int
@@ -329,7 +328,6 @@ __susetest_config_attrs_free(susetest_config_attr_t **list)
 int
 susetest_config_write(susetest_config_t *cfg, const char *path)
 {
-	susetest_node_config_t *node;
 	FILE *fp;
 
 	if ((fp = fopen(path, "w")) == NULL) {
@@ -337,120 +335,13 @@ susetest_config_write(susetest_config_t *cfg, const char *path)
 		return -1;
 	}
 
-	__susetest_config_attrs_write(fp, cfg->attrs);
-
-	for (node = cfg->children; node; node = node->next) {
-		fprintf(fp, "node %s\n", node->name);
-		__susetest_config_attrs_write(fp, node->attrs);
-	}
-
+	curly_print(cfg, fp);
 	fclose(fp);
 	return 0;
-}
-
-void
-__susetest_config_attrs_write(FILE *fp, const susetest_config_attr_t *attr)
-{
-	for (; attr; attr = attr->next)
-		fprintf(fp, "attr %s %s\n", attr->name, attr->value);
-}
-
-char *
-__get_token(char **pos)
-{
-	char *s, *retval = NULL;
-
-	if ((s = *pos) == NULL)
-		return NULL;
-
-	while (isspace(*s))
-		++s;
-
-	if (*s == '#')
-		*s = '\0';
-
-	if (*s == '\0') {
-		*pos = NULL;
-		return NULL;
-	}
-
-	retval = s;
-
-	while (*s && !isspace(*s))
-		++s;
-	if (*s)
-		*s++ = '\0';
-	*pos = s;
-
-	return retval;
 }
 
 susetest_config_t *
 susetest_config_read(const char *path)
 {
-	susetest_config_t *cfg;
-	susetest_node_config_t *node = NULL;
-	susetest_config_attr_t **attr_list;
-	char buffer[1024];
-	FILE *fp;
-
-	if ((fp = fopen(path, "r")) == NULL) {
-		fprintf(stderr, "Unable to open %s: %m\n", path);
-		return NULL;
-	}
-
-	cfg = susetest_config_new();
-	attr_list = &cfg->attrs;
-
-	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		char *kwd, *pos;
-
-		buffer[strcspn(buffer, "\r\n")] = '\0';
-
-		pos = buffer;
-		if ((kwd = __get_token(&pos)) == NULL)
-			continue;
-
-		if (!strcmp(kwd, "attr")) {
-			char *name, *value;
-
-			if ((name = __get_token(&pos)) == NULL
-			 || (value = __get_token(&pos)) == NULL) {
-				fprintf(stderr, "Missing token after \"%s\" keyword\n", kwd);
-				goto failed;
-			}
-
-			__susetest_config_set_attr(attr_list, name, value);
-		} else
-		if (!strcmp(kwd, "node")) {
-			char *name, *target;
-
-			if ((name = __get_token(&pos)) == NULL) {
-				fprintf(stderr, "Missing token after \"%s\" keyword\n", kwd);
-				goto failed;
-			}
-
-			/* The target does not have to be set yet. */
-			target = __get_token(&pos);
-
-			node = susetest_config_add_node(cfg, name, target);
-			if (node == NULL) {
-				fprintf(stderr, "Duplicate node name \"%s\" in config file\n", name);
-				goto failed;
-			}
-
-			attr_list = &node->attrs;
-		} else {
-			fprintf(stderr, "Unexpected keyword \"%s\"\n", kwd);
-			goto failed;
-		}
-	}
-
-	fclose(fp);
-	return cfg;
-
-failed:
-	fclose(fp);
-	susetest_config_free(cfg);
-	return NULL;
+	return curly_parse(path);
 }
