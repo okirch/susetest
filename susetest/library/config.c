@@ -38,9 +38,6 @@ struct susetest_node_config {
 	/* A shorthand name, like "client" or "server" */
 	char *				name;
 
-	/* The target spec, eg "ssh:somehost" */
-	char *				target;
-
 	/* Attributes */
 	susetest_config_attr_t *	attrs;
 };
@@ -147,17 +144,13 @@ susetest_config_get_nodes(const susetest_config_t *cfg)
 void
 susetest_node_config_set_target(susetest_node_config_t *cfg, const char *target)
 {
-	if (cfg->target)
-		free(cfg->target);
-	cfg->target = NULL;
-	if (target)
-		cfg->target = strdup(target);
+	susetest_node_config_set_attr(cfg, "target", target);
 }
 
 const char *
 susetest_node_config_get_target(susetest_node_config_t *cfg)
 {
-	return cfg->target;
+	return susetest_node_config_get_attr(cfg, "target");
 }
 
 void
@@ -286,10 +279,7 @@ susetest_config_write(susetest_config_t *cfg, const char *path)
 	__susetest_config_attrs_write(fp, cfg->attrs);
 
 	for (node = cfg->nodes; node; node = node->next) {
-		if (node->target)
-			fprintf(fp, "node %s %s\n", node->name, node->target);
-		else
-			fprintf(fp, "node %s\n", node->name);
+		fprintf(fp, "node %s\n", node->name);
 		__susetest_config_attrs_write(fp, node->attrs);
 	}
 
