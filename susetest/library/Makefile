@@ -15,7 +15,8 @@ CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT)
 LIBDIR ?= /usr/lib64
 INCDIR ?= /usr/include
 
-LIB_OBJS= config.o
+LIB_OBJS= config.o \
+	  curlies.o
 
 all: libsusetest.so
 

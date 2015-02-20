@@ -1,5 +1,5 @@
 
-SUBDIRS	= library shell python
+SUBDIRS	= library shell python tests
 
 all install clean distclean::
 	set -e; for dir in $(SUBDIRS); do make -C $$dir $@; done
