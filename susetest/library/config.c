@@ -188,7 +188,8 @@ susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *t
 	if (!(node = susetest_config_group_add_child(cfg, "node", name, true)))
 		return NULL;
 
-	susetest_node_config_set_target(node, target);
+	if (target)
+		susetest_node_config_set_target(node, target);
 	return node;
 }
 
@@ -267,13 +268,19 @@ __susetest_config_set_attr(susetest_config_attr_t **list, const char *name, cons
 	char *s;
 
 	attr = __susetest_config_find_attr(list, name, 1);
-	if (attr->value)
+	if (attr->value) {
 		free(attr->value);
-	attr->value = value? strdup(value) : NULL;
+		attr->value = NULL;
+	}
 
-	/* Replace newlines with a blank */
-	while ((s = strchr(attr->value, '\n')) != NULL)
-		*s = ' ';
+	if (value) {
+		attr->value = strdup(value);
+
+		/* Replace newlines with a blank */
+		while ((s = strchr(attr->value, '\n')) != NULL)
+			*s = ' ';
+	} else {
+	}
 }
 
 const char *
