@@ -6,7 +6,7 @@ else
 CCOPT	= -Wall -O2 -g
 endif
 
-CFLAGS	= -D_GNU_SOURCE $(CCOPT)
+CFLAGS	= -D_GNU_SOURCE $(CCOPT) -I../library
 
 all: curlies-test
 

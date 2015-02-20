@@ -4,7 +4,7 @@
 #include <ctype.h>
 
 #include "susetest.h"
-#include "config.h"
+#include "curlies.h"
 
 typedef struct curly_file curly_file_t;
 typedef struct curly_parser curly_parser_t;

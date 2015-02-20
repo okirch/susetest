@@ -1,9 +1,7 @@
 
 #include <stdio.h>
 #include "susetest.h"
-
-extern susetest_config_t *	curly_parse(const char *filename);
-extern void			curly_print(const susetest_config_t *cfg, FILE *fp);
+#include "curlies.h"
 
 int
 main(int argc, char **argv)
