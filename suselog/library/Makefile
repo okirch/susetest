@@ -22,8 +22,8 @@ install: $(TARGETS)
 	install -m 444 suselog.h $(DESTDIR)/usr/include
 	install -d $(DESTDIR)/usr/lib64
 	install -m 555 libsuselog.so $(DESTDIR)/usr/lib64/libsuselog.so.$(VERSION)
-	ln -s libsuselog.so.$(VERSION) $(DESTDIR)/usr/lib64/libsuselog.so.$(MAJOR)
-	ln -s libsuselog.so.$(VERSION) $(DESTDIR)/usr/lib64/libsuselog.so
+	ln -sf libsuselog.so.$(VERSION) $(DESTDIR)/usr/lib64/libsuselog.so.$(MAJOR)
+	ln -sf libsuselog.so.$(VERSION) $(DESTDIR)/usr/lib64/libsuselog.so
 
 clean distclean::
 	rm -f $(TARGETS) *.o

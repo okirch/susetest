@@ -85,6 +85,7 @@ extern void		suselog_error(suselog_journal_t *, const char *, ...);
 extern void		suselog_info(suselog_journal_t *, const char *, ...);
 extern void		suselog_record_stdout(suselog_journal_t *journal, const char *data, size_t len);
 extern void		suselog_record_stderr(suselog_journal_t *journal, const char *data, size_t len);
+extern void		suselog_record_buffer(suselog_journal_t *journal, const char *data, size_t len);
 
 extern suselog_writer_t *suselog_writer_normal(void);
 

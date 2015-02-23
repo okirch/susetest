@@ -42,6 +42,7 @@ static PyObject *	Journal_error(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_fatal(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_record_stdout(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_record_stderr(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_record_buffer(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds);
 
 /*
@@ -90,6 +91,9 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"recordStderr", (PyCFunction) Journal_record_stderr, METH_VARARGS | METH_KEYWORDS,
 	"Record stderr for current test",
+      },
+      {	"recordBuffer", (PyCFunction) Journal_record_buffer, METH_VARARGS | METH_KEYWORDS,
+	"Record contents of a buffer for current test",
       },
       {	"writeReport", (PyCFunction) Journal_writeReport, METH_VARARGS | METH_KEYWORDS,
 	"Write the test report"
@@ -477,6 +481,12 @@ static PyObject *
 Journal_record_stderr(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	return Journal_record_common(self, args, kwds, suselog_record_stderr);
+}
+
+static PyObject *
+Journal_record_buffer(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	return Journal_record_common(self, args, kwds, suselog_record_buffer);
 }
 
 /*

@@ -28,8 +28,8 @@ install: libsusetest.so susetest.h
 	install -m444 susetest.h $(DESTDIR)$(INCDIR)
 	install -d $(DESTDIR)$(LIBDIR)
 	install -m555 libsusetest.so $(DESTDIR)$(LIBDIR)/libsusetest.so.$(VERSION)
-	ln -s libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so.$(MAJOR)
-	ln -s libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so
+	ln -sf libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so.$(MAJOR)
+	ln -sf libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so
 
 
 config.o: config.c susetest.h

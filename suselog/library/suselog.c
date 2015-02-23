@@ -338,6 +338,15 @@ suselog_record_stderr(suselog_journal_t *journal, const char *data, size_t len)
 	//append data to overall stderr buffer;
 }
 
+void
+suselog_record_buffer(suselog_journal_t *journal, const char *data, size_t len)
+{
+	suselog_test_t *test;
+
+	if ((test = journal->current.test) != NULL)
+		__suselog_test_log_output(test, SUSELOG_MSG_INFO, data, len);
+}
+
 static suselog_group_t *
 suselog_group_new(const char *name, const char *description)
 {
