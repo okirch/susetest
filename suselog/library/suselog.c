@@ -692,7 +692,7 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 	const char *status;
 	xml_node_t *node;
 
-	node = xml_node_new("test", parent);
+	node = xml_node_new("testcase", parent);
 	xml_node_add_attr(node, "name", test->common.name);
 	xml_node_add_attr(node, "classname", test->common.description);
 	xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&test->common.timestamp));
