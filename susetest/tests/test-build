@@ -12,6 +12,8 @@ export EXTERNAL_IP_CLIENT=10.162.188.180
 export SYSTEM_CLIENT=SLE-12
 export ARCH_CLIENT=x86-64
 
+export WORKSPACE=/tmp/workspace
+
 cat >tests/nodes <<-EOF
 	node	client
 	repo	http://some/where

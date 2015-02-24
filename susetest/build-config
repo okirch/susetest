@@ -48,3 +48,8 @@ for node in $nodes; do
 		susetest config node-set-attr "$node" system="$value"
 	fi
 done
+
+if [ -n "$WORKSPACE" ]; then
+	susetest config set-attr workspace="$WORKSPACE"
+	susetest config set-attr report="$WORKSPACE/report.xml"
+fi
