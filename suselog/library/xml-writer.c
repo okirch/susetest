@@ -184,8 +184,6 @@ xml_node_output(const xml_node_t *node, xml_writer_t *writer, unsigned int inden
 			if (attr->value)
 				xml_writer_printf(writer, " %s=\"%s\"",
 						attr->name, xml_escape_quote(attr->value));
-			else
-				xml_writer_printf(writer, " %s", attr->name);
 		}
 
 		if (node->cdata == NULL && node->children == NULL) {
