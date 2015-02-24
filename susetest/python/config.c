@@ -29,6 +29,7 @@ static void		Config_dealloc(susetest_Config *self);
 static PyObject *	Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static int		Config_init(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_target(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_value(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_buildAttrs(susetest_node_config_t *tgt);
 
 /*
@@ -39,6 +40,9 @@ static PyObject *	Config_buildAttrs(susetest_node_config_t *tgt);
 static PyMethodDef susetest_ConfigMethods[] = {
       {	"target", (PyCFunction) Config_target, METH_VARARGS | METH_KEYWORDS,
 	"Obtain a handle for the target with the given nickname"
+      },
+      {	"value", (PyCFunction) Config_value, METH_VARARGS | METH_KEYWORDS,
+	"Query global string attribute"
       },
       {	NULL }
 };
@@ -120,6 +124,27 @@ int
 Config_Check(PyObject *self)
 {
 	return PyType_IsSubtype(Py_TYPE(self), &susetest_ConfigType);
+}
+
+static PyObject *
+Config_value(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {
+		"attrname",
+		NULL
+	};
+	char *name = NULL;
+	const char *value;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
+		return NULL;
+
+	value = susetest_config_get_attr(self->config, name);
+	if (value != NULL)
+		return PyString_FromString(value);
+
+	Py_INCREF(Py_None);
+	return Py_None;
 }
 
 static PyObject *
