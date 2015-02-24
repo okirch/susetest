@@ -4,13 +4,13 @@ MAJOR	= 0
 MINOR	= 1
 VERSION	= $(MAJOR).$(MINOR)
 
-ifdef RPM_OPTIMIZE
-CCOPT	= $(RPM_OPTIMIZE)
+ifdef RPM_OPT_FLAGS
+CCOPT	= $(RPM_OPT_FLAGS)
 else
 CCOPT	= -Wall -O2 -g
 endif
 
-CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT)
+CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT) -I/usr/include/twopence
 
 LIBDIR ?= /usr/lib64
 INCDIR ?= /usr/include

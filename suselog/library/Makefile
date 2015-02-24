@@ -1,10 +1,15 @@
+ifdef RPM_OPT_FLAGS
+CCOPT	= $(RPM_OPT_FLAGS)
+else
+CCOPT	= -Wall -O2 -g
+endif
 
 TARGETS = \
 	  libsuselog.so \
 	  test-logging \
 	  test-junit
 
-CFLAGS	= -fPIC -Wall -g -D_GNU_SOURCE
+CFLAGS	= -fPIC $(CCOPT) -D_GNU_SOURCE
 LIBOBJS	= suselog.o \
 	  util.o \
 	  xml.o \

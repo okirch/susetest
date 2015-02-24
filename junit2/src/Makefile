@@ -3,8 +3,17 @@
 # and
 #   -lQt5Xml -lQt5Core 
 # instead.
-CXXFLAGS = -Wall
-LDLIBS	= -lQtXml -lQtCore
+QT_INC	= $(CCOPT)
+QT_LIBS	= -lQtXml -lQtCore
+
+ifdef RPM_OPT_FLAGS
+CCOPT	= $(RPM_OPT_FLAGS)
+else
+CCOPT	= -Wall -O2 -g
+endif
+
+CXXFLAGS = $(CCOPT) $(QT_INC)
+LDLIBS	= $(QT_LIBS)
 
 OBJS	= main.o to_junit.o decomposition.o
 
