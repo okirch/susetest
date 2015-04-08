@@ -157,6 +157,7 @@ suselog_journal_new(const char *name, suselog_writer_t *writer)
 	suselog_autoname_init(&journal->autoname, "group");
 	__set_string(&journal->hostname, __suselog_hostname());
 	journal->writer = writer;
+	journal->systemout = SUSELOG_LEVEL_TEST;
 	LIST_INIT(&journal->groups);
 
 
@@ -186,6 +187,12 @@ void
 suselog_journal_set_hostname(suselog_journal_t *journal, const char *hostname)
 {
 	__set_string(&journal->hostname, hostname);
+}
+
+void
+suselog_journal_set_systemout_level(suselog_journal_t *journal, suselog_level_t level)
+{
+	journal->systemout = level;
 }
 
 suselog_group_t *
@@ -620,7 +627,8 @@ suselog_stats_aggregate(suselog_stats_t *agg, const suselog_stats_t *sub)
 static xml_node_t *	__suselog_junit_journal(suselog_journal_t *);
 static xml_node_t *	__suselog_junit_group(suselog_group_t *, xml_node_t *);
 static xml_node_t *	__suselog_junit_test(suselog_test_t *, xml_node_t *);
-static xml_node_t *	__suselog_junit_system_out(suselog_group_t *, xml_node_t *);
+static xml_node_t *	__suselog_junit_group_system_out(suselog_group_t *, xml_node_t *);
+static xml_node_t *	__suselog_junit_test_system_out(suselog_test_t *, xml_node_t *);
 static xml_node_t *	__suselog_junit_pre_string(xml_node_t *, const char *, const char *,
 				const suselog_test_t *, suselog_severity_t);
 static void		__suselog_junit_pre_string_append(FILE *, const suselog_test_t *);
@@ -688,11 +696,17 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 	xml_node_add_attr_uint(node, "id", group->id);
 	__suselog_junit_stats(node, &group->stats);
 
+	printf("writing systemout to level %d\n", group->parent->systemout);
 	for (test = group->tests.head; test; test = test->next) {
-		__suselog_junit_test(test, node);
+		xml_node_t *child;
+
+		child = __suselog_junit_test(test, node);
+		if (group->parent->systemout == SUSELOG_LEVEL_TEST)
+			__suselog_junit_test_system_out(test, child);
 	}
 
-	__suselog_junit_system_out(group, node);
+	if (group->parent->systemout == SUSELOG_LEVEL_GROUP)
+		__suselog_junit_group_system_out(group, node);
 
 	return node;
 }
@@ -729,48 +743,82 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 	if (status)
 		xml_node_add_attr(node, "status", status);
 
-#if 0
-	if (test->extra_info.head != NULL) {
-		suselog_info_t *info;
-		FILE *fp;
-		char *string;
-		size_t len;
-		xml_node_t *out;
-
-		fp = open_memstream(&string, &len);
-		for (info = test->extra_info.head; info; info = info->next) {
-			fprintf(fp, "%s\n", info->message);
-		}
-		fclose(fp);
-
-		out = xml_node_new("system-out", node);
-		xml_cdata_new(out, string);
-		free(string);
-	}
-#endif
-
 	return node;
 }
 
-static xml_node_t *
-__suselog_junit_system_out(suselog_group_t *group, xml_node_t *node)
+struct suselog_msg_collector {
+	FILE *		fp;
+	char *		string;
+	size_t		len;
+};
+
+static void
+suselog_message_collector_init(struct suselog_msg_collector *c)
 {
-	FILE *fp;
-	char *string;
-	size_t len;
-	suselog_test_t *test;
-	xml_node_t *out;
+	c->fp = open_memstream(&c->string, &c->len);
+}
 
-	fp = open_memstream(&string, &len);
-	for (test = group->tests.head; test; test = test->next) {
-		fprintf(fp, "# %s (%s)\n", test->common.name, test->common.description);
-		__suselog_junit_pre_string_append(fp, test);
+static const char *
+suselog_message_collector_get_string(struct suselog_msg_collector *c)
+{
+	if (c->fp) {
+		fclose(c->fp);
+		c->fp = NULL;
 	}
-	fclose(fp);
 
-	out = xml_node_new("system-out", node);
-	xml_cdata_new(out, string);
-	free(string);
+	if (c->string == NULL || c->string[0] == '\0')
+		return NULL;
+	return c->string;
+}
+
+static void
+suselog_message_collector_destroy(struct suselog_msg_collector *c)
+{
+	if (c->fp)
+		fclose(c->fp);
+	if (c->string)
+		free(c->string);
+	memset(c, 0, sizeof(*c));
+}
+
+static xml_node_t *
+__suselog_junit_group_system_out(suselog_group_t *group, xml_node_t *node)
+{
+	struct suselog_msg_collector collector;
+	const char *string;
+	suselog_test_t *test;
+	xml_node_t *out = NULL;
+
+	suselog_message_collector_init(&collector);
+	for (test = group->tests.head; test; test = test->next) {
+		fprintf(collector.fp, "# %s (%s)\n", test->common.name, test->common.description);
+		__suselog_junit_pre_string_append(collector.fp, test);
+	}
+
+	if ((string = suselog_message_collector_get_string(&collector)) != NULL) {
+		out = xml_node_new("system-out", node);
+		xml_cdata_new(out, string);
+	}
+
+
+	suselog_message_collector_destroy(&collector);
+	return out;
+}
+
+static xml_node_t *
+__suselog_junit_test_system_out(suselog_test_t *test, xml_node_t *node)
+{
+	struct suselog_msg_collector collector;
+	const char *string;
+	xml_node_t *out = NULL;
+
+	suselog_message_collector_init(&collector);
+	__suselog_junit_pre_string_append(collector.fp, test);
+
+	if ((string = suselog_message_collector_get_string(&collector)) != NULL) {
+		out = xml_node_new("system-out", node);
+		xml_cdata_new(out, string);
+	}
 
 	return out;
 }
@@ -837,16 +885,14 @@ static xml_node_t *
 __suselog_junit_pre_string(xml_node_t *parent, const char *name, const char *type,
 				const suselog_test_t *test, suselog_severity_t severity)
 {
+	struct suselog_msg_collector collector;
+	const char *string;
 	xml_node_t *node = NULL;
-	FILE *fp;
-	char *string;
-	size_t len;
 
-	fp = open_memstream(&string, &len);
-	__suselog_junit_pre_string_append(fp, test);
-	fclose(fp);
+	suselog_message_collector_init(&collector);
+	__suselog_junit_pre_string_append(collector.fp, test);
 
-	if (string) {
+	if ((string = suselog_message_collector_get_string(&collector)) != NULL) {
 		const char *msg;
 
 		node = xml_node_new(name, parent);
@@ -854,7 +900,6 @@ __suselog_junit_pre_string(xml_node_t *parent, const char *name, const char *typ
 		if ((msg = suselog_test_get_message(test, severity)) != NULL)
 			xml_node_add_attr(node, "message", __suselog_junit_escape_attr(msg));
 		xml_cdata_new(node, string);
-		free(string);
 	}
 	return node;
 }

@@ -53,6 +53,10 @@ typedef struct suselog_group suselog_group_t;
 typedef struct suselog_journal suselog_journal_t;
 typedef const struct suselog_writer suselog_writer_t;
 
+typedef enum {
+	SUSELOG_LEVEL_GROUP,
+	SUSELOG_LEVEL_TEST,
+} suselog_level_t;
 
 extern suselog_group_t *suselog_current_group(suselog_journal_t *);
 extern suselog_test_t *	suselog_current_test(suselog_journal_t *);
@@ -60,6 +64,7 @@ extern suselog_journal_t *suselog_journal_new(const char *, suselog_writer_t *);
 extern void		suselog_journal_set_auto_group_name(suselog_journal_t *, const char *name);
 extern void		suselog_journal_set_hostname(suselog_journal_t *, const char *name);
 extern void		suselog_journal_set_pathname(suselog_journal_t *, const char *name);
+extern void		suselog_journal_set_systemout_level(suselog_journal_t *, suselog_level_t);
 extern void		suselog_journal_write(suselog_journal_t *);
 extern void		suselog_journal_free(suselog_journal_t *);
 extern suselog_group_t *suselog_group_begin(suselog_journal_t *, const char *name, const char *description);

@@ -23,6 +23,7 @@
 #ifndef SUSELOG_P_H
 #define SUSELOG_P_H
 
+#include <stdbool.h>
 #include "suselog.h"
 
 #define LIST_HEAD(type) \
@@ -114,6 +115,8 @@ struct suselog_journal  {
 	char *			pathname;
 	char *			hostname;
 	suselog_writer_t *	writer;
+
+	suselog_level_t		systemout;
 
 	struct {
 	  suselog_group_t *	group;
