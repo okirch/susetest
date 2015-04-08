@@ -35,16 +35,18 @@ main(int argc, char **argv)
 	group1 = suselog_group_begin(journal, NULL, NULL);
 
 	test1 = suselog_test_begin(journal, NULL, "verify test name");
-	if (!strcmp(suselog_test_fullname(test1), "mytest.group0.test0"))
+	if (!strcmp(suselog_test_name(test1), "mytest.group0"))
 		suselog_success(journal);
 	else
-		suselog_failure(journal, "unexpected test name %s", suselog_test_fullname(test1));
+		suselog_failure(journal, "unexpected test name %s", suselog_test_name(test1));
 
+#if 0
 	test2 = suselog_test_begin(journal, NULL, "verify test autoname uniqueness");
 	if (strcmp(suselog_test_name(test1), suselog_test_name(test2)))
 		suselog_success(journal);
 	else
 		suselog_failure(journal, "automatically assigned test names not unique (%s)", suselog_test_name(test1));
+#endif
 
 	test2 = suselog_test_begin(journal, NULL, "verify current_test()");
 	if (test2 == suselog_current_test(journal))
@@ -89,7 +91,7 @@ main(int argc, char **argv)
 
 	group1 = suselog_group_begin(journal, "foobar", NULL);
 	suselog_test_begin(journal, NULL, "verify group naming");
-	if (!strcmp(suselog_group_name(group1), "foobar"))
+	if (!strcmp(suselog_group_name(group1), "mytest.foobar"))
 		suselog_success(journal);
 	else
 		suselog_failure(journal, "unexpected group name %s", suselog_group_name(group1));

@@ -31,7 +31,7 @@ main(int argc, char **argv)
 	journal = suselog_journal_new("mytest", suselog_writer_normal());
 	suselog_journal_set_pathname(journal, "test-report.xml");
 
-	group = suselog_group_begin(journal, NULL, NULL);
+	group = suselog_group_begin(journal, NULL, "This is a test group");
 	suselog_test_begin(journal, "testfoo", "testing the foo thing");
 	suselog_success(journal);
 
@@ -41,7 +41,7 @@ main(int argc, char **argv)
 	suselog_test_begin(journal, "testbaz", "testing the baz thing");
 	suselog_failure(journal, "baz crapped out");
 
-	group = suselog_group_begin(journal, NULL, NULL);
+	group = suselog_group_begin(journal, NULL, "This is another test group");
 	suselog_test_begin(journal, "frobnication", "frobnication is tricky");
 	suselog_error(journal, "argh!");
 

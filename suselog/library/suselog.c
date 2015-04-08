@@ -374,11 +374,18 @@ suselog_group_t *
 suselog_group_begin(suselog_journal_t *journal, const char *name, const char *description)
 {
 	suselog_group_t *group;
+	char fullname[256];
 
 	suselog_group_finish(journal);
 
+	/* The name of a group should always be something like $package.$classname
+	 * where $package is the name given to suselog_journal_new and
+	 * $classname is used to group the entries in this group of tests.
+	 */
 	if (name == NULL)
 		name = suselog_autoname_next(&journal->autoname);
+	snprintf(fullname, sizeof(fullname), "%s.%s", journal->common.name, name);
+	name = fullname;
 
 	group = suselog_group_new(name, description);
 	group->id = journal->num_groups++;
@@ -459,8 +466,12 @@ suselog_test_begin(suselog_journal_t *journal, const char *name, const char *des
 	 && test->status == SUSELOG_STATUS_RUNNING)
 		suselog_test_finish(journal, SUSELOG_STATUS_SUCCESS);
 
+	/* The name defaults to the group name.
+	 * This is what ends up in the "classname" attribute, which jenkins uses
+	 * to group test cases together
+	 */
 	if (name == NULL)
-		name = suselog_autoname_next(&group->autoname);
+		name = group->common.name;
 
 	test = suselog_test_new(name, description);
 	LIST_APPEND(&group->tests, test);
@@ -669,8 +680,8 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 
 	node = xml_node_new("testsuite", parent);
 
-	xml_node_add_attr(node, "name", group->common.name);
-	xml_node_add_attr(node, "package", group->common.description);
+	xml_node_add_attr(node, "package", group->common.name);
+	xml_node_add_attr(node, "name", group->common.description);
 	xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&group->common.timestamp));
 	xml_node_add_attr(node, "hostname", group->hostname);
 	xml_node_add_attr_double(node, "time", group->common.duration);
@@ -693,9 +704,9 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 	xml_node_t *node;
 
 	node = xml_node_new("testcase", parent);
-	xml_node_add_attr(node, "name", test->common.name);
-	xml_node_add_attr(node, "classname", test->common.description);
-	xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&test->common.timestamp));
+	xml_node_add_attr(node, "classname", test->common.name);
+	xml_node_add_attr(node, "name", test->common.description);
+	/* xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&test->common.timestamp)); */
 
 	/* I'm not entirely sure on the status attribute. It's in jenkins' junit schema, but
 	 * not in the one at https://windyroad.com.au/dl/Open%20Source/JUnit.xsd
@@ -1107,7 +1118,7 @@ __suselog_writer_normal_begin_group(const suselog_group_t *group)
 	if (group->common.description) {
 		fprintf(stderr, "=== %s ===\n", group->common.description);
 	} else {
-		fprintf(stderr, "=== %s ===\n", suselog_group_fullname(group));
+		fprintf(stderr, "=== %s ===\n", group->common.name);
 	}
 }
 
