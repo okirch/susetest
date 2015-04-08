@@ -116,7 +116,8 @@ struct suselog_journal  {
 	char *			hostname;
 	suselog_writer_t *	writer;
 
-	suselog_level_t		systemout;
+	suselog_level_t		max_name_level;
+	suselog_level_t		systemout_level;
 
 	struct {
 	  suselog_group_t *	group;

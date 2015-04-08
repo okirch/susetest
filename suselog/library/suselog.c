@@ -157,7 +157,16 @@ suselog_journal_new(const char *name, suselog_writer_t *writer)
 	suselog_autoname_init(&journal->autoname, "group");
 	__set_string(&journal->hostname, __suselog_hostname());
 	journal->writer = writer;
-	journal->systemout = SUSELOG_LEVEL_TEST;
+
+	/* Do not allow per-test names. This is creating more confusion in jenkins than
+	 * it's worth it.
+	 */
+	journal->max_name_level = SUSELOG_LEVEL_GROUP;
+
+	/* On the other hand, jenkins will grok <systemout> elements as children
+	 * of a <testcase> node, which is not part of the official schema. */
+	journal->systemout_level = SUSELOG_LEVEL_TEST;
+
 	LIST_INIT(&journal->groups);
 
 
@@ -190,9 +199,15 @@ suselog_journal_set_hostname(suselog_journal_t *journal, const char *hostname)
 }
 
 void
+suselog_journal_set_max_name_level(suselog_journal_t *journal, suselog_level_t level)
+{
+	journal->max_name_level = level;
+}
+
+void
 suselog_journal_set_systemout_level(suselog_journal_t *journal, suselog_level_t level)
 {
-	journal->systemout = level;
+	journal->systemout_level = level;
 }
 
 suselog_group_t *
@@ -478,7 +493,7 @@ suselog_test_begin(suselog_journal_t *journal, const char *name, const char *des
 	 * This is what ends up in the "classname" attribute, which jenkins uses
 	 * to group test cases together
 	 */
-	if (name == NULL) {
+	if (name == NULL || journal->max_name_level < SUSELOG_LEVEL_TEST) {
 		name = group->common.name;
 	} else {
 		snprintf(longname, sizeof(longname), "%s.%s", group->common.name, name);
@@ -701,16 +716,15 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 	xml_node_add_attr_uint(node, "id", group->id);
 	__suselog_junit_stats(node, &group->stats);
 
-	printf("writing systemout to level %d\n", group->parent->systemout);
 	for (test = group->tests.head; test; test = test->next) {
 		xml_node_t *child;
 
 		child = __suselog_junit_test(test, node);
-		if (group->parent->systemout == SUSELOG_LEVEL_TEST)
+		if (group->parent->systemout_level == SUSELOG_LEVEL_TEST)
 			__suselog_junit_test_system_out(test, child);
 	}
 
-	if (group->parent->systemout == SUSELOG_LEVEL_GROUP)
+	if (group->parent->systemout_level == SUSELOG_LEVEL_GROUP)
 		__suselog_junit_group_system_out(group, node);
 
 	return node;
