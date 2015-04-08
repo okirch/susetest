@@ -465,6 +465,7 @@ suselog_test_begin(suselog_journal_t *journal, const char *name, const char *des
 {
 	suselog_group_t *group;
 	suselog_test_t *test;
+	char longname[256];
 
 	if ((group = journal->current.group) == NULL)
 		group = suselog_group_begin(journal, NULL, NULL);
@@ -477,8 +478,12 @@ suselog_test_begin(suselog_journal_t *journal, const char *name, const char *des
 	 * This is what ends up in the "classname" attribute, which jenkins uses
 	 * to group test cases together
 	 */
-	if (name == NULL)
+	if (name == NULL) {
 		name = group->common.name;
+	} else {
+		snprintf(longname, sizeof(longname), "%s.%s", group->common.name, name);
+		name = longname;
+	}
 
 	test = suselog_test_new(name, description);
 	LIST_APPEND(&group->tests, test);
