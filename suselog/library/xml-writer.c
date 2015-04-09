@@ -170,7 +170,7 @@ xml_node_output(const xml_node_t *node, xml_writer_t *writer, unsigned int inden
 	int newline = 0;
 
 	if (__string_equal(node->name, "![CDATA[")) {
-		xml_writer_printf(writer, "%*.*s<%s", indent, indent, "", node->name);
+		xml_writer_printf(writer, "<%s", node->name);
 		xml_writer_printf(writer, "%s", node->cdata);
 		xml_writer_printf(writer, "]]>\n");
 		return;
