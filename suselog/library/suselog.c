@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <term.h>
 
 #include "suselog_p.h"
 #include "xml.h"
@@ -208,6 +209,12 @@ void
 suselog_journal_set_systemout_level(suselog_journal_t *journal, suselog_level_t level)
 {
 	journal->systemout_level = level;
+}
+
+void
+suselog_journal_set_color(suselog_journal_t *journal, int enabled)
+{
+	journal->use_colors = !!enabled;
 }
 
 suselog_group_t *
@@ -1187,13 +1194,59 @@ __suselog_writer_normal_begin_group(const suselog_group_t *group)
 	}
 }
 
+#define TI_BLACK	0
+#define TI_RED		1
+#define TI_GREEN	2
+#define TI_BLUE		4
+
+static int
+__suselog_writer_putc(int c)
+{
+	return write(2, &c, 1);
+}
+
+static inline void
+__suselog_writer_print_colored(const suselog_test_t *test, int color, const char *word)
+{
+	static int need_setterm = true;
+	const char *setaf;
+
+	if (test == NULL
+	 || test->parent == NULL
+	 || test->parent->parent == NULL
+	 || !test->parent->parent->use_colors) {
+		fprintf(stderr, "%s", word);
+		return;
+	}
+
+	if (need_setterm) {
+		need_setterm = false;
+		setupterm(NULL, 1, NULL);
+	}
+
+	if ((setaf = tigetstr("setaf")) == (char *) -1 || setaf == NULL) {
+		fprintf(stderr, "%s", word);
+		return;
+	}
+
+	fflush(stderr);
+
+	/* write(2, setaf, strlen(setaf)); */
+	tputs(tparm(setaf, color), 1, __suselog_writer_putc);
+	write(2, word, strlen(word));
+	tputs(tparm(setaf, TI_BLACK), 1, __suselog_writer_putc);
+}
+
 static void
 __suselog_writer_normal_begin_test(const suselog_test_t *test)
 {
+	fprintf(stderr, "\n---------------------------------\n\n---------------------------------\n");
+
+	__suselog_writer_print_colored(test, TI_BLUE, "TEST");
 	if (test->common.description) {
-		fprintf(stderr, "TEST: %s\n", test->common.description);
+		fprintf(stderr, ": %s\n", test->common.description);
 	} else {
-		fprintf(stderr, "TEST: %s\n", suselog_test_fullname(test));
+		fprintf(stderr, ": %s\n", suselog_test_fullname(test));
 	}
 }
 
@@ -1204,16 +1257,16 @@ __suselog_writer_normal_end_test(const suselog_test_t *test)
 
 	switch (test->status) {
 	case SUSELOG_STATUS_SUCCESS:
-		fprintf(stderr, "SUCCESS");
+		__suselog_writer_print_colored(test, TI_GREEN, "SUCCESS");
 		break;
 
 	case SUSELOG_STATUS_FAILURE:
-		fprintf(stderr, "FAIL");
+		__suselog_writer_print_colored(test, TI_RED, "FAIL");
 		msg = suselog_test_get_message(test, SUSELOG_MSG_FAILURE);
 		break;
 
 	case SUSELOG_STATUS_ERROR:
-		fprintf(stderr, "ERROR");
+		__suselog_writer_print_colored(test, TI_RED, "ERROR");
 		msg = suselog_test_get_message(test, SUSELOG_MSG_ERROR);
 		break;
 
@@ -1222,7 +1275,8 @@ __suselog_writer_normal_end_test(const suselog_test_t *test)
 		break;
 
 	default:
-		fprintf(stderr, "ERROR: unexpected test status %d", test->status);
+		__suselog_writer_print_colored(test, TI_RED, "ERROR");
+		fprintf(stderr, ": unexpected test status %d", test->status);
 		break;
 	}
 

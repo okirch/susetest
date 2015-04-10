@@ -187,6 +187,7 @@ Journal_init(suselog_Journal *self, PyObject *args, PyObject *kwds)
 
 	if (pathname)
 		suselog_journal_set_pathname(self->journal, pathname);
+	suselog_journal_set_color(self->journal, 1);
 
 	return 0;
 }

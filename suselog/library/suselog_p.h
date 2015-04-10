@@ -118,6 +118,7 @@ struct suselog_journal  {
 
 	suselog_level_t		max_name_level;
 	suselog_level_t		systemout_level;
+	bool			use_colors;
 
 	struct {
 	  suselog_group_t *	group;

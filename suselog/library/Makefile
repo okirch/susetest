@@ -35,7 +35,7 @@ clean distclean::
 	rm -f test-report.xml
 
 libsuselog.so: $(LIBOBJS)
-	$(CC) $(CFLAGS) -o $@ -shared -Wl,-soname,$@.$(VERSION) $(LIBOBJS)
+	$(CC) $(CFLAGS) -o $@ -shared -Wl,-soname,$@.$(VERSION) $(LIBOBJS) -lncurses
 
 suselog.o: suselog.c suselog.h suselog_p.h
 	$(CC) $(CFLAGS) -c -o $@ suselog.c
