@@ -90,3 +90,29 @@ class Target(twopence.Target):
 		self.logInfo("uploading data to " + remoteFilename)
 		self.journal.info("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
 		return self.sendfile(xfer)
+
+	def addHostEntry(self, addr, fqdn):
+		alias = fqdn.split('.')[0]
+		if alias != fqdn:
+			line = "%s %s %s" % (addr, fqdn, alias)
+		else:
+			line = "%s %s" % (addr, fqdn)
+
+		self.logInfo("downloading /etc/hosts")
+		status = self.recvfile("/etc/hosts");
+		if not status:
+			self.logError("unable to download hosts file");
+			return False;
+
+		if line in str(status.buffer).split('\n'):
+			self.logInfo("requested line already in hosts file, nothing to be done")
+			return True
+
+		buffer = status.buffer + "\n" + line + "\n"
+		if not self.sendfile("/etc/hosts", data = buffer, user = "root"):
+			self.logError("unable to upload modified hosts file");
+			return False
+
+		self.run("rcnscd reload", user = "root")
+
+		return True
