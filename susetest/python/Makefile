@@ -15,9 +15,9 @@ PYDIR  := $(shell readlink -f /usr/lib64/python/site-packages)
 OBJS	= extension.o \
 	  config.o
 
-all:	susetest.so
+all:	susetestimpl.so susetest.py
 
-susetest.so: $(OBJS)
+susetestimpl.so: $(OBJS)
 	$(CC) --shared -o $@ $(OBJS) -L../library -lsusetest
 
 distclean clean::
@@ -26,6 +26,7 @@ distclean clean::
 distclean::
 	;
 
-install:
+install: susetestimpl.so susetest.py
 	mkdir -p $(DESTDIR)$(PYDIR)
-	install -m555 susetest.so $(DESTDIR)$(PYDIR)
+	install -m555 susetestimpl.so $(DESTDIR)$(PYDIR)
+	install -m555 susetest.py $(DESTDIR)$(PYDIR)

@@ -33,22 +33,28 @@ typedef struct {
 	susetest_config_t *config;
 } susetest_Config;
 
+typedef struct {
+	PyObject_HEAD
+
+	char *		name;
+	PyObject *	parentObject;
+	susetest_node_config_t *config;
+} susetest_NodeConfig;
 
 extern PyTypeObject	susetest_ConfigType;
+extern PyTypeObject	susetest_NodeConfigType;
 
 extern PyObject *	susetest_importType(const char *module, const char *typeName);
 extern PyObject *	susetest_callType(PyTypeObject *typeObject, PyObject *args, PyObject *kwds);
 
 static inline void
-assign_string(char **var, char *str)
+assign_string(char **var, const char *str)
 {
 	if (*var == str)
 		return;
-	if (str)
-		str = strdup(str);
 	if (*var)
 		free(*var);
-	*var = str;
+	*var = str?  strdup(str) : NULL;
 }
 
 static inline void
