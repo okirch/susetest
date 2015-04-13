@@ -91,18 +91,18 @@ susetest_config_group_get_child(const susetest_config_group_t *cfg, const char *
 susetest_config_group_t *
 susetest_config_group_add_child(susetest_config_t *cfg, const char *type, const char *name, bool unique)
 {
-	susetest_config_group_t *child;
+	susetest_config_group_t *child, **pos;
 
 	if (unique && susetest_config_group_get_child(cfg, type, name) != NULL) {
 		fprintf(stderr, "duplicate %s group named \"%s\"\n", type, name);
 		return NULL;
 	}
 
-	child = susetest_config_group_new(type, name);
+	/* Find the tail of the list */
+	for (pos = &cfg->children; (child = *pos) != NULL; pos = &child->next)
+		;
 
-	child->next = cfg->children;
-	cfg->children = child;
-
+	*pos = child = susetest_config_group_new(type, name);
 	return child;
 }
 
