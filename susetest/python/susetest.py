@@ -52,6 +52,14 @@ class Target(twopence.Target):
 	def logError(self, message):
 		self.journal.error(self.name + ": " + message)
 
+	def describeException(self):
+	        import traceback
+		import StringIO
+
+		file = StringIO.StringIO()
+		traceback.print_exc(None, file)
+		return file.getvalue()
+
 	def configureOtherNetworks(self):
 		result = True
 
@@ -128,10 +136,14 @@ class Target(twopence.Target):
 			fail_on_error = kwargs['fail_on_error']
 			del kwargs['fail_on_error']
 
+		# Workaround for a twopence problem
+		if isinstance(kwargs, dict) and kwargs.has_key('timeout'):
+			if kwargs['timeout'] < 0:
+				del kwargs['timeout']
 
 		if not isinstance(cmd, twopence.Command):
 			cmd = twopence.Command(cmd, **kwargs)
-		if kwargs is not None:
+		elif kwargs is not None:
 			for key, value in kwargs.iteritems():
 				if key == "suppressOutput" and value:
 					# argh, crappy interface - we need to fix this pronto
@@ -155,13 +167,15 @@ class Target(twopence.Target):
 			status = super(Target, self).run(cmd)
 		except:
 			self.logError("command execution failed with exception")
+			self.journal.recordStderr(self.describeException())
+
 		        status = twopence.Status(256, bytearray(), bytearray())
 
 		if status == None or isinstance(status, bool):
 			# The command was backgrounded, and there is no status
 			# yet.
 			self.logInfo("Command was backgrounded")
-			if fail_in_error:
+			if fail_on_error:
 				self.logInfo("ignoring fail_on_error setting for backgrounded commands")
 			return True
 
@@ -195,6 +209,7 @@ class Target(twopence.Target):
 		if status == None:
 			return None
 
+		cmd = status.command
 		if not status:
 			self.logInfo("backgrounded command \"" + cmd.commandline + "\" failed: " + status.message)
 		else:
