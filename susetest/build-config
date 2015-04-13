@@ -4,12 +4,32 @@
 # Eric's jenkins scripts and puts everything into the config file.
 # 
 
-if [ $# -ne 2 ]; then
+set -- `getopt v $*`
+opt_verbose=''
+
+function usage {
+
 	cat >&2 <<-EOF
 	Usage:
-	$0 template config-path
+	$cmd [-v] template config-path
 EOF
 	exit 1
+}
+
+cmd=$0
+while [ $# -gt 0 ]; do
+	arg=$1; shift
+	case $arg in
+	--)	break;;
+	-v)	opt_verbose=yes;;
+	*)	echo "Unsupported argument $arg" >&2
+		usage;;
+	esac
+done
+
+if [ $# -ne 2 ]; then
+	echo "Missing argument(s)" >&2
+	usage
 fi
 
 nodes_file=$1
@@ -90,4 +110,10 @@ done
 if [ -n "$WORKSPACE" ]; then
 	susetest config set-attr workspace="$WORKSPACE"
 	susetest config set-attr report="$WORKSPACE/report.xml"
+fi
+
+if [ -n "$opt_verbose" ]; then
+	echo "== Configuration file =="
+	cat $TWOPENCE_CONFIG_PATH
+	echo "== ... =="
 fi

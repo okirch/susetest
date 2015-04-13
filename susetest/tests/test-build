@@ -39,7 +39,6 @@ EOF
 
 export LD_LIBRARY_PATH=$PWD/library
 export PATH=$PWD/shell:$PATH
-./build-config tests/nodes tests/out-config
+./build-config -v tests/nodes tests/out-config
 
-cat tests/out-config
 rm -f tests/out-config tests/nodes
