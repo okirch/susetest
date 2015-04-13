@@ -207,7 +207,8 @@ class Target(twopence.Target):
 
 	def recvbuffer(self, remoteFilename, **kwargs):
 		xfer = twopence.Transfer(remoteFilename)
-		xfer.user = self.defaultUser
+		if self.defaultUser:
+			xfer.user = self.defaultUser
 
 		if kwargs is not None:
 			for key, value in kwargs.iteritems():
@@ -229,7 +230,8 @@ class Target(twopence.Target):
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
 
 		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer))
-		xfer.user = self.defaultUser
+		if self.defaultUser:
+			xfer.user = self.defaultUser
 
 		if kwargs is not None:
 			for key, value in kwargs.iteritems():
@@ -273,7 +275,7 @@ class Target(twopence.Target):
 		if filename[0] != '/':
 			filename = "/etc/sysconfig/" + filename;
 
-		self.logInfo("Changing sysconfig file %s: set %s=%s" % (filename, var, value)
+		self.logInfo("Changing sysconfig file %s: set %s=%s" % (filename, var, value))
 
 		data = self.recvbuffer(filename);
 
