@@ -159,7 +159,7 @@ class Target(twopence.Target):
 			self.logInfo("Command was backgrounded")
 			if fail_in_error:
 				self.logInfo("ignoring fail_on_error setting for backgrounded commands")
-			retur True
+			return True
 
 		if not status:
 			msg = "command \"" + cmd.commandline + "\" failed: " + status.message
