@@ -1,14 +1,28 @@
 #!/bin/bash
 
+export SUBNET_IP_OUTSIDE=192.168.123.0/24
+export GATEWAY_IP_OUTSIDE=192.168.123.254
+
+export SUBNET_IP_INSIDE=192.168.7.0/24
+export GATEWAY_IP_INSIDE=N/A
+
 export TARGET_SERVER=ssh:127.0.0.1
 export INTERNAL_IP_SERVER=192.168.123.22
+export INTERNAL_IP_SERVER_ETH0=192.168.123.22
+export INTERNAL_IP_SERVER_ETH1=192.168.7.22
 export EXTERNAL_IP_SERVER=10.162.188.179
+export NETWORK_SERVER_ETH0=outside
+export NETWORK_SERVER_ETH1=inside
 export SYSTEM_SERVER=SLE-12
 export ARCH_SERVER=x86-64
 
 export TARGET_CLIENT=ssh:1.2.3.4
 export INTERNAL_IP_CLIENT=192.168.123.23
+export INTERNAL_IP_CLIENT_ETH0=192.168.123.23
+export INTERNAL_IP_CLIENT_ETH1=192.168.7.23
 export EXTERNAL_IP_CLIENT=10.162.188.180
+export NETWORK_CLIENT_ETH0=outside
+export NETWORK_CLIENT_ETH1=inside
 export SYSTEM_CLIENT=SLE-12
 export ARCH_CLIENT=x86-64
 
@@ -23,6 +37,8 @@ cat >tests/nodes <<-EOF
 	repo	http://some/where/else
 EOF
 
+export LD_LIBRARY_PATH=$PWD/library
+export PATH=$PWD/shell:$PATH
 ./build-config tests/nodes tests/out-config
 
 cat tests/out-config
