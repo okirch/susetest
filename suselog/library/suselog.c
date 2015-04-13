@@ -1208,7 +1208,8 @@ __suselog_writer_putc(int c)
 static inline void
 __suselog_writer_print_colored(const suselog_test_t *test, int color, const char *word)
 {
-	static int need_setterm = true;
+	static bool need_setterm = true;
+	static bool have_terminal = false;
 	const char *setaf;
 
 	if (test == NULL
@@ -1221,10 +1222,11 @@ __suselog_writer_print_colored(const suselog_test_t *test, int color, const char
 
 	if (need_setterm) {
 		need_setterm = false;
-		setupterm(NULL, 1, NULL);
+		if (setupterm(NULL, 1, NULL) >= 0)
+			have_terminal = true;
 	}
 
-	if ((setaf = tigetstr("setaf")) == (char *) -1 || setaf == NULL) {
+	if (!have_terminal || (setaf = tigetstr("setaf")) == (char *) -1 || setaf == NULL) {
 		fprintf(stderr, "%s", word);
 		return;
 	}
