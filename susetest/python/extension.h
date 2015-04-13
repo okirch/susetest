@@ -30,19 +30,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 typedef struct {
 	PyObject_HEAD
 
+	char *		name;
+	PyObject *	parentObject;
 	susetest_config_t *config;
 } susetest_Config;
 
-typedef struct {
-	PyObject_HEAD
-
-	char *		name;
-	PyObject *	parentObject;
-	susetest_node_config_t *config;
-} susetest_NodeConfig;
-
 extern PyTypeObject	susetest_ConfigType;
-extern PyTypeObject	susetest_NodeConfigType;
+extern PyTypeObject	susetest_ConfigGroupType;
 
 extern PyObject *	susetest_importType(const char *module, const char *typeName);
 extern PyObject *	susetest_callType(PyTypeObject *typeObject, PyObject *args, PyObject *kwds);

@@ -30,13 +30,16 @@ static PyObject *	Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 static int		Config_init(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_target(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_node(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_value(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_network(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_child(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_children(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_get(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_buildAttrs(susetest_node_config_t *tgt);
-static void		NodeConfig_dealloc(susetest_NodeConfig *self);
-static PyObject *	NodeConfig_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-static int		NodeConfig_init(susetest_NodeConfig *self, PyObject *args, PyObject *kwds);
-static void		NodeConfig_set(susetest_NodeConfig *, const char *, susetest_node_config_t *, PyObject *);
-static PyObject *	NodeConfig_getattr(susetest_NodeConfig *self, char *name);
+static void		ConfigGroup_dealloc(susetest_Config *self);
+static PyObject *	ConfigGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+static int		ConfigGroup_init(susetest_Config *self, PyObject *args, PyObject *kwds);
+static void		ConfigGroup_set(susetest_Config *, const char *, susetest_node_config_t *, PyObject *);
+static PyObject *	ConfigGroup_getattr(susetest_Config *self, char *name);
 
 
 /*
@@ -46,10 +49,22 @@ static PyMethodDef susetest_ConfigMethods[] = {
       {	"node", (PyCFunction) Config_node, METH_VARARGS | METH_KEYWORDS,
 	"Obtain the configuration for the node with the given nickname",
       },
+      {	"network", (PyCFunction) Config_network, METH_VARARGS | METH_KEYWORDS,
+	"Obtain the configuration for the network with the given name",
+      },
       {	"target", (PyCFunction) Config_target, METH_VARARGS | METH_KEYWORDS,
 	"Obtain a handle for the target with the given nickname"
       },
-      {	"value", (PyCFunction) Config_value, METH_VARARGS | METH_KEYWORDS,
+      {	"children", (PyCFunction) Config_children, METH_VARARGS | METH_KEYWORDS,
+	"Obtain all children with the given type",
+      },
+      {	"child", (PyCFunction) Config_child, METH_VARARGS | METH_KEYWORDS,
+	"Obtain the configuration group with the given type and name",
+      },
+      {	"value", (PyCFunction) Config_get, METH_VARARGS | METH_KEYWORDS,
+	"Query global string attribute"
+      },
+      {	"get", (PyCFunction) Config_get, METH_VARARGS | METH_KEYWORDS,
 	"Query global string attribute"
       },
       {	NULL }
@@ -70,26 +85,35 @@ PyTypeObject susetest_ConfigType = {
 };
 
 /*
- * Define the python bindings of class "NodeConfig"
+ * Define the python bindings of class "ConfigGroup"
  */
-static PyMethodDef susetest_NodeConfigMethods[] = {
+static PyMethodDef susetest_ConfigGroupMethods[] = {
+	{ "children", (PyCFunction) Config_children, METH_VARARGS | METH_KEYWORDS,
+	  "Obtain all children with the given type",
+	},
+	{ "child", (PyCFunction) Config_child, METH_VARARGS | METH_KEYWORDS,
+	  "Obtain the configuration group with the given type and name",
+	},
+	{ "get", (PyCFunction) Config_get, METH_VARARGS | METH_KEYWORDS,
+	  "Query global string attribute"
+	},
 	{ NULL }
 };
 
-PyTypeObject susetest_NodeConfigType = {
+PyTypeObject susetest_ConfigGroupType = {
 	PyObject_HEAD_INIT(NULL)
 
-	.tp_name	= "susetestimpl.NodeConfig",
-	.tp_basicsize	= sizeof(susetest_NodeConfig),
+	.tp_name	= "susetestimpl.ConfigGroup",
+	.tp_basicsize	= sizeof(susetest_Config),
 	.tp_flags	= Py_TPFLAGS_DEFAULT,
-	.tp_doc		= "NodeConfig object for twopence based tests",
+	.tp_doc		= "ConfigGroup object for twopence based tests",
 
-	.tp_methods	= susetest_NodeConfigMethods,
-	.tp_init	= (initproc) NodeConfig_init,
-	.tp_new		= NodeConfig_new,
-	.tp_dealloc	= (destructor) NodeConfig_dealloc,
+	.tp_methods	= susetest_ConfigGroupMethods,
+	.tp_init	= (initproc) ConfigGroup_init,
+	.tp_new		= ConfigGroup_new,
+	.tp_dealloc	= (destructor) ConfigGroup_dealloc,
 
-	.tp_getattr	= (getattrfunc) NodeConfig_getattr,
+	.tp_getattr	= (getattrfunc) ConfigGroup_getattr,
 };
 
 /*
@@ -105,6 +129,8 @@ Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		return NULL;
 
 	/* init members */
+	self->config = NULL;
+	self->parentObject = NULL;
 	self->config = NULL;
 
 	return (PyObject *)self;
@@ -146,9 +172,11 @@ Config_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 static void
 Config_dealloc(susetest_Config *self)
 {
+	drop_string(&self->name);
 	if (self->config)
 		susetest_config_free(self->config);
 	self->config = NULL;
+	drop_object(&self->parentObject);
 }
 
 int
@@ -158,7 +186,7 @@ Config_Check(PyObject *self)
 }
 
 static PyObject *
-Config_value(susetest_Config *self, PyObject *args, PyObject *kwds)
+Config_get(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
 		"attrname",
@@ -179,34 +207,115 @@ Config_value(susetest_Config *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-Config_node(susetest_Config *self, PyObject *args, PyObject *kwds)
+Config_childCommon(susetest_Config *self, const char *type, const char *name)
+{
+	susetest_config_t *child;
+	PyObject *args, *result = NULL;
+
+	if (self->config == NULL) {
+		PyErr_SetString(PyExc_ValueError, "configuration object is empty");
+		return NULL;
+	}
+
+	child = susetest_config_get_child(self->config, type, name);
+	if (child == NULL) {
+		PyErr_Format(PyExc_AttributeError, "Unknown %s \"%s\"", type, name);
+		return NULL;
+	}
+
+	args = PyTuple_New(0);
+	result = susetest_callType(&susetest_ConfigGroupType, args, NULL);
+	Py_DECREF(args);
+
+	if (result != NULL)
+		ConfigGroup_set((susetest_Config *) result, name, child, (PyObject *) self);
+
+	return result;
+}
+
+static PyObject *
+Config_childTyped(susetest_Config *self, const char *type, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
 		"name",
 		NULL
 	};
 	char *name = NULL;
-	susetest_node_config_t *node_conf;
-	PyObject *result = NULL;
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
 		return NULL;
 
-	node_conf = susetest_config_get_node(self->config, name);
-	if (node_conf == NULL) {
-		PyErr_Format(PyExc_AttributeError, "Unknown target \"%s\"", name);
+	return Config_childCommon(self, type, name);
+}
+
+static PyObject *
+Config_node(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return Config_childTyped(self, "node", args, kwds);
+}
+
+static PyObject *
+Config_network(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return Config_childTyped(self, "network", args, kwds);
+}
+
+static PyObject *
+Config_child(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {
+		"type",
+		"name",
+		NULL
+	};
+	char *type = NULL, *name = NULL;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ss", kwlist, &type, &name))
+		return NULL;
+
+	return Config_childCommon(self, type, name);
+}
+
+static PyObject *
+Config_children(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {
+		"type",
+		NULL
+	};
+	char *type = NULL;
+	const char **names;
+	PyObject *result = NULL;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &type))
+		return NULL;
+
+	if (self->config == NULL) {
+		PyErr_SetString(PyExc_ValueError, "configuration object is empty");
 		return NULL;
 	}
 
-	args = PyTuple_New(0);
-	result = susetest_callType(&susetest_NodeConfigType, args, NULL);
-	Py_DECREF(args);
+	names = susetest_config_get_children(self->config, type);
+	if (names == NULL) {
+		PyErr_SetString(PyExc_RuntimeError, "failed to get child names for configuration object");
+	} else {
+		unsigned int n;
 
-	if (result != NULL)
-		NodeConfig_set((susetest_NodeConfig *) result, name, node_conf, (PyObject *) self);
+		result = PyList_New(0);
+		for (n = 0; names[n]; ++n) {
+			PyObject *childObject;
+
+			childObject = Config_childCommon(self, type, names[n]);
+			PyList_Append(result, childObject);
+			Py_DECREF(childObject);
+		}
+		free(names);
+	}
 
 	return result;
 }
+
+
 
 static PyObject *
 Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
@@ -218,6 +327,12 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 	char *name = NULL;
 	susetest_node_config_t *node_conf;
 	PyObject *result = NULL;
+	static int warned = 0;
+
+	if (!warned) {
+		fprintf(stderr, "Config.target() method obsolete, please use Config.get('target') instead\n");
+		warned = 1;
+	}
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
 		return NULL;
@@ -268,11 +383,11 @@ Config_buildAttrs(susetest_node_config_t *tgt)
 }
 
 PyObject *
-NodeConfig_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+ConfigGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-	susetest_NodeConfig *self;
+	susetest_Config *self;
 
-	self = (susetest_NodeConfig *) type->tp_alloc(type, 0);
+	self = (susetest_Config *) type->tp_alloc(type, 0);
 	if (self == NULL)
 		return NULL;
 
@@ -283,7 +398,7 @@ NodeConfig_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 }
 
 int
-NodeConfig_init(susetest_NodeConfig *self, PyObject *args, PyObject *kwds)
+ConfigGroup_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
 		NULL
@@ -295,7 +410,7 @@ NodeConfig_init(susetest_NodeConfig *self, PyObject *args, PyObject *kwds)
 }
 
 void
-NodeConfig_set(susetest_NodeConfig *self, const char *name, susetest_node_config_t *node_conf, PyObject *parent)
+ConfigGroup_set(susetest_Config *self, const char *name, susetest_node_config_t *node_conf, PyObject *parent)
 {
 	assign_string(&self->name, name);
 	assign_object(&self->parentObject, parent);
@@ -303,7 +418,7 @@ NodeConfig_set(susetest_NodeConfig *self, const char *name, susetest_node_config
 }
 
 void
-NodeConfig_dealloc(susetest_NodeConfig *self)
+ConfigGroup_dealloc(susetest_Config *self)
 {
 	drop_string(&self->name);
 	drop_object(&self->parentObject);
@@ -311,7 +426,7 @@ NodeConfig_dealloc(susetest_NodeConfig *self)
 }
 
 static PyObject *
-NodeConfig_getattr(susetest_NodeConfig *self, char *name)
+ConfigGroup_getattr(susetest_Config *self, char *name)
 {
 	if (!strcmp(name, "name")) {
 		if (self->name == NULL)
@@ -340,7 +455,7 @@ NodeConfig_getattr(susetest_NodeConfig *self, char *name)
 		return self->parentObject;
 	}
 
-	return Py_FindMethod(susetest_NodeConfigMethods, (PyObject *) self, name);
+	return Py_FindMethod(susetest_ConfigGroupMethods, (PyObject *) self, name);
 
 return_none:
 	Py_INCREF(Py_None);
