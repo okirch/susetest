@@ -140,7 +140,27 @@ class Target(twopence.Target):
 				else:
 					setattr(cmd, key, value)
 
-		status = super(Target, self).run(cmd)
+		# FIXME: we should catch commands that have the background
+		# flag set. Right now, we can't because the attribute
+		# isn't implemented in the python twopence extension yet.
+
+		# Call twopence.Target.run() to execute the
+		# command for real.
+		# If there's an exception, catch it and log an error.
+		try:
+			status = super(Target, self).run(cmd)
+		except:
+			self.logError("command execution failed with exception")
+		        status = twopence.Status(256, bytearray(), bytearray())
+
+		if status == None or isinstance(status, bool):
+			# The command was backgrounded, and there is no status
+			# yet.
+			self.logInfo("Command was backgrounded")
+			if fail_in_error:
+				self.logInfo("ignoring fail_on_error setting for backgrounded commands")
+			retur True
+
 		if not status:
 			msg = "command \"" + cmd.commandline + "\" failed: " + status.message
 			if fail_on_error:
@@ -157,6 +177,30 @@ class Target(twopence.Target):
 	def runOrFail(self, cmd, **kwargs):
 		kwargs['fail_on_error'] = 1;
 		return self.run(cmd, **kwargs)
+
+	def runBackground(self, cmd, **kwargs):
+		kwargs['background'] = 1;
+		return self.run(cmd, **kwargs)
+
+	def wait(self, cmd = None):
+		if cmd:
+			status = super(Target, self).wait(cmd)
+		else:
+			status = super(Target, self).wait()
+
+		if status == None:
+			return None
+
+		if not status:
+			self.logInfo("backgrounded command \"" + cmd.commandline + "\" failed: " + status.message)
+		else:
+			self.logInfo("backgrounded command \"" + cmd.commandline + "\" finished")
+
+		self.journal.recordStdout(status.stdout);
+		if status.stdout != status.stderr:
+			self.journal.recordStderr(status.stderr);
+
+		return status
 
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
 
