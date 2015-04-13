@@ -137,6 +137,9 @@ class Target(twopence.Target):
 			for key, value in kwargs.iteritems():
 				if key == "fail_on_error":
 					fail_on_error = value
+				elif key == "suppressOutput" and value:
+					# argh, crappy interface - we need to fix this pronto
+					cmd.suppressOutput()
 				else:
 					setattr(cmd, key, value)
 
@@ -269,6 +272,8 @@ class Target(twopence.Target):
 
 		if filename[0] != '/':
 			filename = "/etc/sysconfig/" + filename;
+
+		self.logInfo("Changing sysconfig file %s: set %s=%s" % (filename, var, value)
 
 		data = self.recvbuffer(filename);
 
