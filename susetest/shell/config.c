@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
@@ -39,18 +40,22 @@
 
 #include "susetest.h"
 
-char *short_options = "f:h";
+char *short_options = "f:g:h";
 struct option long_options[] = {
   { "filename",	required_argument, NULL, 'f' },
+  { "group",	required_argument, NULL, 'g' },
   { "help",	no_argument, NULL, 'h' },
   { NULL }
 };
 
 static const char *		arg_get_nodename(const char *cmd, int argc, char **argv);
 static susetest_node_config_t *	arg_get_node(susetest_config_t *, const char *cmd, int argc, char **argv);
+static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
+static bool			resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p);
 static int			set_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static void			get_node_attrs(susetest_node_config_t *node, int argc, char **argv);
-static int			split_attr(char *nameattr, char **namep, char **valuep);
+static int			split_key_value(char *nameattr, char **namep, char **valuep);
+static void			warn_obsolete(const char *cmd);
 
 static void
 show_usage(void)
@@ -61,16 +66,12 @@ show_usage(void)
 		"Subcommands:\n"
 		"  create name1=value name2=\"quoted-value\" ...\n"
 		"     Create a new config file, optionally setting global attributes\n"
-		"  set-attr name1=value name2=\"quoted-value\" ...\n"
-		"     Explicitly set global attributes\n"
-		"  get-attr name\n"
-		"     Query a global attribute\n"
-		"  add-node name [attr=value] ...\n"
-		"     Add a named node, optionally setting node attributes\n"
-		"  node-set-attr node-name name1=value name2=\"quoted-value\" ...\n"
-		"     Explicitly set one ore more node attributes\n"
-		"  node-get-attr node-name name\n"
-		"     Query a node attribute\n"
+		"  add-group [--group <group-path>] type=name [attr=value] ...\n"
+		"     Create a named group (a node, a network), optionally setting node attributes\n"
+		"  set-attr [--group <group-path>] name1=value name2=\"quoted-value\" ...\n"
+		"     Explicitly set attributes\n"
+		"  get-attr [--group <group-path>] name\n"
+		"     Query an attribute\n"
 		"  delete\n"
 		"     Delete the config file\n"
 		"  help\n"
@@ -91,6 +92,7 @@ do_config(int argc, char **argv)
 {
 	susetest_config_t *cfg = NULL;
 	char *opt_pathname = NULL;
+	char *opt_groupname = NULL;
 	char *cmd;
 	int c;
 
@@ -116,6 +118,10 @@ do_config(int argc, char **argv)
 			opt_pathname = optarg;
 			break;
 
+		case 'g':
+			opt_groupname = optarg;
+			break;
+
 		default:
 			fprintf(stderr, "Unsupported option\n");
 			/* show usage */
@@ -136,7 +142,7 @@ do_config(int argc, char **argv)
 		while (optind < argc) {
 			char *name, *value;
 
-			if (!split_attr(argv[optind++], &name, &value))
+			if (!split_key_value(argv[optind++], &name, &value))
 				return 1;
 			susetest_config_set_attr(cfg, name, value);
 		}
@@ -154,10 +160,62 @@ do_config(int argc, char **argv)
 			return 1;
 		}
 
+		if (!strcmp(cmd, "add-group")) {
+			susetest_config_t *group = cfg;
+			const char *type, *name;
+
+			if (!resolve_group(cmd, opt_groupname, &group))
+				return 1;
+
+			/* Parse type=name */
+			if (!arg_get_type_and_name(cmd, argc, argv, &type, &name))
+				return 1;
+
+			group = susetest_config_add_child(group, type, name);
+			if (group == NULL) {
+				fprintf(stderr, "susetest config: unable to add %s \"%s\"\n", type, name);
+				return 1;
+			}
+
+			if (!set_node_attrs(group, argc, argv))
+				return 1;
+		} else
+		if (!strcmp(cmd, "set-attr")) {
+			susetest_config_t *group = cfg;
+
+			if (!resolve_group(cmd, opt_groupname, &group))
+				return 1;
+
+			while (optind < argc) {
+				char *name, *value;
+
+				if (!split_key_value(argv[optind++], &name, &value))
+					return 1;
+				susetest_config_set_attr(group, name, value);
+			}
+		} else
+		if (!strcmp(cmd, "get-attr")) {
+			susetest_config_t *group = cfg;
+			const char *value;
+
+			if (!resolve_group(cmd, opt_groupname, &group))
+				return 1;
+
+			if (optind + 1 != argc) {
+				fprintf(stderr, "susetest config get-attr: bad number of arguments\n");
+				return 1;
+			}
+
+			value = susetest_config_get_attr(group, argv[optind]);
+			if (value)
+				printf("%s\n", value);
+			opt_pathname = NULL; /* No need to rewrite config file */
+		} else
 		if (!strcmp(cmd, "add-node")) {
 			susetest_node_config_t *node;
 			const char *name;
 
+			warn_obsolete(cmd);
 			if (!(name = arg_get_nodename(cmd, argc, argv)))
 				return 1;
 
@@ -170,31 +228,10 @@ do_config(int argc, char **argv)
 			if (!set_node_attrs(node, argc, argv))
 				return 1;
 		} else
-		if (!strcmp(cmd, "set-attr")) {
-			while (optind < argc) {
-				char *name, *value;
-
-				if (!split_attr(argv[optind++], &name, &value))
-					return 1;
-				susetest_config_set_attr(cfg, name, value);
-			}
-		} else
-		if (!strcmp(cmd, "get-attr")) {
-			const char *value;
-
-			if (optind + 1 != argc) {
-				fprintf(stderr, "susetest config get-attr: bad number of arguments\n");
-				return 1;
-			}
-
-			value = susetest_config_get_attr(cfg, argv[optind]);
-			if (value)
-				printf("%s\n", value);
-			opt_pathname = NULL; /* No need to rewrite config file */
-		} else
 		if (!strcmp(cmd, "node-set-attr")) {
 			susetest_node_config_t *node;
 
+			warn_obsolete(cmd);
 			if (!(node = arg_get_node(cfg, cmd, argc, argv)))
 				return 1;
 
@@ -204,6 +241,7 @@ do_config(int argc, char **argv)
 		if (!strcmp(cmd, "node-get-attr")) {
 			susetest_node_config_t *node;
 
+			warn_obsolete(cmd);
 			if (!(node = arg_get_node(cfg, cmd, argc, argv)))
 				return 1;
 
@@ -220,6 +258,7 @@ do_config(int argc, char **argv)
 			const char **names;
 			unsigned int n;
 
+			warn_obsolete(cmd);
 			if (optind != argc) {
 				fprintf(stderr, "susetest config %s: bad number of arguments\n", cmd);
 				return 1;
@@ -263,6 +302,59 @@ arg_get_nodename(const char *cmd, int argc, char **argv)
 	return argv[optind++];
 }
 
+static bool
+arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret)
+{
+	if (optind >= argc) {
+		fprintf(stderr, "susetest config %s: missing type=name argument\n", cmd);
+		show_usage();
+		return false;
+	}
+
+	if (!split_key_value(argv[optind++], (char **) type_ret, (char **) name_ret)) {
+		fprintf(stderr, "susetest config %s: bad argument, should be type=name\n", cmd);
+		return false;
+	}
+	return true;
+}
+
+/*
+ * Resolve a group path, such as
+ *  /node=client/interface=eth0
+ */
+static bool
+resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p)
+{
+	char *next = NULL;
+
+	if (groupname == NULL)
+		return true;
+
+	for (; groupname != NULL; groupname = next) {
+		char *type, *name;
+
+		while (*groupname == '/')
+			++groupname;
+
+		if ((next = strchr(groupname, '/')) != NULL)
+			*next++ = '\0';
+		if (*groupname == '\0')
+			break;
+
+		if (!split_key_value(groupname, &type, &name)) {
+			fprintf(stderr, "susetest config %s --group: bad argument, should be type=name\n", cmd);
+			return false;
+		}
+		*cfg_p = susetest_config_get_child(*cfg_p, type, name);
+		if (*cfg_p == NULL) {
+			fprintf(stderr, "susetest config %s: unable to look up subgroup %s=\"%s\"\n", cmd, type, name);
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static susetest_node_config_t *
 arg_get_node(susetest_config_t *cfg, const char *cmd, int argc, char **argv)
 {
@@ -287,7 +379,7 @@ set_node_attrs(susetest_node_config_t *node, int argc, char **argv)
 	while (optind < argc) {
 		char *name, *value;
 
-		if (!split_attr(argv[optind++], &name, &value))
+		if (!split_key_value(argv[optind++], &name, &value))
 			return 0;
 		if (!strcmp(name, "target"))
 			susetest_node_config_set_target(node, value);
@@ -341,7 +433,7 @@ __split_attr(char *s, char **namep, char **valuep)
 }
 
 int
-split_attr(char *nameattr, char **namep, char **valuep)
+split_key_value(char *nameattr, char **namep, char **valuep)
 {
 	char *s = strdup(nameattr);
 
@@ -353,4 +445,10 @@ split_attr(char *nameattr, char **namep, char **valuep)
 
 	free(s);
 	return 1;
+}
+
+static void
+warn_obsolete(const char *cmd)
+{
+	fprintf(stderr, "susetest config: using obsolete subcommand %s\n", cmd);
 }
