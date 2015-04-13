@@ -202,6 +202,27 @@ class Target(twopence.Target):
 
 		return status
 
+	def recvbuffer(self, remoteFilename, buffer, **kwargs):
+		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer))
+		xfer.user = self.defaultUser
+
+		if kwargs is not None:
+			for key, value in kwargs.iteritems():
+				setattr(xfer, key, value)
+
+		if xfer.localfile:
+			self.logError("recvbuffer: you cannot specify a localfile!")
+			return None
+
+		self.logInfo("downloading " + remoteFilename)
+		status = self.recvfile(xfer)
+		if not status:
+			self.logFailure("download failed: " + status.message)
+			return None
+
+		self.logInfo("<<< --- Data: ---\n" + str(status.buffer) + "\n --- End of Data --->>>\n");
+		return status.buffer
+
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
 
 		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer))
@@ -212,7 +233,7 @@ class Target(twopence.Target):
 				setattr(xfer, key, value)
 
 		self.logInfo("uploading data to " + remoteFilename)
-		self.journal.info("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
+		self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
 		return self.sendfile(xfer)
 
 	def addHostEntry(self, addr, fqdn):
@@ -238,5 +259,35 @@ class Target(twopence.Target):
 			return False
 
 		self.run("rcnscd reload", user = "root")
+
+		return True
+
+	def changeSysconfigVar(self, filename, var, value):
+		if not isinstance(filename, str):
+			self.logError("changeSysconfigVar: filename argument must be a string")
+			return False
+
+		if filename[0] != '/':
+			filename = "/etc/sysconfig/" + filename;
+
+		data = self.recvbuffer(filename);
+
+		result = []
+		found = False
+		for line in str(data).split('\n'):
+			if re.match("^[# ]*" + var + "=", line):
+				if found:
+					continue
+				line = "%s='%s'" % (var, value)
+				found = True
+			result.append(line)
+
+		if not found:
+			result.append("%s='%s'" % (var, value))
+
+		data = '\n'.join(result)
+		if not self.sendbuffer(filename, data):
+			self.logFailure("failed to upload changed sysconfig data to %s" % filename);
+			return False
 
 		return True
