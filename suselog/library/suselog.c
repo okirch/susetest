@@ -1220,9 +1220,15 @@ __suselog_writer_print_colored(const suselog_test_t *test, int color, const char
 		return;
 	}
 
+	/* You wouldn't believe what strange ideas some people entertain.
+	 * If you call setupterm without an err_ret pointer, and it runs into
+	 * a problem (such as TERM not being set) it will silently exit.
+	 */
 	if (need_setterm) {
+		int err_ret;
+
 		need_setterm = false;
-		if (setupterm(NULL, 1, NULL) >= 0)
+		if (setupterm(NULL, 1, &err_ret) >= 0)
 			have_terminal = true;
 	}
 
