@@ -124,24 +124,25 @@ class Target(twopence.Target):
 
 	def run(self, cmd, **kwargs):
 		fail_on_error = 0
+		if isinstance(kwargs, dict) and kwargs.has_key('fail_on_error'):
+			fail_on_error = kwargs['fail_on_error']
+			del kwargs['fail_on_error']
+
 
 		if not isinstance(cmd, twopence.Command):
-			cmd = twopence.Command(cmd)
-
-		self.journal.info(self.name + ": " + cmd.commandline)
-
-		if not(cmd.user) and self.defaultUser:
-			cmd.user = self.defaultUser
-
+			cmd = twopence.Command(cmd, **kwargs)
 		if kwargs is not None:
 			for key, value in kwargs.iteritems():
-				if key == "fail_on_error":
-					fail_on_error = value
-				elif key == "suppressOutput" and value:
+				if key == "suppressOutput" and value:
 					# argh, crappy interface - we need to fix this pronto
 					cmd.suppressOutput()
 				else:
 					setattr(cmd, key, value)
+
+		if not(cmd.user) and self.defaultUser:
+			cmd.user = self.defaultUser
+
+		self.journal.info(self.name + ": " + cmd.commandline)
 
 		# FIXME: we should catch commands that have the background
 		# flag set. Right now, we can't because the attribute
@@ -206,13 +207,9 @@ class Target(twopence.Target):
 		return status
 
 	def recvbuffer(self, remoteFilename, **kwargs):
-		xfer = twopence.Transfer(remoteFilename)
+		xfer = twopence.Transfer(remoteFilename, **kwargs)
 		if self.defaultUser:
 			xfer.user = self.defaultUser
-
-		if kwargs is not None:
-			for key, value in kwargs.iteritems():
-				setattr(xfer, key, value)
 
 		if xfer.localfile:
 			self.logError("recvbuffer: you cannot specify a localfile!")
@@ -228,14 +225,9 @@ class Target(twopence.Target):
 		return status.buffer
 
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
-
-		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer))
+		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), **kwargs)
 		if self.defaultUser:
 			xfer.user = self.defaultUser
-
-		if kwargs is not None:
-			for key, value in kwargs.iteritems():
-				setattr(xfer, key, value)
 
 		self.logInfo("uploading data to " + remoteFilename)
 		self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
