@@ -8,6 +8,13 @@
 import susetestimpl
 import suselog
 import twopence
+import re
+
+ifcfg_template = '''
+BOOTPROTO="static"
+STARTMODE="auto"
+IPADDR="@IPADDR@"
+'''
 
 class Config(susetestimpl.Config):
 	def __init__(self, name, **kwargs):
@@ -22,7 +29,7 @@ class Config(susetestimpl.Config):
 
 class Target(twopence.Target):
 	def __init__(self, config):
-		super(Target, self).__init__(config.target, config.attrs, config.name)
+		super(Target, self).__init__(config.get('target'), config.attrs, config.name)
 
 		self.config = config
 		self.journal = config.container.journal
@@ -31,7 +38,10 @@ class Target(twopence.Target):
 
 		# Initialize some commonly used attributes
 		self.name = config.name
-		self.ipaddr = config.attrs['ipaddr']
+		self.ipaddr = config.get('ipv4_addr')
+		if not self.ipaddr:
+			self.ipaddr = config.get('ipaddr')
+		self.ip6addr = None
 
 	def logInfo(self, message):
 		self.journal.info(self.name + ": " + message)
@@ -41,6 +51,63 @@ class Target(twopence.Target):
 
 	def logError(self, message):
 		self.journal.error(self.name + ": " + message)
+
+	def configureOtherNetworks(self):
+		result = True
+
+		iflist = self.config.children("interface")
+		for interface in iflist:
+			ifname = interface.name
+
+			if ifname == "eth0":
+				continue
+
+			self.journal.beginTest(None, "Try to bring up interface " + ifname)
+
+			ifcfg = self._buildIfconfig(interface)
+			if not self.sendbuffer("/etc/sysconfig/network/ifcfg-" + ifname, ifcfg, user = 'root'):
+				self.logError("failed to upload interface config for " + ifname)
+				result = False
+				continue
+
+			if not self.run("ifup " + ifname, user = 'root'):
+				self.logError("failed to bring up interface " + ifname)
+				result = False
+				continue
+
+		return result
+
+	def _buildIfconfig(self, interface):
+		global ifcfg_template
+
+		if_ipaddr = interface.get('ipv4_addr')
+		if not if_ipaddr:
+			print "%s: no ipv4 addr for interface %s" % (self.name, interface.name)
+			return None
+
+		subnet = None
+		netname = interface.get('network')
+		if netname:
+			network = self.config.container.network(netname)
+			if network:
+				subnet = network.get('subnet')
+
+		prefixlen = 0
+		if not subnet:
+			print "%s: no subnet info for interface %s (network %s)" % (self.name, interface.name, netname)
+		else:
+			m = re.match(".*/([0-9]*)", subnet)
+			if m:
+				prefixlen = m.group(1)
+		if not prefixlen:
+			print "Assuming 24 bit prefix"
+			prefixlen = 24
+
+		if_ipaddr = if_ipaddr + "/" + str(prefixlen)
+
+		self.logInfo("%s: using IP address %s" % (interface.name, if_ipaddr))
+		ifcfg = re.sub('@IPADDR@', if_ipaddr, ifcfg_template)
+		return ifcfg
 
 	def fqdn(self):
 		status = self.run("hostname -f")
