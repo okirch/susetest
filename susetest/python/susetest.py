@@ -123,6 +123,8 @@ class Target(twopence.Target):
 		return fqdn
 
 	def run(self, cmd, **kwargs):
+		fail_on_error = 0
+
 		if not isinstance(cmd, twopence.Command):
 			cmd = twopence.Command(cmd)
 
@@ -133,17 +135,28 @@ class Target(twopence.Target):
 
 		if kwargs is not None:
 			for key, value in kwargs.iteritems():
-				setattr(cmd, key, value)
+				if key == "fail_on_error":
+					fail_on_error = value
+				else:
+					setattr(cmd, key, value)
 
 		status = super(Target, self).run(cmd)
 		if not status:
-			self.journal.info("command failed: " + status.message)
+			msg = "command \"" + cmd.commandline + "\" failed: " + status.message
+			if fail_on_error:
+				self.logFailure(msg)
+			else:
+				self.logInfo(msg)
 
 		self.journal.recordStdout(status.stdout);
 		if status.stdout != status.stderr:
 			self.journal.recordStderr(status.stderr);
 
 		return status
+
+	def runOrFail(self, cmd, **kwargs):
+		kwargs['fail_on_error'] = 1;
+		return self.run(cmd, **kwargs)
 
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
 
