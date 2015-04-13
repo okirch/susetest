@@ -203,7 +203,7 @@ class Target(twopence.Target):
 		return status
 
 	def recvbuffer(self, remoteFilename, **kwargs):
-		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer))
+		xfer = twopence.Transfer(remoteFilename)
 		xfer.user = self.defaultUser
 
 		if kwargs is not None:
