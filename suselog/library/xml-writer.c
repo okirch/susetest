@@ -282,15 +282,17 @@ xml_escape_quote(const char *string)
 	if (string == NULL)
 		return string;
 
-	if (string[strcspn(string, "\"\\")] == '\0')
+	if (string[strcspn(string, "\"\\<>")] == '\0')
 		return string;
 
 	if (temp)
 		free(temp);
 	s = temp = malloc(strlen(string) * 2 + 1);
 	while ((cc = *string++) != '\0') {
-		if (cc == '"' || cc == '\\')
-			*s++ = '\\';
+		if (cc == '"' || cc == '<' || cc == '>')
+			cc = '\'';
+		else if (cc == '\\')
+			cc = '/';
 		*s++ = cc;
 	}
 	*s++ = '\0';
