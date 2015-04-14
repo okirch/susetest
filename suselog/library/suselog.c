@@ -666,7 +666,6 @@ static xml_node_t *	__suselog_junit_pre_string(xml_node_t *, const char *, const
 static void		__suselog_junit_pre_string_append(FILE *, const suselog_test_t *);
 static void		__suselog_junit_stats(xml_node_t *, const suselog_stats_t *);
 static const char *	__suselog_junit_timestamp(const struct timeval *);
-static const char *	__suselog_junit_escape_attr(const char *string);
 
 void
 suselog_journal_write(suselog_journal_t *journal)
@@ -757,7 +756,7 @@ __suselog_junit_journal(suselog_journal_t *journal)
 	suselog_finish(journal);
 
 	root = xml_node_new("testsuites", NULL);
-	xml_node_add_attr(root, "name", __suselog_junit_escape_attr(journal->common.name));
+	xml_node_add_attr(root, "name", journal->common.name);
 	xml_node_add_attr_double(root, "time", journal->common.duration);
 	__suselog_junit_stats(root, &journal->stats);
 
@@ -787,7 +786,7 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 	node = xml_node_new("testsuite", parent);
 
 	xml_node_add_attr(node, "package", group->common.name);
-	xml_node_add_attr(node, "name", __suselog_junit_escape_attr(group->common.description));
+	xml_node_add_attr(node, "name", group->common.description);
 	xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&group->common.timestamp));
 	xml_node_add_attr(node, "hostname", group->hostname);
 	xml_node_add_attr_double(node, "time", group->common.duration);
@@ -816,7 +815,7 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 
 	node = xml_node_new("testcase", parent);
 	xml_node_add_attr(node, "classname", test->common.name);
-	xml_node_add_attr(node, "name", __suselog_junit_escape_attr(test->common.description));
+	xml_node_add_attr(node, "name", test->common.description);
 	/* xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&test->common.timestamp)); */
 	xml_node_add_attr_double(node, "time", test->common.duration);
 
@@ -921,28 +920,6 @@ __suselog_junit_test_system_out(suselog_test_t *test, xml_node_t *node)
 	return out;
 }
 
-static const char *
-__suselog_junit_escape_attr(const char *string)
-{
-	static char *temp = NULL;
-	char cc, *s;
-
-	if (string == NULL || strchr(string, '"') == NULL)
-		return string;
-
-	if (temp)
-		free(temp);
-	s = temp = malloc(strlen(string) * 2 + 1);
-	while ((cc = *string++) != '\0') {
-		if (cc == '"')
-			*s++ = '\\';
-		*s++ = cc;
-	}
-	*s++ = '\0';
-
-	return temp;
-}
-
 static void
 __suselog_junit_pre_string_append(FILE *fp, const suselog_test_t *test)
 {
@@ -996,7 +973,7 @@ __suselog_junit_pre_string(xml_node_t *parent, const char *name, const char *typ
 		node = xml_node_new(name, parent);
 		xml_node_add_attr(node, "type", type);
 		if ((msg = suselog_test_get_message(test, severity)) != NULL)
-			xml_node_add_attr(node, "message", __suselog_junit_escape_attr(msg));
+			xml_node_add_attr(node, "message", msg);
 		xml_cdata_new(node, string);
 	}
 	return node;

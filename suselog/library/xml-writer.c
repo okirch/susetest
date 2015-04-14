@@ -276,7 +276,26 @@ xml_escape_entities(const char *cdata, char **temp)
 const char *
 xml_escape_quote(const char *string)
 {
-	return string;
+	static char *temp = NULL;
+	char cc, *s;
+
+	if (string == NULL)
+		return string;
+
+	if (string[strcspn(string, "\"\\")] == '\0')
+		return string;
+
+	if (temp)
+		free(temp);
+	s = temp = malloc(strlen(string) * 2 + 1);
+	while ((cc = *string++) != '\0') {
+		if (cc == '"' || cc == '\\')
+			*s++ = '\\';
+		*s++ = cc;
+	}
+	*s++ = '\0';
+
+	return temp;
 }
 
 /*
