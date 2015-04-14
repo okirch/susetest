@@ -250,7 +250,7 @@ class Target(twopence.Target):
 			self.logError("download failed with exception")
 			self.journal.recordStderr(self.describeException())
 
-		        return twopence.Status(256)
+		        return None
 
 		if not status:
 			self.logFailure("download failed: " + status.message)
