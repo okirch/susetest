@@ -185,6 +185,11 @@ suselog_journal_free(suselog_journal_t *journal)
 	__drop_string(&journal->pathname);
 	suselog_autoname_destroy(&journal->autoname);
 	LIST_DROP(&journal->groups, suselog_group_free);
+
+	if (journal->merged)
+		xml_node_free(journal->merged);
+
+	free(journal);
 }
 
 void
@@ -672,6 +677,15 @@ suselog_journal_write(suselog_journal_t *journal)
 
 	doc = xml_document_new();
 	root = __suselog_junit_journal(journal);
+
+	/* If we have merged any other junit files, append them here at the end */
+	if (journal->merged) {
+		xml_node_t *node;
+
+		while ((node = journal->merged->children) != NULL)
+			xml_node_reparent(root, node);
+	}
+
 	xml_document_set_root(doc, root);
 
 	if ((outfile = journal->pathname) == NULL) {
@@ -686,6 +700,59 @@ suselog_journal_write(suselog_journal_t *journal)
 		printf("Wrote test doc to %s\n", outfile);
 	xml_document_free(doc);
 }
+
+int
+suselog_journal_merge(suselog_journal_t *journal, const char *filename)
+{
+	xml_document_t *doc;
+	xml_node_t *root, *collection;
+	int found = 0;
+	int rv = -1;
+
+	suselog_group_finish(journal);
+
+	doc = xml_document_read(filename);
+	if (doc == NULL)
+		goto out;
+
+	root = xml_document_root(doc);
+	if (root == NULL) {
+		fprintf(stderr, "%s: empty document\n", filename);
+		goto out;
+	}
+	for (collection = root->children; collection; collection = collection->next) {
+		if (collection == NULL || strcmp(collection->name, "testsuites")) {
+			fprintf(stderr, "%s: expected root element <testsuites>\n", filename);
+			goto out;
+		}
+
+		if (collection->children) {
+			xml_node_t *node, *next;
+
+			if (journal->merged == NULL)
+				journal->merged = xml_node_new("testsuites", NULL);
+			for (node = collection->children; node; node = next) {
+				next = node->next;
+
+				if (strcmp(node->name, "testsuite")) {
+					fprintf(stderr, "%s: ignoring element <%s>\n",
+							filename, node->name);
+				} else {
+					xml_node_reparent(journal->merged, node);
+				}
+			}
+		}
+	}
+
+	if (found)
+		rv = 0;
+
+out:
+	if (doc)
+		xml_document_free(doc);
+	return rv;
+}
+
 
 static xml_node_t *
 __suselog_junit_journal(suselog_journal_t *journal)

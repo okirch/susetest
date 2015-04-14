@@ -125,6 +125,8 @@ struct suselog_journal  {
 	  suselog_test_t *	test;
 	} current;
 
+	struct xml_node *	merged;
+
 	unsigned int		num_groups;
 	LIST_HEAD(suselog_group_t) groups;
 };

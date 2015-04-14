@@ -28,6 +28,13 @@ main(int argc, char **argv)
 	suselog_journal_t *journal;
 	suselog_group_t *group;
 
+	journal = suselog_journal_new("subtest", suselog_writer_normal());
+	suselog_journal_set_pathname(journal, "other.xml");
+	group = suselog_group_begin(journal, NULL, "One group");
+	suselog_test_begin(journal, NULL, "one test");
+	suselog_journal_write(journal);
+	suselog_journal_free(journal);
+
 	journal = suselog_journal_new("mytest", suselog_writer_normal());
 	suselog_journal_set_pathname(journal, "test-report.xml");
 
@@ -40,6 +47,8 @@ main(int argc, char **argv)
 
 	suselog_test_begin(journal, "testbaz", "testing the baz thing");
 	suselog_failure(journal, "baz crapped out");
+
+	suselog_journal_merge(journal, "other.xml");
 
 	group = suselog_group_begin(journal, NULL, "This is another test group");
 	suselog_test_begin(journal, "frobnication", "frobnication is tricky");

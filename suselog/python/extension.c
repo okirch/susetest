@@ -44,6 +44,7 @@ static PyObject *	Journal_record_stdout(PyObject *self, PyObject *args, PyObject
 static PyObject *	Journal_record_stderr(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_record_buffer(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_mergeReport(PyObject *self, PyObject *args, PyObject *kwds);
 
 /*
  * Define the python bindings of class "Journal"
@@ -94,6 +95,9 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"recordBuffer", (PyCFunction) Journal_record_buffer, METH_VARARGS | METH_KEYWORDS,
 	"Record contents of a buffer for current test",
+      },
+      {	"mergeReport", (PyCFunction) Journal_mergeReport, METH_VARARGS | METH_KEYWORDS,
+	"Merge another test report into this one"
       },
       {	"writeReport", (PyCFunction) Journal_writeReport, METH_VARARGS | METH_KEYWORDS,
 	"Write the test report"
@@ -479,6 +483,33 @@ static PyObject *
 Journal_record_buffer(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	return Journal_record_common(self, args, kwds, suselog_record_buffer);
+}
+
+/*
+ * Merge another report into this one
+ */
+static PyObject *
+Journal_mergeReport(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {
+		"filename",
+	};
+	const char *filename = NULL;
+	suselog_journal_t *journal;
+	PyObject *result;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &filename))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	result = Py_True;
+	if (suselog_journal_merge(journal, filename) < 0)
+		result = Py_False;
+
+	Py_INCREF(result);
+	return result;
 }
 
 /*
