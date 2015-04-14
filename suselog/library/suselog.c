@@ -186,9 +186,6 @@ suselog_journal_free(suselog_journal_t *journal)
 	suselog_autoname_destroy(&journal->autoname);
 	LIST_DROP(&journal->groups, suselog_group_free);
 
-	if (journal->merged)
-		xml_node_free(journal->merged);
-
 	free(journal);
 }
 
@@ -402,6 +399,9 @@ suselog_group_free(suselog_group_t *group)
 	suselog_common_destroy(&group->common);
 	suselog_autoname_destroy(&group->autoname);
 	LIST_DROP(&group->tests, suselog_test_free);
+
+	if (group->merged)
+		xml_node_free(group->merged);
 }
 
 suselog_group_t *
@@ -666,6 +666,7 @@ static xml_node_t *	__suselog_junit_pre_string(xml_node_t *, const char *, const
 static void		__suselog_junit_pre_string_append(FILE *, const suselog_test_t *);
 static void		__suselog_junit_stats(xml_node_t *, const suselog_stats_t *);
 static const char *	__suselog_junit_timestamp(const struct timeval *);
+static const char *	__suselog_junit_escape_attr(const char *string);
 
 void
 suselog_journal_write(suselog_journal_t *journal)
@@ -677,15 +678,6 @@ suselog_journal_write(suselog_journal_t *journal)
 
 	doc = xml_document_new();
 	root = __suselog_junit_journal(journal);
-
-	/* If we have merged any other junit files, append them here at the end */
-	if (journal->merged) {
-		xml_node_t *node;
-
-		while ((node = journal->merged->children) != NULL)
-			xml_node_reparent(root, node);
-	}
-
 	xml_document_set_root(doc, root);
 
 	if ((outfile = journal->pathname) == NULL) {
@@ -704,12 +696,14 @@ suselog_journal_write(suselog_journal_t *journal)
 int
 suselog_journal_merge(suselog_journal_t *journal, const char *filename)
 {
+	suselog_group_t *group;
 	xml_document_t *doc;
 	xml_node_t *root, *collection;
 	int found = 0;
 	int rv = -1;
 
-	suselog_group_finish(journal);
+	if ((group = journal->current.group) == NULL)
+		group = suselog_group_begin(journal, NULL, NULL);
 
 	doc = xml_document_read(filename);
 	if (doc == NULL)
@@ -729,8 +723,8 @@ suselog_journal_merge(suselog_journal_t *journal, const char *filename)
 		if (collection->children) {
 			xml_node_t *node, *next;
 
-			if (journal->merged == NULL)
-				journal->merged = xml_node_new("testsuites", NULL);
+			if (group->merged == NULL)
+				group->merged = xml_node_new("testsuites", NULL);
 			for (node = collection->children; node; node = next) {
 				next = node->next;
 
@@ -738,7 +732,7 @@ suselog_journal_merge(suselog_journal_t *journal, const char *filename)
 					fprintf(stderr, "%s: ignoring element <%s>\n",
 							filename, node->name);
 				} else {
-					xml_node_reparent(journal->merged, node);
+					xml_node_reparent(group->merged, node);
 				}
 			}
 		}
@@ -763,7 +757,7 @@ __suselog_junit_journal(suselog_journal_t *journal)
 	suselog_finish(journal);
 
 	root = xml_node_new("testsuites", NULL);
-	xml_node_add_attr(root, "name", journal->common.name);
+	xml_node_add_attr(root, "name", __suselog_junit_escape_attr(journal->common.name));
 	xml_node_add_attr_double(root, "time", journal->common.duration);
 	__suselog_junit_stats(root, &journal->stats);
 
@@ -780,10 +774,20 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 	xml_node_t *node;
 	suselog_test_t *test;
 
+	/* If we have merged a junit file in this group, include the entire
+	 * junit file but hide the contents of this group. */
+	if (group->merged) {
+		xml_node_t *node;
+
+		while ((node = group->merged->children) != NULL)
+			xml_node_reparent(parent, node);
+		return NULL;
+	}
+
 	node = xml_node_new("testsuite", parent);
 
 	xml_node_add_attr(node, "package", group->common.name);
-	xml_node_add_attr(node, "name", group->common.description);
+	xml_node_add_attr(node, "name", __suselog_junit_escape_attr(group->common.description));
 	xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&group->common.timestamp));
 	xml_node_add_attr(node, "hostname", group->hostname);
 	xml_node_add_attr_double(node, "time", group->common.duration);
@@ -812,7 +816,7 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 
 	node = xml_node_new("testcase", parent);
 	xml_node_add_attr(node, "classname", test->common.name);
-	xml_node_add_attr(node, "name", test->common.description);
+	xml_node_add_attr(node, "name", __suselog_junit_escape_attr(test->common.description));
 	/* xml_node_add_attr(node, "timestamp", __suselog_junit_timestamp(&test->common.timestamp)); */
 	xml_node_add_attr_double(node, "time", test->common.duration);
 
@@ -923,7 +927,7 @@ __suselog_junit_escape_attr(const char *string)
 	static char *temp = NULL;
 	char cc, *s;
 
-	if (strchr(string, '"') == NULL)
+	if (string == NULL || strchr(string, '"') == NULL)
 		return string;
 
 	if (temp)

@@ -76,6 +76,7 @@ static xml_token_type_t	xml_get_token(xml_reader_t *, string_t *);
 static xml_token_type_t	xml_get_token_initial(xml_reader_t *, string_t *);
 static xml_token_type_t	xml_get_token_tag(xml_reader_t *, string_t *);
 static xml_token_type_t	xml_skip_comment(xml_reader_t *);
+static xml_token_type_t	xml_process_cdata(xml_reader_t *, string_t *);
 static xml_token_type_t	xml_get_tag_attributes(xml_reader_t *, xml_node_t *);
 static bool		xml_expand_entity(xml_reader_t *, string_t *);
 static void		xml_skip_space(xml_reader_t *, string_t *);
@@ -490,6 +491,16 @@ restart:
 
 			/* If it's <!IDENTIFIER, return LeftAngleExclam */
 			cc = xml_getc(xr);
+			if (cc == '[') {
+				/* Looks like CDATA */
+				if (!xml_get_identifier(xr, res) || strcmp("CDATA", res->string)) {
+					xml_parse_error(xr, "Unexpected <[%s in XML stream", res->string);
+					return None;
+				}
+
+				string_destroy(res);
+				return xml_process_cdata(xr, res);
+			}
 			if (cc != '-') {
 				xml_ungetc(xr, cc);
 				return LeftAngleExclam;
@@ -594,10 +605,13 @@ xml_get_token_tag(xml_reader_t *xr, string_t *res)
 		oc = cc;
 		while (1) {
 			cc = xml_getc(xr);
-			if (cc == EOF) {
-				xml_parse_error(xr, "Unexpected EOF while parsing quoted string");
-				return None;
-			}
+			if (cc == EOF)
+				goto unexpected_eof;
+			if (cc == '\\' && oc == '"') {
+				cc = xml_getc(xr);
+				if (cc == EOF)
+					goto unexpected_eof;
+			} else
 			if (cc == oc)
 				break;
 			string_putc(res, cc);
@@ -611,10 +625,14 @@ xml_get_token_tag(xml_reader_t *xr, string_t *res)
 error:
 	xml_parse_error(xr, "Unexpected character %c in XML document", cc);
 	return None;
+
+unexpected_eof:
+	xml_parse_error(xr, "Unexpected EOF while parsing quoted string");
+	return None;
 }
 
 /*
- * Process command. When we get here, we've processed "<!-"
+ * Process comment. When we get here, we've processed "<!-"
  */
 xml_token_type_t
 xml_skip_comment(xml_reader_t *xr)
@@ -644,6 +662,48 @@ xml_skip_comment(xml_reader_t *xr)
 	return None;
 }
 
+/*
+ * Process CDATA. When we get here, we've processed "<[CDATA"
+ */
+xml_token_type_t
+xml_process_cdata(xml_reader_t *xr, string_t *res)
+{
+	int cc, state = 0;
+
+	cc = xml_getc(xr);
+	if (cc == EOF)
+		goto unexpected_eof;
+	if (cc != '[') {
+		xml_parse_error(xr, "Unexpected '%c' after <[CDATA in XML stream", cc);
+		return None;
+	}
+
+	while (state != 3) {
+		cc = xml_getc(xr);
+		if (cc == EOF)
+			goto unexpected_eof;
+
+		if (cc == ']') {
+			if (state == 2) {
+				string_putc(res, ']');
+			} else {
+				++state;
+			}
+		} else
+		if (cc == '>' && state == 2) {
+			++state;
+		} else {
+			string_putc(res, cc);
+		}
+	}
+
+	xr->state = Initial;
+	return CData;
+
+unexpected_eof:
+	xml_parse_error(xr, "Unexpected EOF after <[CDATA in XML stream");
+	return None;
+}
 
 /*
  * Expand an XML entity.

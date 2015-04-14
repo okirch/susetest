@@ -493,6 +493,7 @@ Journal_mergeReport(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
 		"filename",
+		NULL,
 	};
 	const char *filename = NULL;
 	suselog_journal_t *journal;

@@ -105,6 +105,8 @@ struct suselog_group {
 	char *			hostname;
 	unsigned int		id;
 
+	struct xml_node *	merged;
+
 	LIST_HEAD(suselog_test_t) tests;
 };
 
@@ -124,8 +126,6 @@ struct suselog_journal  {
 	  suselog_group_t *	group;
 	  suselog_test_t *	test;
 	} current;
-
-	struct xml_node *	merged;
 
 	unsigned int		num_groups;
 	LIST_HEAD(suselog_group_t) groups;
