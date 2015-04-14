@@ -22,9 +22,14 @@ class Config(susetestimpl.Config):
 
 		self.name = name
 
+		self.workspace = self.value("workspace")
+		if not self.workspace:
+			print "Oops, no workspace defined. Using current directory"
+			self.workspace = "."
+
 		reportPath = self.value("report")
 		if not reportPath:
-			reportPath = "report.xml"
+			reportPath = self.workspace + "/report.xml"
 		self.journal = suselog.Journal(name, path = reportPath);
 
 class Target(twopence.Target):
@@ -42,6 +47,7 @@ class Target(twopence.Target):
 		if not self.ipaddr:
 			self.ipaddr = config.get('ipaddr')
 		self.ip6addr = None
+
 
 	def logInfo(self, message):
 		self.journal.info(self.name + ": " + message)
@@ -129,6 +135,12 @@ class Target(twopence.Target):
 			return None
 
 		return fqdn
+
+	def workspaceFile(self, relativeName = None):
+		path = self.config.container.workspace
+		if relativeName:
+			path = path + "/" + relativeName
+		return path
 
 	def run(self, cmd, **kwargs):
 		fail_on_error = 0
