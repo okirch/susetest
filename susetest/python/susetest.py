@@ -234,16 +234,24 @@ class Target(twopence.Target):
 		return status
 
 	def recvbuffer(self, remoteFilename, **kwargs):
+		if self.defaultUser and not kwargs.has_key('user'):
+			kwargs['user'] = self.defaultUser
+
 		xfer = twopence.Transfer(remoteFilename, **kwargs)
-		if self.defaultUser:
-			xfer.user = self.defaultUser
 
 		if xfer.localfile:
 			self.logError("recvbuffer: you cannot specify a localfile!")
 			return None
 
 		self.logInfo("downloading " + remoteFilename)
-		status = self.recvfile(xfer)
+		try:
+			status = self.recvfile(xfer)
+		except:
+			self.logError("download failed with exception")
+			self.journal.recordStderr(self.describeException())
+
+		        return twopence.Status(256)
+
 		if not status:
 			self.logFailure("download failed: " + status.message)
 			return None
@@ -252,13 +260,27 @@ class Target(twopence.Target):
 		return status.buffer
 
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
+		if self.defaultUser and not kwargs.has_key('user'):
+			kwargs['user'] = self.defaultUser
+
 		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), **kwargs)
-		if self.defaultUser:
-			xfer.user = self.defaultUser
+		if xfer.permissions < 0:
+			xfer.permissions = 0
 
 		self.logInfo("uploading data to " + remoteFilename)
 		self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
-		return self.sendfile(xfer)
+
+		if not isinstance(xfer.data, bytearray):
+			print "data is not a buffer"
+
+		try:
+			return self.sendfile(xfer)
+		except:
+			self.logError("upload failed with exception")
+			self.journal.recordStderr(self.describeException())
+
+		        return twopence.Status(256)
+
 
 	def addHostEntry(self, addr, fqdn):
 		alias = fqdn.split('.')[0]
