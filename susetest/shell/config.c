@@ -52,6 +52,7 @@ static const char *		arg_get_nodename(const char *cmd, int argc, char **argv);
 static susetest_node_config_t *	arg_get_node(susetest_config_t *, const char *cmd, int argc, char **argv);
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
 static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
+static bool			arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret);
 static bool			resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p);
 static int			set_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static void			get_node_attrs(susetest_node_config_t *node, int argc, char **argv);
@@ -82,6 +83,8 @@ show_usage(void)
 		"     Append values to a list attribute\n"
 		"  get-attr-list [--group <group-path>] name\n"
 		"     Query a list attribute. Each item is printed on a separate line.\n"
+		"  get-children [--group <group-path>] type\n"
+		"     Print the name of all child groups of type \"type\"\n"
 		"  delete\n"
 		"     Delete the config file\n"
 		"  help\n"
@@ -265,6 +268,21 @@ do_config(int argc, char **argv)
 				printf("%s\n", *values++);
 			opt_pathname = NULL; /* No need to rewrite config file */
 		} else
+		if (!strcmp(cmd, "get-children")) {
+			susetest_config_t *group = cfg;
+			const char *type;
+			const char **names;
+			int n;
+
+			if (!resolve_group(cmd, opt_groupname, &group)
+			 || !arg_get_type(cmd, argc, argv, &type))
+				return 1;
+
+			names = susetest_config_get_children(group, type);
+			for (n = 0; names[n]; ++n)
+				printf("%s\n", names[n]);
+			free(names);
+		} else
 		if (!strcmp(cmd, "add-node")) {
 			susetest_node_config_t *node;
 			const char *name;
@@ -381,6 +399,18 @@ arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret)
 		return false;
 	}
 	*name_ret = argv[optind++];
+	return true;
+}
+
+static bool
+arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret)
+{
+	if (optind >= argc) {
+		fprintf(stderr, "susetest config %s: missing type argument\n", cmd);
+		show_usage();
+		return false;
+	}
+	*type_ret = argv[optind++];
 	return true;
 }
 
