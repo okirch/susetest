@@ -23,6 +23,7 @@ typedef enum {
 	LeftBrace,
 	RightBrace,
 	Semicolon,
+	Comma,
 } curly_token_t;
 
 
@@ -138,6 +139,28 @@ curly_parser_do(curly_parser_t *p, susetest_config_t *cfg)
 		} else if (tok == NumberConstant) {
 			/* identifier value ";" */
 			susetest_config_set_attr(cfg, identifier, value);
+		} else if (tok == LeftBrace) {
+			/* attr { foo, bar, baz ... } */
+
+			/* First, clear the attribute */
+			susetest_config_set_attr(cfg, identifier, NULL);
+
+			/* Now consume the contents */
+			while (1) {
+				tok = curly_parser_get_token(p, &value);
+				if (tok == Error)
+					return false;
+				if (tok == RightBrace)
+					break;
+				if (tok == Comma)
+					continue;
+
+				if (tok == Identifier || tok == StringConstant || tok == NumberConstant) {
+					susetest_config_add_attr_list(cfg, identifier, value);
+				} else {
+					goto unexpected_token_error;
+				}
+			}
 		} else {
 			goto unexpected_token_error;
 		}
@@ -185,10 +208,22 @@ __curly_print(const susetest_config_t *cfg, FILE *fp, int indent)
 	const susetest_config_t *child;
 
 	for (attr = cfg->attrs; attr; attr = attr->next) {
-		fprintf(fp, "%*.*s%-12s \"%s\";\n",
+		unsigned int n;
+
+		fprintf(fp, "%*.*s%-12s ",
 				indent, indent, "",
-				attr->name,
-				attr->value);
+				attr->name);
+		if (attr->nvalues == 1) {
+			fprintf(fp, " \"%s\";\n", attr->values[0]);
+		} else {
+			fprintf(fp, " {\n");
+			for (n = 0; n < attr->nvalues; ++n) {
+				fprintf(fp, "%*.*s   \"%s\",\n",
+						indent, indent, "",
+						attr->values[n]);
+			}
+			fprintf(fp, "%*.*s}\n", indent, indent, "");
+		}
 	}
 
 	for (child = cfg->children; child; child = child->next) {
@@ -387,6 +422,10 @@ curly_parser_get_token(curly_parser_t *parser, char **token_string)
 	if (*pos == ';') {
 		*dst++ = *pos++;
 		token = Semicolon;
+	} else
+	if (*pos == ',') {
+		*dst++ = *pos++;
+		token = Comma;
 	} else {
 		return Error;
 	}
@@ -436,6 +475,8 @@ curly_token_name(curly_token_t token)
 		return "RightBrace";
 	case Semicolon:
 		return "Semicolon";
+	case Comma:
+		return "Comma";
 	default:
 		return "???";
 	}

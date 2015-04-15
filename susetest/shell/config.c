@@ -51,6 +51,7 @@ struct option long_options[] = {
 static const char *		arg_get_nodename(const char *cmd, int argc, char **argv);
 static susetest_node_config_t *	arg_get_node(susetest_config_t *, const char *cmd, int argc, char **argv);
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
+static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
 static bool			resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p);
 static int			set_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static void			get_node_attrs(susetest_node_config_t *node, int argc, char **argv);
@@ -68,10 +69,19 @@ show_usage(void)
 		"     Create a new config file, optionally setting global attributes\n"
 		"  add-group [--group <group-path>] type=name [attr=value] ...\n"
 		"     Create a named group (a node, a network), optionally setting node attributes\n"
+		"  clear-attr [--group <group-path>] name\n"
+		"     Delete an attributes\n"
 		"  set-attr [--group <group-path>] name1=value name2=\"quoted-value\" ...\n"
 		"     Explicitly set attributes\n"
 		"  get-attr [--group <group-path>] name\n"
-		"     Query an attribute\n"
+		"     Query an attribute. If the attribute is a list attribute,\n"
+		"     only the first item will be printed\n"
+		"  set-attr-list [--group <group-path>] name value1 value2 value3 ...\n"
+		"     Explicitly set a list attribute, overwriting any previous values\n"
+		"  append-attr-list [--group <group-path>] name value1 value2 value3 ...\n"
+		"     Append values to a list attribute\n"
+		"  get-attr-list [--group <group-path>] name\n"
+		"     Query a list attribute. Each item is printed on a separate line.\n"
 		"  delete\n"
 		"     Delete the config file\n"
 		"  help\n"
@@ -194,21 +204,65 @@ do_config(int argc, char **argv)
 				susetest_config_set_attr(group, name, value);
 			}
 		} else
-		if (!strcmp(cmd, "get-attr")) {
+		if (!strcmp(cmd, "clear-attr")) {
 			susetest_config_t *group = cfg;
-			const char *value;
+			const char *name;
 
 			if (!resolve_group(cmd, opt_groupname, &group))
 				return 1;
 
-			if (optind + 1 != argc) {
-				fprintf(stderr, "susetest config get-attr: bad number of arguments\n");
+			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
-			}
 
-			value = susetest_config_get_attr(group, argv[optind]);
+			susetest_config_set_attr(group, name, NULL);
+		} else
+		if (!strcmp(cmd, "set-attr-list")) {
+			susetest_config_t *group = cfg;
+			const char *name;
+
+			if (!resolve_group(cmd, opt_groupname, &group)
+			 || !arg_get_attr_name(cmd, argc, argv, &name))
+				return 1;
+
+			susetest_config_set_attr_list(group, name, (const char * const *) argv + optind);
+		} else
+		if (!strcmp(cmd, "append-attr-list")) {
+			susetest_config_t *group = cfg;
+			const char *name;
+
+			if (!resolve_group(cmd, opt_groupname, &group)
+			 || !arg_get_attr_name(cmd, argc, argv, &name))
+				return 1;
+
+			while (optind < argc) {
+				susetest_config_add_attr_list(group, name, argv[optind++]);
+			}
+		} else
+		if (!strcmp(cmd, "get-attr")) {
+			susetest_config_t *group = cfg;
+			const char *name, *value;
+
+			if (!resolve_group(cmd, opt_groupname, &group)
+			 || !arg_get_attr_name(cmd, argc, argv, &name))
+				return 1;
+
+			value = susetest_config_get_attr(group, name);
 			if (value)
 				printf("%s\n", value);
+			opt_pathname = NULL; /* No need to rewrite config file */
+		} else
+		if (!strcmp(cmd, "get-attr-list")) {
+			susetest_config_t *group = cfg;
+			const char * const *values;
+			const char *name;
+
+			if (!resolve_group(cmd, opt_groupname, &group)
+			 || !arg_get_attr_name(cmd, argc, argv, &name))
+				return 1;
+
+			values = susetest_config_get_attr_list(group, name);
+			while (values && *values)
+				printf("%s\n", *values++);
 			opt_pathname = NULL; /* No need to rewrite config file */
 		} else
 		if (!strcmp(cmd, "add-node")) {
@@ -315,6 +369,18 @@ arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_
 		fprintf(stderr, "susetest config %s: bad argument, should be type=name\n", cmd);
 		return false;
 	}
+	return true;
+}
+
+static bool
+arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret)
+{
+	if (optind >= argc) {
+		fprintf(stderr, "susetest config %s: missing attribute name\n", cmd);
+		show_usage();
+		return false;
+	}
+	*name_ret = argv[optind++];
 	return true;
 }
 

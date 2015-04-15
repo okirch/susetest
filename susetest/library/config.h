@@ -24,10 +24,14 @@
 
 typedef struct susetest_config_attr susetest_config_attr_t;
 
+#define SUSETEST_CONFIG_SHORTLIST_MAX	2
 struct susetest_config_attr {
 	susetest_config_attr_t *	next;
 	char *				name;
-	char *				value;
+
+	unsigned int			nvalues;
+	char **				values;
+	char *				short_list[SUSETEST_CONFIG_SHORTLIST_MAX+1];
 };
 
 struct susetest_config_group {

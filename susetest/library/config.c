@@ -27,8 +27,12 @@
 
 static void		__susetest_config_attrs_free(susetest_config_attr_t **);
 static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
+static void		__susetest_config_add_attr_list(susetest_config_attr_t **, const char *, const char *);
+static void		__susetest_config_set_attr_list(susetest_config_attr_t **, const char *, const char * const *);
 static const char *	__susetest_config_get_attr(susetest_config_attr_t **, const char *);
+static const char * const *__susetest_config_get_attr_list(susetest_config_attr_t **, const char *);
 static const char **	__susetest_config_attr_names(susetest_config_attr_t * const*);
+static void		__susetest_config_attr_clear(susetest_config_attr_t *attr);
 
 static inline int
 xstrcmp(const char *a, const char *b)
@@ -199,10 +203,28 @@ susetest_config_set_attr(susetest_config_t *cfg, const char *name, const char *v
 	__susetest_config_set_attr(&cfg->attrs, name, value);
 }
 
+void
+susetest_config_set_attr_list(susetest_config_t *cfg, const char *name, const char * const *values)
+{
+	__susetest_config_set_attr_list(&cfg->attrs, name, values);
+}
+
+void
+susetest_config_add_attr_list(susetest_config_t *cfg, const char *name, const char *value)
+{
+	__susetest_config_add_attr_list(&cfg->attrs, name, value);
+}
+
 const char *
 susetest_config_get_attr(susetest_config_t *cfg, const char *name)
 {
 	return __susetest_config_get_attr(&cfg->attrs, name);
+}
+
+const char * const *
+susetest_config_get_attr_list(susetest_config_t *cfg, const char *name)
+{
+	return __susetest_config_get_attr_list(&cfg->attrs, name);
 }
 
 const char **
@@ -254,6 +276,7 @@ __susetest_config_find_attr(susetest_config_attr_t **list, const char *name, int
 	if (create) {
 		attr = calloc(1, sizeof(*attr));
 		attr->name = strdup(name);
+		attr->values = attr->short_list;
 		*pos = attr;
 		return attr;
 	}
@@ -261,26 +284,64 @@ __susetest_config_find_attr(susetest_config_attr_t **list, const char *name, int
 	return NULL;
 }
 
+static void
+__susetest_config_attr_append(susetest_config_attr_t *attr, const char *value)
+{
+	char *s;
+
+	if (attr->nvalues >= SUSETEST_CONFIG_SHORTLIST_MAX) {
+		unsigned int new_size;
+
+		new_size = (attr->nvalues + 2) * sizeof(char *);
+		if (attr->values == attr->short_list) {
+			attr->values = malloc(new_size);
+			memcpy(attr->values, attr->short_list, sizeof(attr->short_list));
+		} else {
+			attr->values = realloc(attr->values, new_size);
+		}
+	}
+
+	attr->values[attr->nvalues++] = s = strdup(value);
+	attr->values[attr->nvalues] = NULL;
+
+	/* Replace newlines with a blank */
+	while ((s = strchr(s, '\n')) != NULL)
+		*s = ' ';
+}
+
 void
 __susetest_config_set_attr(susetest_config_attr_t **list, const char *name, const char *value)
 {
 	susetest_config_attr_t *attr;
-	char *s;
 
 	attr = __susetest_config_find_attr(list, name, 1);
-	if (attr->value) {
-		free(attr->value);
-		attr->value = NULL;
-	}
+	__susetest_config_attr_clear(attr);
+	if (value)
+		__susetest_config_attr_append(attr, value);
+}
 
-	if (value) {
-		attr->value = strdup(value);
+void
+__susetest_config_set_attr_list(susetest_config_attr_t **attr_list, const char *name, const char * const *values)
+{
+	susetest_config_attr_t *attr;
 
-		/* Replace newlines with a blank */
-		while ((s = strchr(attr->value, '\n')) != NULL)
-			*s = ' ';
-	} else {
-	}
+	attr = __susetest_config_find_attr(attr_list, name, 1);
+	__susetest_config_attr_clear(attr);
+
+	while (values && *values)
+		__susetest_config_attr_append(attr, *values++);
+}
+
+void
+__susetest_config_add_attr_list(susetest_config_attr_t **attr_list, const char *name, const char *value)
+{
+	susetest_config_attr_t *attr;
+
+	attr = __susetest_config_find_attr(attr_list, name, 1);
+	if (value == NULL)
+		return;
+
+	__susetest_config_attr_append(attr, value);
 }
 
 const char *
@@ -289,8 +350,19 @@ __susetest_config_get_attr(susetest_config_attr_t **list, const char *name)
 	susetest_config_attr_t *attr;
 
 	attr = __susetest_config_find_attr(list, name, 0);
-	if (attr)
-		return attr->value;
+	if (attr && attr->nvalues)
+		return attr->values[0];
+	return NULL;
+}
+
+const char * const *
+__susetest_config_get_attr_list(susetest_config_attr_t **attr_list, const char *name)
+{
+	susetest_config_attr_t *attr;
+
+	attr = __susetest_config_find_attr(attr_list, name, 0);
+	if (attr && attr->nvalues)
+		return (const char * const *) attr->values;
 	return NULL;
 }
 
@@ -314,6 +386,27 @@ __susetest_config_attr_names(susetest_config_attr_t * const*list)
 	return result;
 }
 
+static void
+__susetest_config_attr_clear(susetest_config_attr_t *attr)
+{
+	unsigned int n;
+
+	for (n = 0; n < attr->nvalues; ++n)
+		free(attr->values[n]);
+	if (attr->values != attr->short_list)
+		free(attr->values);
+	attr->values = attr->short_list;
+	attr->nvalues = 0;
+}
+
+static void
+__susetest_config_attr_free(susetest_config_attr_t *attr)
+{
+	free(attr->name);
+	__susetest_config_attr_clear(attr);
+	free(attr);
+}
+
 void
 __susetest_config_attrs_free(susetest_config_attr_t **list)
 {
@@ -322,10 +415,7 @@ __susetest_config_attrs_free(susetest_config_attr_t **list)
 	while ((attr = *list) != NULL) {
 		*list = attr->next;
 
-		free(attr->name);
-		if (attr->value)
-			free(attr->value);
-		free(attr);
+		__susetest_config_attr_free(attr);
 	}
 }
 

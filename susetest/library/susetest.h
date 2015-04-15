@@ -39,7 +39,10 @@ extern susetest_config_t *	susetest_config_add_child(susetest_config_t *cfg, con
 extern const char **		susetest_config_get_children(const susetest_config_t *, const char *type);
 extern const char **		susetest_config_get_attr_names(const susetest_config_t *);
 extern void			susetest_config_set_attr(susetest_config_t *cfg, const char *name, const char *value);
+extern void			susetest_config_set_attr_list(susetest_config_t *cfg, const char *name, const char * const *value);
+extern void			susetest_config_add_attr_list(susetest_config_t *cfg, const char *name, const char *value);
 extern const char *		susetest_config_get_attr(susetest_config_t *cfg, const char *name);
+extern const char * const *	susetest_config_get_attr_list(susetest_config_t *cfg, const char *name);
 
 extern susetest_node_config_t *	susetest_config_get_node(susetest_config_t *cfg, const char *name);
 extern susetest_node_config_t *	susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *spec);

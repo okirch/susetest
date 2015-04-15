@@ -20,13 +20,13 @@ testdir=/usr/lib/twopence/$name
 function do_install {
 
 	echo "install $*"
-	install "$@"
+	install "$@" || exit 1
 }
 
 function do_ln {
 
 	echo "ln $*"
-	ln "$@"
+	ln "$@" || exit 1
 }
 
 do_install -m 755 -d $instroot$testdir

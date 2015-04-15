@@ -35,10 +35,14 @@ cat >tests/nodes <<-EOF
 
 	node	server
 	repo	http://some/where/else
+
+	install	rsh
+	install	tcpd
 EOF
 
 export LD_LIBRARY_PATH=$PWD/library
 export PATH=$PWD/shell:$PATH
-./build-config -v tests/nodes tests/out-config
 
-rm -f tests/out-config tests/nodes
+bash -e ./build-config -v tests/nodes tests/out-config
+
+#rm -f tests/out-config tests/nodes
