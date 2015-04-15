@@ -60,11 +60,8 @@ class Target(twopence.Target):
 
 	def describeException(self):
 	        import traceback
-		import StringIO
 
-		file = StringIO.StringIO()
-		traceback.print_exc(None, file)
-		return file.getvalue()
+		return traceback.format_exc(None)
 
 	def configureOtherNetworks(self):
 		result = True
@@ -179,7 +176,7 @@ class Target(twopence.Target):
 			status = super(Target, self).run(cmd)
 		except:
 			self.logError("command execution failed with exception")
-			self.journal.recordStderr(self.describeException())
+			self.journal.info(self.describeException())
 
 		        status = twopence.Status(256, bytearray(), bytearray())
 
@@ -248,7 +245,7 @@ class Target(twopence.Target):
 			status = self.recvfile(xfer)
 		except:
 			self.logError("download failed with exception")
-			self.journal.recordStderr(self.describeException())
+			self.journal.info(self.describeException())
 
 		        return None
 
@@ -277,7 +274,7 @@ class Target(twopence.Target):
 			return self.sendfile(xfer)
 		except:
 			self.logError("upload failed with exception")
-			self.journal.recordStderr(self.describeException())
+			self.journal.info(self.describeException())
 
 		        return twopence.Status(256)
 
