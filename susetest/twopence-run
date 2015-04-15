@@ -36,7 +36,12 @@ set -e
 # Obtain the directory of the control package,
 # e.g. /var/lib/jenkins/testsuites/twopence-ntp.
 # This is where the nodes file lives
-ctrldir=${0%/*}
+ctrlbindir=${0%/*}
+if [ "$ctrlbindir" = "." ]; then
+	ctrldir=".."
+else
+	ctrldir=${ctrlbindir%/bin}
+fi
 echo ctrldir=$ctrldir
 
 # Obtain the directory of the twopence-rpc package,
