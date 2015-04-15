@@ -34,5 +34,6 @@ do_install -m 555 $runscript $instroot$testdir
 do_ln -sf /usr/lib/susetest/twopence-run $instroot$testdir/control
 
 do_install -m 755 -d $instroot$ctrldir
+do_install -m 755 -d $instroot$ctrldir/bin
 do_install -m 444 "$nodesfile" $instroot$ctrldir
-do_ln -sf $testdir/control $instroot$ctrldir/01_run.sh
+do_ln -sf $testdir/control $instroot$ctrldir/bin/01_run.sh
