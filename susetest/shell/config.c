@@ -48,12 +48,17 @@ struct option long_options[] = {
   { NULL }
 };
 
+enum {
+	RESOLVE_GROUP_CREATE = 0x0001,
+	RESOLVE_GROUP_IGNORE_MISSING = 0x0002,
+};
+
 static const char *		arg_get_nodename(const char *cmd, int argc, char **argv);
 static susetest_node_config_t *	arg_get_node(susetest_config_t *, const char *cmd, int argc, char **argv);
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
 static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
 static bool			arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret);
-static bool			resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p);
+static bool			resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **cfg_p);
 static int			set_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static void			get_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static int			split_key_value(char *nameattr, char **namep, char **valuep);
@@ -177,7 +182,7 @@ do_config(int argc, char **argv)
 			susetest_config_t *group = cfg;
 			const char *type, *name;
 
-			if (!resolve_group(cmd, opt_groupname, &group))
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
 				return 1;
 
 			/* Parse type=name */
@@ -196,7 +201,7 @@ do_config(int argc, char **argv)
 		if (!strcmp(cmd, "set-attr")) {
 			susetest_config_t *group = cfg;
 
-			if (!resolve_group(cmd, opt_groupname, &group))
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
 				return 1;
 
 			while (optind < argc) {
@@ -211,8 +216,8 @@ do_config(int argc, char **argv)
 			susetest_config_t *group = cfg;
 			const char *name;
 
-			if (!resolve_group(cmd, opt_groupname, &group))
-				return 1;
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_IGNORE_MISSING, &group))
+				return 0;
 
 			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
@@ -223,7 +228,7 @@ do_config(int argc, char **argv)
 			susetest_config_t *group = cfg;
 			const char *name;
 
-			if (!resolve_group(cmd, opt_groupname, &group)
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group)
 			 || !arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
@@ -233,7 +238,7 @@ do_config(int argc, char **argv)
 			susetest_config_t *group = cfg;
 			const char *name;
 
-			if (!resolve_group(cmd, opt_groupname, &group)
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group)
 			 || !arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
@@ -245,8 +250,10 @@ do_config(int argc, char **argv)
 			susetest_config_t *group = cfg;
 			const char *name, *value;
 
-			if (!resolve_group(cmd, opt_groupname, &group)
-			 || !arg_get_attr_name(cmd, argc, argv, &name))
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_IGNORE_MISSING, &group))
+				return 0;
+
+			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
 			value = susetest_config_get_attr(group, name);
@@ -259,8 +266,9 @@ do_config(int argc, char **argv)
 			const char * const *values;
 			const char *name;
 
-			if (!resolve_group(cmd, opt_groupname, &group)
-			 || !arg_get_attr_name(cmd, argc, argv, &name))
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_IGNORE_MISSING, &group))
+				return 0;
+			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
 			values = susetest_config_get_attr_list(group, name);
@@ -274,8 +282,9 @@ do_config(int argc, char **argv)
 			const char **names;
 			int n;
 
-			if (!resolve_group(cmd, opt_groupname, &group)
-			 || !arg_get_type(cmd, argc, argv, &type))
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_IGNORE_MISSING, &group))
+				return 0;
+			if (!arg_get_type(cmd, argc, argv, &type))
 				return 1;
 
 			names = susetest_config_get_children(group, type);
@@ -419,7 +428,7 @@ arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret)
  *  /node=client/interface=eth0
  */
 static bool
-resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p)
+resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **cfg_p)
 {
 	char *next = NULL;
 
@@ -427,6 +436,7 @@ resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p)
 		return true;
 
 	for (; groupname != NULL; groupname = next) {
+		susetest_config_t *child;
 		char *type, *name;
 
 		while (*groupname == '/')
@@ -441,11 +451,17 @@ resolve_group(const char *cmd, char *groupname, susetest_config_t **cfg_p)
 			fprintf(stderr, "susetest config %s --group: bad argument, should be type=name\n", cmd);
 			return false;
 		}
-		*cfg_p = susetest_config_get_child(*cfg_p, type, name);
-		if (*cfg_p == NULL) {
-			fprintf(stderr, "susetest config %s: unable to look up subgroup %s=\"%s\"\n", cmd, type, name);
-			return false;
+		child = susetest_config_get_child(*cfg_p, type, name);
+		if (child == NULL) {
+			if (flags & RESOLVE_GROUP_CREATE) {
+				child = susetest_config_add_child(*cfg_p, type, name);
+			} else {
+				if (!(flags & RESOLVE_GROUP_IGNORE_MISSING))
+					fprintf(stderr, "susetest config %s: unable to look up subgroup %s=\"%s\"\n", cmd, type, name);
+				return false;
+			}
 		}
+		*cfg_p = child;
 	}
 
 	return true;
