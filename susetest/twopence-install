@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Set up the control directory for a susetest based twopence
+# script
+
+if [ $# -lt 3 ]; then
+	echo "Missing argument(s)" >&2
+	echo "Usage: $0 <name> <nodesfile> <runcsript> [<instroot>]" >&2
+	exit 1
+fi
+
+name=$1
+nodesfile=$2
+runscript=$3
+instroot=$4
+
+ctrldir=/var/lib/jenkins/testsuites/twopence-$name
+testdir=/usr/lib/twopence/$name
+
+function do_install {
+
+	echo "install $*"
+	install "$@"
+}
+
+function do_ln {
+
+	echo "ln $*"
+	ln "$@"
+}
+
+do_install -m 755 -d $instroot$testdir
+do_install -m 555 $runscript $instroot$testdir
+do_ln -sf /usr/lib/susetest/twopence-run $instroot$testdir/control
+
+do_install -m 755 -d $instroot$ctrldir
+do_install -m 444 "$nodesfile" $instroot$ctrldir
+do_ln -sf $testdir/control $instroot$ctrldir/01_run.sh

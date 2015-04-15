@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# This is how it works, assuming we're looking at the twopence-ntp test
+# suite, which consists of two packages
+#
+#  - the control package (twopence-ntp-control), which contains the stuff that
+#    slenkins relies on.
+#    Basically, this would be a nodes file (a partial description of how to
+#    provision each SUT), and a script 01_run.sh that exececutes the test
+#
+#  - the twopence-ntp package, which contains the python script and maybe
+#    some other parts.
+#
+# This setup is fairly versatile, but in the case of twopence tests
+# written in python, you will probably just have a single run script that
+# needs to be run.
+#
+# One additional wrinkle is added by the fact that currently, slenkins exports
+# all sorts of run-time data via environment variables, while python scripts
+# using susetest expect config objects.
+#
+# So, it would be nice to hide all of that behind some wrapper mechanism.
+# And, this is what you're looking at.
+#
+# The control package installs this symlink:
+#   /var/lib/jenkins/testsuites/twopence-ntp/01_run.sh -> /usr/lib/twopence/ntp/control
+# The twopence-ntp package, in turn, comes with this symlink:
+#   /usr/lib/twopence/ntp/control -> /usr/lib/susetest/twopence-run
+# which refers to the script you're just reading.
+#
+# Now, a readlink $0 will return /usr/lib/twopence/ntp/control, so that we know
+# where to look for the twopence script
+
+set -e
+
+# Obtain the directory of the control package,
+# e.g. /var/lib/jenkins/testsuites/twopence-ntp.
+# This is where the nodes file lives
+ctrldir=${0%/*}
+echo ctrldir=$ctrldir
+
+# Obtain the directory of the twopence-rpc package,
+# e.g. /usr/lib/twopence/ntp
+# This is where the python run script lives
+control=`readlink $0`
+
+testdir=${control%/*}
+echo testdir=$testdir
+
+testpkg=${testdir##*/}
+echo testpkg=$testpkg
+
+if [ -z "$TWOPENCE_CONFIG_PATH" ]; then
+	TWOPENCE_CONFIG_PATH=`mktemp --suffix .conf /tmp/twopence-$testpkg-XXXXXX`
+	export TWOPENCE_CONFIG_PATH
+	trap "rm -f $TWOPENCE_CONFIG_PATH" 0 1 2 15
+fi
+
+/usr/lib/susetest/build-config -v $ctrldir/nodes $TWOPENCE_CONFIG_PATH
+
+$testdir/run
