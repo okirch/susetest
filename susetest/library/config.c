@@ -30,8 +30,10 @@ static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *,
 static void		__susetest_config_add_attr_list(susetest_config_attr_t **, const char *, const char *);
 static void		__susetest_config_set_attr_list(susetest_config_attr_t **, const char *, const char * const *);
 static const char *	__susetest_config_get_attr(susetest_config_attr_t **, const char *);
+static void		__susetest_config_drop_attr(susetest_config_attr_t **, const char *);
 static const char * const *__susetest_config_get_attr_list(susetest_config_attr_t **, const char *);
 static const char **	__susetest_config_attr_names(susetest_config_attr_t * const*);
+static void		__susetest_config_attr_free(susetest_config_attr_t *attr);
 static void		__susetest_config_attr_clear(susetest_config_attr_t *attr);
 
 static inline int
@@ -152,7 +154,7 @@ susetest_config_free(susetest_config_t *cfg)
 }
 
 susetest_config_t *
-susetest_config_get_child(susetest_config_t *cfg, const char *type, const char *name)
+susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name)
 {
 	return susetest_config_group_get_child(cfg, type, name);
 }
@@ -285,6 +287,20 @@ __susetest_config_find_attr(susetest_config_attr_t **list, const char *name, int
 }
 
 static void
+__susetest_config_drop_attr(susetest_config_attr_t **list, const char *name)
+{
+	susetest_config_attr_t **pos, *attr;
+
+	for (pos = list; (attr = *pos) != NULL; pos = &attr->next) {
+		if (!strcmp(attr->name, name)) {
+			*pos = attr->next;
+			__susetest_config_attr_free(attr);
+			return;
+		}
+	}
+}
+
+static void
 __susetest_config_attr_append(susetest_config_attr_t *attr, const char *value)
 {
 	char *s;
@@ -314,10 +330,13 @@ __susetest_config_set_attr(susetest_config_attr_t **list, const char *name, cons
 {
 	susetest_config_attr_t *attr;
 
-	attr = __susetest_config_find_attr(list, name, 1);
-	__susetest_config_attr_clear(attr);
-	if (value)
+	if (value == NULL || *value == '\0') {
+		__susetest_config_drop_attr(list, name);
+	} else {
+		attr = __susetest_config_find_attr(list, name, 1);
+		__susetest_config_attr_clear(attr);
 		__susetest_config_attr_append(attr, value);
+	}
 }
 
 void
@@ -325,11 +344,15 @@ __susetest_config_set_attr_list(susetest_config_attr_t **attr_list, const char *
 {
 	susetest_config_attr_t *attr;
 
-	attr = __susetest_config_find_attr(attr_list, name, 1);
-	__susetest_config_attr_clear(attr);
+	if (values == NULL || *values == NULL) {
+		__susetest_config_drop_attr(attr_list, name);
+	} else {
+		attr = __susetest_config_find_attr(attr_list, name, 1);
+		__susetest_config_attr_clear(attr);
 
-	while (values && *values)
-		__susetest_config_attr_append(attr, *values++);
+		while (values && *values)
+			__susetest_config_attr_append(attr, *values++);
+	}
 }
 
 void

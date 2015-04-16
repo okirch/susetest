@@ -34,7 +34,7 @@ extern susetest_config_t *	susetest_config_new(void);
 extern void			susetest_config_free(susetest_config_t *);
 extern int			susetest_config_write(susetest_config_t *cfg, const char *path);
 extern susetest_config_t *	susetest_config_read(const char *path);
-extern susetest_config_t *	susetest_config_get_child(susetest_config_t *cfg, const char *type, const char *name);
+extern susetest_config_t *	susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name);
 extern susetest_config_t *	susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name);
 extern const char **		susetest_config_get_children(const susetest_config_t *, const char *type);
 extern const char **		susetest_config_get_attr_names(const susetest_config_t *);

@@ -42,9 +42,10 @@
 
 char *short_options = "f:g:h";
 struct option long_options[] = {
-  { "filename",	required_argument, NULL, 'f' },
-  { "group",	required_argument, NULL, 'g' },
-  { "help",	no_argument, NULL, 'h' },
+  { "filename",		required_argument,	NULL, 'f' },
+  { "group",		required_argument,	NULL, 'g' },
+  { "use-defaults",	no_argument,		NULL, 'd' },
+  { "help",		no_argument,		NULL, 'h' },
   { NULL }
 };
 
@@ -58,6 +59,7 @@ static susetest_node_config_t *	arg_get_node(susetest_config_t *, const char *cm
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
 static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
 static bool			arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret);
+static void			apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const char *type);
 static bool			resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **cfg_p);
 static int			set_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static void			get_node_attrs(susetest_node_config_t *node, int argc, char **argv);
@@ -111,6 +113,7 @@ do_config(int argc, char **argv)
 	susetest_config_t *cfg = NULL;
 	char *opt_pathname = NULL;
 	char *opt_groupname = NULL;
+	bool opt_apply_defaults = false;
 	char *cmd;
 	int c;
 
@@ -131,6 +134,10 @@ do_config(int argc, char **argv)
 		case 'h':
 			/* show usage */
 			return 0;
+
+		case 'd':
+			opt_apply_defaults = true;
+			break;
 
 		case 'f':
 			opt_pathname = optarg;
@@ -194,6 +201,9 @@ do_config(int argc, char **argv)
 				fprintf(stderr, "susetest config: unable to add %s \"%s\"\n", type, name);
 				return 1;
 			}
+
+			if (opt_apply_defaults)
+				apply_defaults(group, cfg, type);
 
 			if (!set_node_attrs(group, argc, argv))
 				return 1;
@@ -424,6 +434,41 @@ arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret)
 }
 
 /*
+ * When creating a new group (eg a network or a node), apply
+ * default settings from the corresponding "defaults" entry:
+ *  defaults "network" {
+ *	dhcp "yes";
+ *  }
+ */
+static void
+apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const char *type)
+{
+	susetest_config_t *defaults;
+	const char **attr_names;
+
+	defaults = susetest_config_get_child(cfg, "defaults", type);
+	if (defaults == NULL)
+		return;
+
+	attr_names = susetest_config_get_attr_names(defaults);
+	if (attr_names) {
+		unsigned int i;
+
+		for (i = 0; attr_names[i]; ++i) {
+			const char *name = attr_names[i];
+			const char * const *values;
+
+			values = susetest_config_get_attr_list(defaults, name);
+			if (!values)
+				continue;
+
+			susetest_config_set_attr_list(group, name, values);
+		}
+		free(attr_names);
+	}
+}
+
+/*
  * Resolve a group path, such as
  *  /node=client/interface=eth0
  */
@@ -555,6 +600,8 @@ split_key_value(char *nameattr, char **namep, char **valuep)
 		return 0;
 	}
 
+	if (**valuep == '\0')
+		*valuep = NULL;
 	free(s);
 	return 1;
 }
