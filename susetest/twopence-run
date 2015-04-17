@@ -59,8 +59,8 @@ if [ -z "$TWOPENCE_CONFIG_PATH" ]; then
 	TWOPENCE_CONFIG_PATH=`mktemp --suffix .conf /tmp/twopence-$testpkg-XXXXXX`
 	export TWOPENCE_CONFIG_PATH
 	trap "rm -f $TWOPENCE_CONFIG_PATH" 0 1 2 15
-fi
 
-/usr/lib/susetest/build-config -v $ctrldir/nodes $TWOPENCE_CONFIG_PATH
+	/usr/lib/susetest/build-config -v $ctrldir/nodes $TWOPENCE_CONFIG_PATH
+fi
 
 $testdir/run
