@@ -186,7 +186,7 @@ do_config(int argc, char **argv)
 		}
 
 		if (!strcmp(cmd, "add-group")) {
-			susetest_config_t *group = cfg;
+			susetest_config_t *group = cfg, *child;
 			const char *type, *name;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
@@ -196,16 +196,18 @@ do_config(int argc, char **argv)
 			if (!arg_get_type_and_name(cmd, argc, argv, &type, &name))
 				return 1;
 
-			group = susetest_config_add_child(group, type, name);
-			if (group == NULL) {
+			child = susetest_config_get_child(group, type, name);
+			if (child == NULL)
+				child = susetest_config_add_child(group, type, name);
+			if (child == NULL) {
 				fprintf(stderr, "susetest config: unable to add %s \"%s\"\n", type, name);
 				return 1;
 			}
 
 			if (opt_apply_defaults)
-				apply_defaults(group, cfg, type);
+				apply_defaults(child, cfg, type);
 
-			if (!set_node_attrs(group, argc, argv))
+			if (!set_node_attrs(child, argc, argv))
 				return 1;
 		} else
 		if (!strcmp(cmd, "set-attr")) {
