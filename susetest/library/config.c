@@ -25,14 +25,18 @@
 #include "susetest.h"
 #include "curlies.h"
 
+static void		__susetest_config_free(susetest_config_t *cfg);
 static void		__susetest_config_attrs_free(susetest_config_attr_t **);
 static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
 static void		__susetest_config_add_attr_list(susetest_config_attr_t **, const char *, const char *);
 static void		__susetest_config_set_attr_list(susetest_config_attr_t **, const char *, const char * const *);
+static void		__susetest_config_copy_attrs(susetest_config_attr_t **dst, const susetest_config_attr_t *src);
 static const char *	__susetest_config_get_attr(susetest_config_attr_t **, const char *);
 static void		__susetest_config_drop_attr(susetest_config_attr_t **, const char *);
 static const char * const *__susetest_config_get_attr_list(susetest_config_attr_t **, const char *);
 static const char **	__susetest_config_attr_names(susetest_config_attr_t * const*);
+static susetest_config_attr_t *__susetest_config_attr_new(const char *name);
+static susetest_config_attr_t *__susetest_config_attr_clone(const susetest_config_attr_t *src_attr);
 static void		__susetest_config_attr_free(susetest_config_attr_t *attr);
 static void		__susetest_config_attr_clear(susetest_config_attr_t *attr);
 
@@ -44,28 +48,44 @@ xstrcmp(const char *a, const char *b)
 	return strcmp(a, b);
 }
 
-susetest_config_group_t *
-susetest_config_group_new(const char *type, const char *name)
+static susetest_config_t *
+__susetest_config_new(const char *type, const char *name)
 {
-	susetest_config_group_t *cfg;
+	susetest_config_t *cfg;
 
-	cfg = (susetest_config_group_t *) calloc(1, sizeof(*cfg));
+	cfg = (susetest_config_t *) calloc(1, sizeof(*cfg));
 	cfg->type = type? strdup(type) : NULL;
 	cfg->name = name? strdup(name) : NULL;
 	return cfg;
 }
 
-void
-susetest_config_group_free(susetest_config_group_t *cfg)
+static susetest_config_t *
+__susetest_config_clone(const susetest_config_t *src)
 {
-	if (cfg->children) {
-		susetest_config_group_t *child;
+	susetest_config_t *dst;
 
-		while ((child = cfg->children) != NULL) {
-			cfg->children = child->next;
-			susetest_config_group_free(child);
-		}
+	dst = __susetest_config_new(src->type, src->name);
+	susetest_config_copy(dst, src);
+	return dst;
+}
+
+static void
+__susetest_config_clear(susetest_config_t *cfg)
+{
+	susetest_config_t *child;
+
+	while ((child = cfg->children) != NULL) {
+		cfg->children = child->next;
+		__susetest_config_free(child);
 	}
+
+	__susetest_config_attrs_free(&cfg->attrs);
+}
+
+static void
+__susetest_config_free(susetest_config_t *cfg)
+{
+	__susetest_config_clear(cfg);
 
 	if (cfg->type)
 		free(cfg->type);
@@ -75,7 +95,6 @@ susetest_config_group_free(susetest_config_group_t *cfg)
 		free(cfg->name);
 	cfg->name = NULL;
 
-	__susetest_config_attrs_free(&cfg->attrs);
 	free(cfg);
 }
 
@@ -108,7 +127,7 @@ susetest_config_group_add_child(susetest_config_t *cfg, const char *type, const 
 	for (pos = &cfg->children; (child = *pos) != NULL; pos = &child->next)
 		;
 
-	*pos = child = susetest_config_group_new(type, name);
+	*pos = child = __susetest_config_new(type, name);
 	return child;
 }
 
@@ -144,13 +163,13 @@ susetest_config_group_get_attr_names(const susetest_config_group_t *cfg)
 susetest_config_t *
 susetest_config_new(void)
 {
-	return susetest_config_group_new("root", NULL);
+	return __susetest_config_new("root", NULL);
 }
 
 void
 susetest_config_free(susetest_config_t *cfg)
 {
-	susetest_config_group_free(cfg);
+	__susetest_config_free(cfg);
 }
 
 susetest_config_t *
@@ -175,6 +194,22 @@ const char **
 susetest_config_get_attr_names(const susetest_config_t *cfg)
 {
 	return susetest_config_group_get_attr_names(cfg);
+}
+
+void
+susetest_config_copy(susetest_config_t *dst, const susetest_config_t *src)
+{
+	const susetest_config_t *src_child;
+	susetest_config_t **pos;
+
+	__susetest_config_clear(dst);
+	__susetest_config_copy_attrs(&dst->attrs, src->attrs);
+
+	pos = &dst->children;
+	for (src_child = src->children; src_child; src_child = src_child->next) {
+		*pos = __susetest_config_clone(src_child);
+		pos = &(*pos)->next;
+	}
 }
 
 /*
@@ -275,15 +310,11 @@ __susetest_config_find_attr(susetest_config_attr_t **list, const char *name, int
 			return attr;
 	}
 
-	if (create) {
-		attr = calloc(1, sizeof(*attr));
-		attr->name = strdup(name);
-		attr->values = attr->short_list;
-		*pos = attr;
-		return attr;
-	}
+	if (!create)
+		return NULL;
 
-	return NULL;
+	*pos = __susetest_config_attr_new(name);
+	return *pos;
 }
 
 static void
@@ -389,6 +420,18 @@ __susetest_config_get_attr_list(susetest_config_attr_t **attr_list, const char *
 	return NULL;
 }
 
+void
+__susetest_config_copy_attrs(susetest_config_attr_t **dst, const susetest_config_attr_t *src_attr)
+{
+	__susetest_config_attrs_free(dst);
+
+	while (src_attr != NULL) {
+		*dst = __susetest_config_attr_clone(src_attr);
+		src_attr = src_attr->next;
+		dst = &(*dst)->next;
+	}
+}
+
 const char **
 __susetest_config_attr_names(susetest_config_attr_t * const*list)
 {
@@ -420,6 +463,31 @@ __susetest_config_attr_clear(susetest_config_attr_t *attr)
 		free(attr->values);
 	attr->values = attr->short_list;
 	attr->nvalues = 0;
+}
+
+static susetest_config_attr_t *
+__susetest_config_attr_new(const char *name)
+{
+	susetest_config_attr_t *attr;
+
+	attr = calloc(1, sizeof(*attr));
+	attr->name = strdup(name);
+	attr->values = attr->short_list;
+	return attr;
+}
+
+static susetest_config_attr_t *
+__susetest_config_attr_clone(const susetest_config_attr_t *src_attr)
+{
+	susetest_config_attr_t *attr;
+	char **values;
+
+	attr = __susetest_config_attr_new(src_attr->name);
+
+	values = src_attr->values;
+	while (values && *values)
+		__susetest_config_attr_append(attr, *values++);
+	return attr;
 }
 
 static void

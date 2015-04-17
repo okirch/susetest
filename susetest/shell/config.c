@@ -302,6 +302,43 @@ do_config(int argc, char **argv)
 				printf("%s\n", names[n]);
 			free(names);
 		} else
+		if (!strcmp(cmd, "copy-group")) {
+			susetest_config_t *group = cfg;
+			susetest_config_t *src_group;
+			char *src_file = NULL, *src_group_name;
+
+			if (opt_groupname == NULL) {
+				fprintf(stderr, "susetest config copy-group: timidly refusing to replace entire config file\n");
+				fprintf(stderr, "Please use --group option to specify which node to overwrite\n");
+				return 1;
+			}
+
+			if (optind < argc)
+				src_file = argv[optind++];
+			if (optind < argc) {
+				src_group_name = argv[optind++];
+			} else {
+				src_group_name = strdup(opt_groupname);
+			}
+
+			if (src_file == NULL || optind != argc) {
+				fprintf(stderr, "susetest config copy-group: bad number of arguments\n");
+				return 1;
+			}
+
+			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
+				return 1;
+
+			src_group = susetest_config_read(src_file);
+			if (src_group == NULL) {
+				fprintf(stderr, "susetest config %s: unable to read config file \"%s\"\n", cmd, src_file);
+				return 1;
+			}
+			if (!resolve_group(cmd, src_group_name, RESOLVE_GROUP_IGNORE_MISSING, &src_group))
+				return 0;
+
+			susetest_config_copy(group, src_group);
+		} else
 		if (!strcmp(cmd, "add-node")) {
 			susetest_node_config_t *node;
 			const char *name;

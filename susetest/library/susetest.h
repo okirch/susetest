@@ -32,6 +32,7 @@ typedef struct susetest_config_group susetest_config_group_t;
 
 extern susetest_config_t *	susetest_config_new(void);
 extern void			susetest_config_free(susetest_config_t *);
+extern void			susetest_config_copy(susetest_config_t *dst, const susetest_config_t *src);
 extern int			susetest_config_write(susetest_config_t *cfg, const char *path);
 extern susetest_config_t *	susetest_config_read(const char *path);
 extern susetest_config_t *	susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name);
