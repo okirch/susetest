@@ -125,7 +125,7 @@ do_merge(int argc, char **argv)
 			break;
 	}
 	if (dst_node == NULL)
-		xml_node_new("testsuites", dst_root);
+		dst_node = xml_node_new("testsuites", dst_root);
 
 	src_doc = xml_document_read(src_logfile);
 	if (!src_doc || !(src_root = src_doc->root)) {
