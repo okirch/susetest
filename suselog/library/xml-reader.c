@@ -693,6 +693,10 @@ xml_process_cdata(xml_reader_t *xr, string_t *res)
 		if (cc == '>' && state == 2) {
 			++state;
 		} else {
+			while (state) {
+				string_putc(res, ']');
+				state--;
+			}
 			string_putc(res, cc);
 		}
 	}
@@ -790,7 +794,7 @@ xml_parse_error(struct xml_reader *reader, const char *fmt, ...)
 	vsnprintf(errmsg, sizeof(errmsg), fmt, ap);
 	va_end(ap);
 
-	fprintf(stderr, "Error: %s: line %u: %s", reader->filename, reader->lineCount, errmsg);
+	fprintf(stderr, "Error: %s: line %u: %s\n", reader->filename, reader->lineCount, errmsg);
 	reader->state = Error;
 }
 
