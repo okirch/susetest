@@ -68,6 +68,7 @@ extern void		suselog_journal_set_max_name_level(suselog_journal_t *, suselog_lev
 extern void		suselog_journal_set_systemout_level(suselog_journal_t *, suselog_level_t);
 extern void		suselog_journal_set_color(suselog_journal_t *, int);
 extern void		suselog_journal_write(suselog_journal_t *);
+extern int		suselog_journal_merge(suselog_journal_t *, const char *);
 extern void		suselog_journal_free(suselog_journal_t *);
 extern suselog_group_t *suselog_group_begin(suselog_journal_t *, const char *name, const char *description);
 extern const char *	suselog_group_name(const suselog_group_t *);
