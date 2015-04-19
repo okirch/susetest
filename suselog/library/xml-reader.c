@@ -870,7 +870,7 @@ xml_reader_open(xml_reader_t *xr, const char *filename)
 
 	xr->file = fopen(filename, "r");
 	if (xr->file == NULL) {
-		fprintf(stderr, "Error: Unable to open %s: %m", filename);
+		fprintf(stderr, "Error: Unable to open %s: %m\n", filename);
 		return -1;
 	}
 
