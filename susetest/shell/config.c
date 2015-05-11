@@ -54,17 +54,12 @@ enum {
 	RESOLVE_GROUP_IGNORE_MISSING = 0x0002,
 };
 
-static const char *		arg_get_nodename(const char *cmd, int argc, char **argv);
-static susetest_node_config_t *	arg_get_node(susetest_config_t *, const char *cmd, int argc, char **argv);
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
 static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
 static bool			arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret);
 static void			apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const char *type);
 static bool			resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **cfg_p);
-static int			set_node_attrs(susetest_node_config_t *node, int argc, char **argv);
-static void			get_node_attrs(susetest_node_config_t *node, int argc, char **argv);
 static int			split_key_value(char *nameattr, char **namep, char **valuep);
-static void			warn_obsolete(const char *cmd);
 
 static void
 show_usage(void)
@@ -207,8 +202,13 @@ do_config(int argc, char **argv)
 			if (opt_apply_defaults)
 				apply_defaults(child, cfg, type);
 
-			if (!set_node_attrs(child, argc, argv))
-				return 1;
+			while (optind < argc) {
+				char *name, *value;
+
+				if (!split_key_value(argv[optind++], &name, &value))
+					return 1;
+				susetest_config_set_attr(cfg, name, value);
+			}
 		} else
 		if (!strcmp(cmd, "set-attr")) {
 			susetest_config_t *group = cfg;
@@ -340,72 +340,6 @@ do_config(int argc, char **argv)
 				return 0;
 
 			susetest_config_copy(group, src_group);
-		} else
-		if (!strcmp(cmd, "add-node")) {
-			susetest_node_config_t *node;
-			const char *name;
-
-			warn_obsolete(cmd);
-			if (!(name = arg_get_nodename(cmd, argc, argv)))
-				return 1;
-
-			node = susetest_config_add_node(cfg, name, NULL);
-			if (node == NULL) {
-				fprintf(stderr, "susetest config: unable to add node \"%s\"\n", name);
-				return 1;
-			}
-
-			if (!set_node_attrs(node, argc, argv))
-				return 1;
-		} else
-		if (!strcmp(cmd, "node-set-attr")) {
-			susetest_node_config_t *node;
-
-			warn_obsolete(cmd);
-			if (!(node = arg_get_node(cfg, cmd, argc, argv)))
-				return 1;
-
-			if (!set_node_attrs(node, argc, argv))
-				return 1;
-		} else
-		if (!strcmp(cmd, "node-get-attr")) {
-			susetest_node_config_t *node;
-
-			warn_obsolete(cmd);
-			if (!(node = arg_get_node(cfg, cmd, argc, argv)))
-				return 1;
-
-			if (optind + 1 != argc) {
-				fprintf(stderr, "susetest config %s: bad number of arguments\n", cmd);
-				return 1;
-			}
-			get_node_attrs(node, argc, argv);
-
-			/* No need to rewrite config file */
-			opt_pathname = NULL;
-		} else
-		if (!strcmp(cmd, "node-names")) {
-			const char **names;
-			unsigned int n;
-
-			warn_obsolete(cmd);
-			if (optind != argc) {
-				fprintf(stderr, "susetest config %s: bad number of arguments\n", cmd);
-				return 1;
-			}
-
-			names = susetest_config_get_nodes(cfg);
-			if (names == NULL) {
-				fprintf(stderr, "susetest config %s: cannot get node names\n", cmd);
-				return 1;
-			}
-
-			for (n = 0; names[n]; ++n)
-				printf("%s\n", names[n]);
-			free(names);
-
-			/* No need to rewrite config file */
-			opt_pathname = NULL;
 		} else {
 			fprintf(stderr, "susetest config: unsupported subcommand \"%s\"\n", cmd);
 			return 1;
@@ -418,18 +352,6 @@ do_config(int argc, char **argv)
 	}
 
 	return 0;
-}
-
-static const char *
-arg_get_nodename(const char *cmd, int argc, char **argv)
-{
-	if (optind >= argc) {
-		fprintf(stderr, "susetest config %s: missing node name\n", cmd);
-		show_usage();
-		return NULL;
-	}
-
-	return argv[optind++];
 }
 
 static bool
@@ -551,57 +473,6 @@ resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **c
 	return true;
 }
 
-static susetest_node_config_t *
-arg_get_node(susetest_config_t *cfg, const char *cmd, int argc, char **argv)
-{
-	susetest_node_config_t *node;
-	const char *nodename;
-
-	if (!(nodename = arg_get_nodename(cmd, argc, argv)))
-		return NULL;
-
-	node = susetest_config_get_node(cfg, nodename);
-	if (node == NULL) {
-		fprintf(stderr, "susetest config %s: no node named \"%s\"\n", cmd, nodename);
-		return NULL;
-	}
-
-	return node;
-}
-
-static int
-set_node_attrs(susetest_node_config_t *node, int argc, char **argv)
-{
-	while (optind < argc) {
-		char *name, *value;
-
-		if (!split_key_value(argv[optind++], &name, &value))
-			return 0;
-		if (!strcmp(name, "target"))
-			susetest_node_config_set_target(node, value);
-		else
-			susetest_node_config_set_attr(node, name, value);
-	}
-	return 1;
-}
-
-static void
-get_node_attrs(susetest_node_config_t *node, int argc, char **argv)
-{
-	const char *value;
-
-	while (optind < argc) {
-		const char *attrname = argv[optind++];
-
-		if (!strcmp(attrname, "target"))
-			value = susetest_node_config_get_target(node);
-		else
-			value = susetest_node_config_get_attr(node, attrname);
-		if (value)
-			printf("%s\n", value);
-	}
-}
-
 static int
 __split_attr(char *s, char **namep, char **valuep)
 {
@@ -643,10 +514,4 @@ split_key_value(char *nameattr, char **namep, char **valuep)
 		*valuep = NULL;
 	free(s);
 	return 1;
-}
-
-static void
-warn_obsolete(const char *cmd)
-{
-	fprintf(stderr, "susetest config: using obsolete subcommand %s\n", cmd);
 }

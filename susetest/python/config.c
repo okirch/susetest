@@ -34,11 +34,11 @@ static PyObject *	Config_network(susetest_Config *self, PyObject *args, PyObject
 static PyObject *	Config_child(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_children(susetest_Config *self, PyObject *args, PyObject *kwds);
 static PyObject *	Config_get(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_buildAttrs(susetest_node_config_t *tgt);
+static PyObject *	Config_buildAttrs(susetest_config_t *tgt);
 static void		ConfigGroup_dealloc(susetest_Config *self);
 static PyObject *	ConfigGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static int		ConfigGroup_init(susetest_Config *self, PyObject *args, PyObject *kwds);
-static void		ConfigGroup_set(susetest_Config *, const char *, susetest_node_config_t *, PyObject *);
+static void		ConfigGroup_set(susetest_Config *, const char *, susetest_config_t *, PyObject *);
 static PyObject *	ConfigGroup_getattr(susetest_Config *self, char *name);
 
 
@@ -325,7 +325,8 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 		NULL
 	};
 	char *name = NULL;
-	susetest_node_config_t *node_conf;
+	susetest_config_t *node_conf;
+	const char *target_spec;
 	PyObject *result = NULL;
 	static int warned = 0;
 
@@ -337,11 +338,17 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
 		return NULL;
 
-	node_conf = susetest_config_get_node(self->config, name);
+	node_conf = susetest_config_get_child(self->config, "node", name);
 	if (node_conf == NULL) {
-		PyErr_Format(PyExc_AttributeError, "Unknown target \"%s\"", name);
+		PyErr_Format(PyExc_AttributeError, "Unknown node \"%s\"", name);
+		return NULL;
+	}
+
+	target_spec = susetest_config_get_attr(node_conf, "target");
+	if (target_spec == NULL) {
+		PyErr_Format(PyExc_AttributeError, "No target set for node \"%s\"", name);
+		return NULL;
 	} else {
-		const char *target_spec = susetest_node_config_get_target(node_conf);
 		PyObject *args = PyTuple_New(3);
 		PyObject *attrs;
 		PyObject *target_type = NULL;
@@ -362,20 +369,20 @@ Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 }
 
 PyObject *
-Config_buildAttrs(susetest_node_config_t *tgt)
+Config_buildAttrs(susetest_config_t *tgt)
 {
 	PyObject *dict = PyDict_New();
 	const char **names;
 	unsigned int i;
 	
-	names = susetest_node_config_attr_names(tgt);
+	names = susetest_config_get_attr_names(tgt);
 	if (names == NULL)
 		return dict; /* no attributes: return empty dict */
 
 	for (i = 0; names[i]; ++i) {
 		const char *value;
 
-		value = susetest_node_config_get_attr(tgt, names[i]);
+		value = susetest_config_get_attr(tgt, names[i]);
 		if (value != NULL)
 			PyDict_SetItemString(dict, names[i], PyString_FromString(value));
 	}
@@ -410,7 +417,7 @@ ConfigGroup_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 }
 
 void
-ConfigGroup_set(susetest_Config *self, const char *name, susetest_node_config_t *node_conf, PyObject *parent)
+ConfigGroup_set(susetest_Config *self, const char *name, susetest_config_t *node_conf, PyObject *parent)
 {
 	assign_string(&self->name, name);
 	assign_object(&self->parentObject, parent);
@@ -435,7 +442,7 @@ ConfigGroup_getattr(susetest_Config *self, char *name)
 	}
 
 	if (!strcmp(name, "target")) {
-		const char *value = susetest_node_config_get_target(self->config);
+		const char *value = susetest_config_get_attr(self->config, name);
 
 		if (value == NULL)
 			goto return_none;

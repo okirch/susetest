@@ -34,8 +34,8 @@ struct susetest_config_attr {
 	char *				short_list[SUSETEST_CONFIG_SHORTLIST_MAX+1];
 };
 
-struct susetest_config_group {
-	susetest_config_group_t *	next;
+struct susetest_config {
+	susetest_config_t *		next;
 
 	/* The group's type (eg "node") and name (eg "client", "server") */
 	char *				type;
@@ -44,7 +44,7 @@ struct susetest_config_group {
 	/* Attributes */
 	susetest_config_attr_t *	attrs;
 
-	susetest_config_group_t *	children;
+	susetest_config_t *		children;
 };
 
 #endif /* SUSETEST_CONFIG_H */

@@ -25,6 +25,7 @@
 #include "susetest.h"
 #include "curlies.h"
 
+static susetest_config_t *__susetest_config_new(const char *type, const char *name);
 static void		__susetest_config_free(susetest_config_t *cfg);
 static void		__susetest_config_attrs_free(susetest_config_attr_t **);
 static void		__susetest_config_set_attr(susetest_config_attr_t **, const char *, const char *);
@@ -48,6 +49,15 @@ xstrcmp(const char *a, const char *b)
 	return strcmp(a, b);
 }
 
+/*
+ * Constructor
+ */
+susetest_config_t *
+susetest_config_new(void)
+{
+	return __susetest_config_new("root", NULL);
+}
+
 static susetest_config_t *
 __susetest_config_new(const char *type, const char *name)
 {
@@ -59,14 +69,13 @@ __susetest_config_new(const char *type, const char *name)
 	return cfg;
 }
 
-static susetest_config_t *
-__susetest_config_clone(const susetest_config_t *src)
+/*
+ * Destructor
+ */
+void
+susetest_config_free(susetest_config_t *cfg)
 {
-	susetest_config_t *dst;
-
-	dst = __susetest_config_new(src->type, src->name);
-	susetest_config_copy(dst, src);
-	return dst;
+	__susetest_config_free(cfg);
 }
 
 static void
@@ -74,9 +83,12 @@ __susetest_config_clear(susetest_config_t *cfg)
 {
 	susetest_config_t *child;
 
+	/* This function clears out all children and attributes,
+	 * but leaves the type/name information intact
+	 */
 	while ((child = cfg->children) != NULL) {
 		cfg->children = child->next;
-		__susetest_config_free(child);
+		susetest_config_free(child);
 	}
 
 	__susetest_config_attrs_free(&cfg->attrs);
@@ -98,10 +110,13 @@ __susetest_config_free(susetest_config_t *cfg)
 	free(cfg);
 }
 
-susetest_config_group_t *
-susetest_config_group_get_child(const susetest_config_group_t *cfg, const char *type, const char *name)
+/*
+ * Accessor functions for child nodes
+ */
+susetest_config_t *
+susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name)
 {
-	susetest_config_group_t *child;
+	susetest_config_t *child;
 
 	for (child = cfg->children; child; child = child->next) {
 		if (type && xstrcmp(child->type, type))
@@ -113,12 +128,13 @@ susetest_config_group_get_child(const susetest_config_group_t *cfg, const char *
 	return NULL;
 }
 
-susetest_config_group_t *
-susetest_config_group_add_child(susetest_config_t *cfg, const char *type, const char *name, bool unique)
-{
-	susetest_config_group_t *child, **pos;
 
-	if (unique && susetest_config_group_get_child(cfg, type, name) != NULL) {
+susetest_config_t *
+susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name)
+{
+	susetest_config_t *child, **pos;
+
+	if (susetest_config_get_child(cfg, type, name) != NULL) {
 		fprintf(stderr, "duplicate %s group named \"%s\"\n", type, name);
 		return NULL;
 	}
@@ -131,10 +147,11 @@ susetest_config_group_add_child(susetest_config_t *cfg, const char *type, const 
 	return child;
 }
 
+
 const char **
-susetest_config_group_get_children(const susetest_config_t *cfg, const char *type)
+susetest_config_get_children(const susetest_config_t *cfg, const char *type)
 {
-	const susetest_node_config_t *node;
+	const susetest_config_t *node;
 	unsigned int n, count;
 	const char **result;
 
@@ -151,51 +168,16 @@ susetest_config_group_get_children(const susetest_config_t *cfg, const char *typ
 	return result;
 }
 
+
 const char **
-susetest_config_group_get_attr_names(const susetest_config_group_t *cfg)
+susetest_config_get_attr_names(const susetest_config_t *cfg)
 {
 	return __susetest_config_attr_names(&cfg->attrs);
 }
 
 /*
- * Accessor functions for susetest_config_t
+ * Copy all attributes and children from one config node to another
  */
-susetest_config_t *
-susetest_config_new(void)
-{
-	return __susetest_config_new("root", NULL);
-}
-
-void
-susetest_config_free(susetest_config_t *cfg)
-{
-	__susetest_config_free(cfg);
-}
-
-susetest_config_t *
-susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name)
-{
-	return susetest_config_group_get_child(cfg, type, name);
-}
-
-susetest_config_t *
-susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name)
-{
-	return susetest_config_group_add_child(cfg, type, name, true);
-}
-
-const char **
-susetest_config_get_children(const susetest_config_t *cfg, const char *type)
-{
-	return susetest_config_group_get_children(cfg, type);
-}
-
-const char **
-susetest_config_get_attr_names(const susetest_config_t *cfg)
-{
-	return susetest_config_group_get_attr_names(cfg);
-}
-
 void
 susetest_config_copy(susetest_config_t *dst, const susetest_config_t *src)
 {
@@ -207,33 +189,21 @@ susetest_config_copy(susetest_config_t *dst, const susetest_config_t *src)
 
 	pos = &dst->children;
 	for (src_child = src->children; src_child; src_child = src_child->next) {
-		*pos = __susetest_config_clone(src_child);
-		pos = &(*pos)->next;
+		susetest_config_t *clone;
+
+		/* Recursively create a deep copy of the child node */
+		clone = __susetest_config_new(src_child->type, src_child->name);
+		susetest_config_copy(clone, src_child);
+
+		/* Append to list */
+		*pos = clone;
+		pos = &clone->next;
 	}
 }
 
 /*
- * Backward compatibility
+ * Attribute accessors
  */
-susetest_node_config_t *
-susetest_config_get_node(susetest_config_t *cfg, const char *name)
-{
-	return susetest_config_group_get_child(cfg, "node", name);
-}
-
-susetest_node_config_t *
-susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *target)
-{
-	susetest_config_group_t *node;
-
-	if (!(node = susetest_config_group_add_child(cfg, "node", name, true)))
-		return NULL;
-
-	if (target)
-		susetest_node_config_set_target(node, target);
-	return node;
-}
-
 void
 susetest_config_set_attr(susetest_config_t *cfg, const char *name, const char *value)
 {
@@ -262,42 +232,6 @@ const char * const *
 susetest_config_get_attr_list(susetest_config_t *cfg, const char *name)
 {
 	return __susetest_config_get_attr_list(&cfg->attrs, name);
-}
-
-const char **
-susetest_config_get_nodes(const susetest_config_t *cfg)
-{
-	return susetest_config_group_get_children(cfg, "node");
-}
-
-void
-susetest_node_config_set_target(susetest_node_config_t *cfg, const char *target)
-{
-	susetest_node_config_set_attr(cfg, "target", target);
-}
-
-const char *
-susetest_node_config_get_target(susetest_node_config_t *cfg)
-{
-	return susetest_node_config_get_attr(cfg, "target");
-}
-
-void
-susetest_node_config_set_attr(susetest_node_config_t *node, const char *name, const char *value)
-{
-	__susetest_config_set_attr(&node->attrs, name, value);
-}
-
-const char *
-susetest_node_config_get_attr(susetest_node_config_t *node, const char *name)
-{
-	return __susetest_config_get_attr(&node->attrs, name);
-}
-
-const char **
-susetest_node_config_attr_names(const susetest_node_config_t *node)
-{
-	return __susetest_config_attr_names(&node->attrs);
 }
 
 static susetest_config_attr_t *

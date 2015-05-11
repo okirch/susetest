@@ -26,9 +26,7 @@
 /*
  * Handling susetest config information
  */
-typedef struct susetest_config_group susetest_config_t;
-typedef struct susetest_config_group susetest_node_config_t;
-typedef struct susetest_config_group susetest_config_group_t;
+typedef struct susetest_config susetest_config_t;
 
 extern susetest_config_t *	susetest_config_new(void);
 extern void			susetest_config_free(susetest_config_t *);
@@ -44,15 +42,5 @@ extern void			susetest_config_set_attr_list(susetest_config_t *cfg, const char *
 extern void			susetest_config_add_attr_list(susetest_config_t *cfg, const char *name, const char *value);
 extern const char *		susetest_config_get_attr(susetest_config_t *cfg, const char *name);
 extern const char * const *	susetest_config_get_attr_list(susetest_config_t *cfg, const char *name);
-
-extern susetest_node_config_t *	susetest_config_get_node(susetest_config_t *cfg, const char *name);
-extern susetest_node_config_t *	susetest_config_add_node(susetest_config_t *cfg, const char *name, const char *spec);
-extern const char **		susetest_config_get_nodes(const susetest_config_t *);
-extern const char *		susetest_node_config_get_target(susetest_node_config_t *node);
-extern void			susetest_node_config_set_target(susetest_node_config_t *node, const char *target);
-extern void			susetest_node_config_set_attr(susetest_node_config_t *node, const char *name, const char *value);
-extern const char *		susetest_node_config_get_attr(susetest_node_config_t *node, const char *name);
-extern const char **		susetest_node_config_attr_names(const susetest_node_config_t *);
-
 
 #endif /* SUSETEST_H */
