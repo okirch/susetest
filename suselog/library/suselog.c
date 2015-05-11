@@ -1289,7 +1289,7 @@ __suselog_writer_print_colored(const suselog_test_t *test, int color, const char
 
 	/* write(2, setaf, strlen(setaf)); */
 	tputs(tparm(setaf, color), 1, __suselog_writer_putc);
-	write(2, word, strlen(word));
+	(void) write(2, word, strlen(word));
 	tputs(tparm(setaf, TI_BLACK), 1, __suselog_writer_putc);
 }
 
