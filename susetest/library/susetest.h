@@ -28,11 +28,18 @@
  */
 typedef struct susetest_config susetest_config_t;
 
+enum {
+	SUSETEST_CONFIG_FMT_INVALID = -2,
+	SUSETEST_CONFIG_FMT_DEFAULT = -1,
+	SUSETEST_CONFIG_FMT_CURLY,
+	SUSETEST_CONFIG_FMT_XML
+};
+
 extern susetest_config_t *	susetest_config_new(void);
 extern void			susetest_config_free(susetest_config_t *);
 extern void			susetest_config_copy(susetest_config_t *dst, const susetest_config_t *src);
-extern int			susetest_config_write(susetest_config_t *cfg, const char *path);
-extern susetest_config_t *	susetest_config_read(const char *path);
+extern int			susetest_config_write(susetest_config_t *cfg, const char *path, int format);
+extern susetest_config_t *	susetest_config_read(const char *path, int *format_p);
 extern susetest_config_t *	susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name);
 extern susetest_config_t *	susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name);
 extern const char **		susetest_config_get_children(const susetest_config_t *, const char *type);
@@ -42,5 +49,8 @@ extern void			susetest_config_set_attr_list(susetest_config_t *cfg, const char *
 extern void			susetest_config_add_attr_list(susetest_config_t *cfg, const char *name, const char *value);
 extern const char *		susetest_config_get_attr(susetest_config_t *cfg, const char *name);
 extern const char * const *	susetest_config_get_attr_list(susetest_config_t *cfg, const char *name);
+
+extern int			susetest_config_format_from_string(const char *s);
+extern const char *		susetest_config_format_to_string(int fmt);
 
 #endif /* SUSETEST_H */

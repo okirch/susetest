@@ -40,11 +40,12 @@
 
 #include "susetest.h"
 
-char *short_options = "f:g:h";
+char *short_options = "f:F:g:h";
 struct option long_options[] = {
   { "filename",		required_argument,	NULL, 'f' },
   { "group",		required_argument,	NULL, 'g' },
   { "use-defaults",	no_argument,		NULL, 'd' },
+  { "file-format",	required_argument,	NULL, 'F' },
   { "help",		no_argument,		NULL, 'h' },
   { NULL }
 };
@@ -53,6 +54,9 @@ enum {
 	RESOLVE_GROUP_CREATE = 0x0001,
 	RESOLVE_GROUP_IGNORE_MISSING = 0x0002,
 };
+
+/* Default the output format to curly for now */
+#define SUSETEST_DEFAULT_FMT	SUSETEST_CONFIG_FMT_CURLY
 
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
 static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
@@ -105,10 +109,12 @@ show_usage(void)
 int
 do_config(int argc, char **argv)
 {
-	susetest_config_t *cfg = NULL;
+	int fileformat = SUSETEST_CONFIG_FMT_DEFAULT;
+	susetest_config_t *cfg = NULL, *cfg_root = NULL;
 	char *opt_pathname = NULL;
 	char *opt_groupname = NULL;
 	bool opt_apply_defaults = false;
+	int opt_fileformat = SUSETEST_CONFIG_FMT_DEFAULT;
 	char *cmd;
 	int c;
 
@@ -142,6 +148,14 @@ do_config(int argc, char **argv)
 			opt_groupname = optarg;
 			break;
 
+		case 'F':
+			opt_fileformat = susetest_config_format_from_string(optarg);
+			if (opt_fileformat == SUSETEST_CONFIG_FMT_INVALID) {
+				fprintf(stderr, "Unknown file format \"%s\"\n", optarg);
+				return 1;
+			}
+			break;
+
 		default:
 			fprintf(stderr, "Unsupported option\n");
 			/* show usage */
@@ -156,9 +170,12 @@ do_config(int argc, char **argv)
 	}
 
 	if (!strcmp(cmd, "create")) {
-		/* config create [attr="value"] ... */
-		cfg = susetest_config_new();
+		fileformat = SUSETEST_DEFAULT_FMT;
 
+		cfg_root = susetest_config_new();
+		cfg = susetest_config_add_child(cfg_root, "testenv", "unknown");
+
+		/* config create [attr="value"] ... */
 		while (optind < argc) {
 			char *name, *value;
 
@@ -174,11 +191,15 @@ do_config(int argc, char **argv)
 		}
 		opt_pathname = NULL; /* don't re-write it */
 	} else {
-		cfg = susetest_config_read(opt_pathname);
-		if (cfg == NULL) {
+		cfg_root = susetest_config_read(opt_pathname, &fileformat);
+		if (cfg_root == NULL) {
 			fprintf(stderr, "susetest: unable to read config file \"%s\"\n", opt_pathname);
 			return 1;
 		}
+
+		cfg = susetest_config_get_child(cfg_root, "testenv", NULL);
+		if (cfg == NULL)
+			cfg = cfg_root;
 
 		if (!strcmp(cmd, "add-group")) {
 			susetest_config_t *group = cfg, *child;
@@ -331,7 +352,7 @@ do_config(int argc, char **argv)
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
 				return 1;
 
-			src_group = susetest_config_read(src_file);
+			src_group = susetest_config_read(src_file, NULL);
 			if (src_group == NULL) {
 				fprintf(stderr, "susetest config %s: unable to read config file \"%s\"\n", cmd, src_file);
 				return 1;
@@ -340,13 +361,38 @@ do_config(int argc, char **argv)
 				return 0;
 
 			susetest_config_copy(group, src_group);
+		} else
+		if (!strcmp(cmd, "convert")) {
+			char *outname;
+
+			if (opt_fileformat == SUSETEST_CONFIG_FMT_DEFAULT)
+				fprintf(stderr,
+					"Warning: in order to convert to a different file format, you should\n"
+					"specify the desired format using the --fileformat option.\n");
+
+			if (optind + 1 != argc) {
+				fprintf(stderr, "susetest config %s: expected an output file name\n", cmd);
+				return 1;
+			}
+
+			outname = argv[optind++];
+			printf("Converting %s config file \"%s\", writing to \"%s\" using format %s\n",
+				susetest_config_format_to_string(fileformat), opt_pathname,
+				outname, susetest_config_format_to_string(opt_fileformat));
+
+			/* Otherwise, this is a NOP - see write-out code below */
+			opt_pathname = outname;
 		} else {
 			fprintf(stderr, "susetest config: unsupported subcommand \"%s\"\n", cmd);
 			return 1;
 		}
 	}
 
-	if (opt_pathname && susetest_config_write(cfg, opt_pathname) < 0) {
+	/* If we have been asked to write our data in a specific format, use that now */
+	if (opt_fileformat != SUSETEST_CONFIG_FMT_DEFAULT)
+		fileformat = opt_fileformat;
+
+	if (opt_pathname && susetest_config_write(cfg_root, opt_pathname, fileformat) < 0) {
 		fprintf(stderr, "susetest config %s: unable to rewrite config file\n", cmd);
 		return 1;
 	}

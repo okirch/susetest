@@ -9,7 +9,8 @@ endif
 CFLAGS	= -D_GNU_SOURCE $(CCOPT) \
 	  -I/usr/include/twopence \
 	  -I../library
-LINK	+= -L../library -lsusetest
+LINK	+= -L../library -lsusetest \
+	  -L../../minixml/library -lminixml
 
 BINDIR ?= /usr/bin
 MANDIR ?= /usr/share/man

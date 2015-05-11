@@ -60,7 +60,7 @@ show_usage(int rv)
 
 	fprintf(fp,
 		"Usage:\n"
-		"twopence command [args]\n"
+		"susetest command [args]\n"
 		"Currently supported commands:\n"
 		"  config    modifiy the list of targets for a twopence test run\n"
 		"  help      show this help message\n"

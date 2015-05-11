@@ -47,4 +47,9 @@ struct susetest_config {
 	susetest_config_t *		children;
 };
 
+extern int			susetest_config_write_curly(susetest_config_t *cfg, const char *path);
+extern int			susetest_config_write_xml(susetest_config_t *cfg, const char *path);
+extern susetest_config_t *	susetest_config_read_curly(const char *path);
+extern susetest_config_t *	susetest_config_read_xml(const char *path);
+
 #endif /* SUSETEST_CONFIG_H */

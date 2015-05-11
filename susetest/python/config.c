@@ -130,8 +130,8 @@ Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	/* init members */
 	self->config = NULL;
+	self->config_root = NULL;
 	self->parentObject = NULL;
-	self->config = NULL;
 
 	return (PyObject *)self;
 }
@@ -157,11 +157,19 @@ Config_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 			filename = "twopence.conf";
 	}
 
-	self->config = susetest_config_read(filename);
-	if (self->config == NULL) {
+	self->config_root = susetest_config_read(filename, NULL);
+	if (self->config_root == NULL) {
 		PyErr_Format(PyExc_SystemError, "Unable to read susetest config from file \"%s\"", filename);
 		return -1;
 	}
+
+	/* While we're transitioning from the old-style curly stuff to Eric's
+	 * XML stuff, there may or may not be a testenv group between the root and
+	 * the stuff we're interested in.
+	 */
+	self->config = susetest_config_get_child(self->config_root, "testenv", NULL);
+	if (self->config == NULL)
+		self->config = self->config_root;
 
 	return 0;
 }
@@ -173,8 +181,9 @@ static void
 Config_dealloc(susetest_Config *self)
 {
 	drop_string(&self->name);
-	if (self->config)
-		susetest_config_free(self->config);
+	if (self->config_root)
+		susetest_config_free(self->config_root);
+	self->config_root = NULL;
 	self->config = NULL;
 	drop_object(&self->parentObject);
 }
@@ -199,6 +208,16 @@ Config_get(susetest_Config *self, PyObject *args, PyObject *kwds)
 		return NULL;
 
 	value = susetest_config_get_attr(self->config, name);
+
+	/* Automatically map to new-style internal-ip attribute */
+	if (value == NULL && !strcmp(name, "ipaddr")) {
+		static int warned = 0;
+
+		if (warned++ == 0)
+			fprintf(stderr, "susetest.Config: using deprecated attribute ipaddr; please use internal-ip instead\n");
+		value = susetest_config_get_attr(self->config, "internal-ip");
+	}
+
 	if (value != NULL)
 		return PyString_FromString(value);
 

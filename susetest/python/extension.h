@@ -32,6 +32,8 @@ typedef struct {
 
 	char *		name;
 	PyObject *	parentObject;
+
+	susetest_config_t *config_root;
 	susetest_config_t *config;
 } susetest_Config;
 
