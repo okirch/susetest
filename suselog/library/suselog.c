@@ -604,7 +604,7 @@ suselog_test_finish(suselog_journal_t *journal, suselog_status_t status)
 	if ((test = journal->current.test) != NULL) {
 		if (test->status != SUSELOG_STATUS_RUNNING
 		 && test->status != status) {
-			suselog_warning(journal, "conflicting test stati - %s vs %s",
+			suselog_warning(journal, "conflicting test stati - %u vs %u",
 					test->status, status);
 		} else {
 			suselog_group_t *group = suselog_current_group(journal);
