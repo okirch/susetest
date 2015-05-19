@@ -170,10 +170,20 @@ do_config(int argc, char **argv)
 	}
 
 	if (!strcmp(cmd, "create")) {
+		const char *testname = "unknown";
+		int i;
+
 		fileformat = SUSETEST_DEFAULT_FMT;
 
+		for (i = optind; i < argc; ++i) {
+			if (!strncmp(argv[i], "name=", 5)) {
+				testname = argv[i] + 5;
+				break;
+			}
+		}
+
 		cfg_root = susetest_config_new();
-		cfg = susetest_config_add_child(cfg_root, "testenv", "unknown");
+		cfg = susetest_config_add_child(cfg_root, "testenv", testname);
 
 		/* config create [attr="value"] ... */
 		while (optind < argc) {
@@ -181,7 +191,9 @@ do_config(int argc, char **argv)
 
 			if (!split_key_value(argv[optind++], &name, &value))
 				return 1;
-			susetest_config_set_attr(cfg, name, value);
+			if (strcmp(name, "name")) {
+				susetest_config_set_attr(cfg, name, value);
+			}
 		}
 	} else
 	if (!strcmp(cmd, "delete")) {
@@ -228,7 +240,7 @@ do_config(int argc, char **argv)
 
 				if (!split_key_value(argv[optind++], &name, &value))
 					return 1;
-				susetest_config_set_attr(cfg, name, value);
+				susetest_config_set_attr(child, name, value);
 			}
 		} else
 		if (!strcmp(cmd, "set-attr")) {
@@ -526,7 +538,7 @@ __split_attr(char *s, char **namep, char **valuep)
 
 	if (!isalpha(*s))
 		return 0;
-	while (isalnum(*s) || *s == '_')
+	while (isalnum(*s) || *s == '_' || *s == '-')
 		++s;
 	if (*s != '=')
 		return 0;
