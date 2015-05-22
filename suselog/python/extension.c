@@ -275,7 +275,7 @@ Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 	};
 	suselog_journal_t *journal;
 	PyObject *firstArgObj;
-	char *firstArg, *secondArg;
+	char *firstArg = NULL, *secondArg = NULL;
 	char *name = NULL, *description = NULL;
 
 	/*
