@@ -32,6 +32,12 @@ class Config(susetestimpl.Config):
 			reportPath = self.workspace + "/report.xml"
 		self.journal = suselog.Journal(name, path = reportPath);
 
+	def target(self, nodename):
+		node_config = self.node(nodename)
+		if not node_config:
+			raise AttributeError("node configuration for node %s" % nodename)
+		return Target(node_config)
+
 class Target(twopence.Target):
 	def __init__(self, config):
 		super(Target, self).__init__(config.get('target'), config.attrs, config.name)
