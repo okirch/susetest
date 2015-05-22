@@ -43,11 +43,18 @@ class Target(twopence.Target):
 
 		# Initialize some commonly used attributes
 		self.name = config.name
-		self.ipaddr = config.get('ipv4_addr')
-		if not self.ipaddr:
-			self.ipaddr = config.get('ipaddr')
-		self.ip6addr = None
 
+		self.ipv4_addr = config.get('ipv4_addr')
+		if not self.ipv4_addr:
+			self.ipv4_addr = config.get('ipaddr')
+
+		self.ipv6_addr = config.get('ipv6_addr')
+		if not self.ipv6_addr:
+			self.ipv6_addr = config.get('ip6addr')
+
+		# Backward compat
+		self.ipaddr = self.ipv4_addr
+		self.ip6addr = self.ipv6_addr
 
 	def logInfo(self, message):
 		self.journal.info(self.name + ": " + message)
