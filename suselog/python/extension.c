@@ -269,23 +269,48 @@ static PyObject *
 Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
-		"name",
+		"tag",
 		"description",
 		NULL
 	};
 	suselog_journal_t *journal;
-	PyObject *nameObject;
+	PyObject *firstArgObj;
+	char *firstArg, *secondArg;
 	char *name = NULL, *description = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|s", kwlist, &nameObject, &description))
+	/*
+	 * Calling conventions:
+	 *  (string, string)
+	 *	the first argument is the tag, the second one the description
+	 *  (string)
+	 *	the argument is the description, the tag defaults to NULL
+	 *  (None, string)
+	 *	the first argument is the tag (NULL), the second one the description
+	 *	Legacy use, may go away soon.
+	 */
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|s", kwlist, &firstArgObj, &secondArg))
 		return NULL;
 
-	if (nameObject != Py_None) {
-		if (!PyString_Check(nameObject)) {
+	firstArg = NULL;
+	if (firstArgObj != Py_None) {
+		if (!PyString_Check(firstArgObj)) {
 			PyErr_SetString(PyExc_TypeError, "Journal.beginGroup: first argument must be None or string");
 			return NULL;
 		}
-		name = PyString_AsString(nameObject);
+		firstArg = PyString_AsString(firstArgObj);
+	}
+
+	if (secondArg != NULL) {
+		name = firstArg;
+		description = secondArg;
+	} else {
+		name = NULL;
+		description = firstArg;
+	}
+
+	if (description == NULL) {
+		PyErr_SetString(PyExc_TypeError, "Journal.beginGroup: no group description given");
+		return NULL;
 	}
 
 	if ((journal = Journal_handle(self)) == NULL)
