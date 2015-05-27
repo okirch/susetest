@@ -243,6 +243,41 @@ class Target(twopence.Target):
 
 		return status
 
+	def sendfile(self, remotefile, **kwargs):
+		if self.defaultUser and not kwargs.has_key('user'):
+			kwargs['user'] = self.defaultUser
+
+		self.logInfo("uploading " + remotefile)
+		try:
+			status = super(Target, self).sendfile(remotefile, **kwargs)
+		except:
+			self.logError("upload failed with exception")
+			self.journal.info(self.describeException())
+		        return None
+
+		if not status:
+			self.logFailure("upload failed: " + status.message)
+
+		return status
+
+	def recvfile(self, remotefile, **kwargs):
+		if self.defaultUser and not kwargs.has_key('user'):
+			kwargs['user'] = self.defaultUser
+
+		self.logInfo("downloading " + remotefile)
+		try:
+			status = super(Target, self).recvfile(remotefile, **kwargs)
+		except:
+			self.logError("download failed with exception")
+			self.journal.info(self.describeException())
+		        return None
+
+		if not status:
+			self.logFailure("download failed: " + status.message)
+
+		return status
+
+
 	def recvbuffer(self, remoteFilename, **kwargs):
 		if self.defaultUser and not kwargs.has_key('user'):
 			kwargs['user'] = self.defaultUser
@@ -255,7 +290,7 @@ class Target(twopence.Target):
 
 		self.logInfo("downloading " + remoteFilename)
 		try:
-			status = self.recvfile(xfer)
+			status = super(Target, self).recvfile(xfer)
 		except:
 			self.logError("download failed with exception")
 			self.journal.info(self.describeException())
@@ -284,7 +319,7 @@ class Target(twopence.Target):
 			print "data is not a buffer"
 
 		try:
-			return self.sendfile(xfer)
+			return super(Target, self).sendfile(xfer)
 		except:
 			self.logError("upload failed with exception")
 			self.journal.info(self.describeException())
