@@ -110,6 +110,12 @@ __susetest_config_free(susetest_config_t *cfg)
 	free(cfg);
 }
 
+const char *
+susetest_config_name(const susetest_config_t *cfg)
+{
+	return cfg->name;
+}
+
 /*
  * Accessor functions for child nodes
  */
