@@ -5,7 +5,7 @@
 # These classes refer back to some C code in susetestimpl
 #
 ##################################################################
-import susetestimpl
+import exceptions
 import suselog
 import twopence
 import re
@@ -16,47 +16,74 @@ STARTMODE="auto"
 IPADDR="@IPADDR@"
 '''
 
-class Config(susetestimpl.Config):
-	def __init__(self, name, **kwargs):
-		super(Config, self).__init__(**kwargs)
-
+class ConfigWrapper():
+	def __init__(self, name, data):
 		self.name = name
+		self.data = data;
 
-		self.workspace = self.value("workspace")
+		# Set the workspace
+		self.workspace = self.data.workspace()
 		if not self.workspace:
 			print "Oops, no workspace defined. Using current directory"
 			self.workspace = "."
 
-		reportPath = self.value("report")
+		# Set the journal
+		reportPath = self.data.report()
 		if not reportPath:
-			reportPath = self.workspace + "/report.xml"
-		self.journal = suselog.Journal(name, path = reportPath);
+			reportPath = self.workspace + "/junit-results.xml"
+		self.journal = suselog.Journal(self.name, path = reportPath);
+
 
 	def target(self, nodename):
-		node_config = self.node(nodename)
-		if not node_config:
-			raise AttributeError("node configuration for node %s" % nodename)
-		return Target(node_config)
+		return Target(nodename, self)
+
+	def target_spec(self, nodename):
+		return self.data.node_target(nodename)
+
+	def ipv4_address(self, nodename):
+		return self.data.node_internal_ip(nodename)
+
+	def ipv6_address(self, nodename):
+		try:
+			return self.data.node_internal_ip6(nodename)
+		except:
+			pass
+
+		return None
+
+def Config(name, **kwargs):
+	try:
+		import curly
+
+		return ConfigWrapper(name, curly.Config(**kwargs));
+	except:
+		pass
+
+	try:
+		import testenv
+
+		return ConfigWrapper(name, testenv.Testenv(**kwargs))
+	except:
+		pass
+	
+	raise exceptions.RuntimeError("unable to create a valid config object")
+	return None
+		
 
 class Target(twopence.Target):
-	def __init__(self, config):
-		super(Target, self).__init__(config.get('target'), config.attrs, config.name)
+	def __init__(self, name, config):
+		super(Target, self).__init__(config.target_spec(name), None, name)
 
 		self.config = config
-		self.journal = config.container.journal
+		self.journal = config.journal
 
 		self.defaultUser = None
 
 		# Initialize some commonly used attributes
-		self.name = config.name
+		self.name = name
 
-		self.ipv4_addr = config.get('ipv4_addr')
-		if not self.ipv4_addr:
-			self.ipv4_addr = config.get('ipaddr')
-
-		self.ipv6_addr = config.get('ipv6_addr')
-		if not self.ipv6_addr:
-			self.ipv6_addr = config.get('ip6addr')
+		self.ipv4_addr = config.ipv4_address(self.name)
+		self.ipv6_addr = config.ipv6_address(self.name)
 
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
@@ -79,16 +106,16 @@ class Target(twopence.Target):
 	def configureOtherNetworks(self):
 		result = True
 
-		iflist = self.config.children("interface")
-		for interface in iflist:
-			ifname = interface.name
+		# iflist = self.config.node_interfaces(self.name)
+		iflist = []
 
+		for ifname in iflist:
 			if ifname == "eth0":
 				continue
 
 			self.journal.beginTest(None, "Try to bring up interface " + ifname)
 
-			ifcfg = self._buildIfconfig(interface)
+			ifcfg = self._buildIfconfig(ifname)
 			if not self.sendbuffer("/etc/sysconfig/network/ifcfg-" + ifname, ifcfg, user = 'root'):
 				self.logError("failed to upload interface config for " + ifname)
 				result = False
@@ -104,6 +131,7 @@ class Target(twopence.Target):
 	def _buildIfconfig(self, interface):
 		global ifcfg_template
 
+		# XXXX: Currently broken
 		if_ipaddr = interface.get('ipv4_addr')
 		if not if_ipaddr:
 			print "%s: no ipv4 addr for interface %s" % (self.name, interface.name)
@@ -147,7 +175,7 @@ class Target(twopence.Target):
 		return fqdn
 
 	def workspaceFile(self, relativeName = None):
-		path = self.config.container.workspace
+		path = self.config.workspace
 		if relativeName:
 			path = path + "/" + relativeName
 		return path

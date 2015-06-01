@@ -28,52 +28,74 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 static void		Config_dealloc(susetest_Config *self);
 static PyObject *	Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static int		Config_init(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_target(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_node(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_network(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_child(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_children(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_get(susetest_Config *self, PyObject *args, PyObject *kwds);
-static PyObject *	Config_buildAttrs(susetest_config_t *tgt);
-static void		ConfigGroup_dealloc(susetest_Config *self);
-static PyObject *	ConfigGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
-static int		ConfigGroup_init(susetest_Config *self, PyObject *args, PyObject *kwds);
-static void		ConfigGroup_set(susetest_Config *, const char *, susetest_config_t *, PyObject *);
-static PyObject *	ConfigGroup_getattr(susetest_Config *self, char *name);
+static PyObject *	Config_name(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_workspace(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_report(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_nodes(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_networks(susetest_Config *self, PyObject *args, PyObject *kwds);
+
+static PyObject *	Config_node_target(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_node_internal_ip(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_node_external_ip(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_node_internal_ip6(susetest_Config *self, PyObject *args, PyObject *kwds);
+
+static PyObject *	Config_network_subnet(susetest_Config *self, PyObject *args, PyObject *kwds);
+static PyObject *	Config_network_gateway(susetest_Config *self, PyObject *args, PyObject *kwds);
 
 
 /*
  * Define the python bindings of class "Config"
  */
 static PyMethodDef susetest_ConfigMethods[] = {
-      {	"node", (PyCFunction) Config_node, METH_VARARGS | METH_KEYWORDS,
-	"Obtain the configuration for the node with the given nickname",
+      /* Top-level attributes */
+      { "name", (PyCFunction) Config_name, METH_VARARGS | METH_KEYWORDS,
+	"Get the name of the test project",
       },
-      {	"network", (PyCFunction) Config_network, METH_VARARGS | METH_KEYWORDS,
-	"Obtain the configuration for the network with the given name",
+      { "workspace", (PyCFunction) Config_workspace, METH_VARARGS | METH_KEYWORDS,
+	"Get the workspace of the test project",
       },
-      {	"target", (PyCFunction) Config_target, METH_VARARGS | METH_KEYWORDS,
-	"Obtain a handle for the target with the given nickname"
+      { "report", (PyCFunction) Config_report, METH_VARARGS | METH_KEYWORDS,
+	"Get the report of the test project",
       },
-      {	"children", (PyCFunction) Config_children, METH_VARARGS | METH_KEYWORDS,
-	"Obtain all children with the given type",
+
+      /* Top-level children */
+      { "nodes", (PyCFunction) Config_nodes, METH_VARARGS | METH_KEYWORDS,
+	"Get the nodes of the test project",
       },
-      {	"child", (PyCFunction) Config_child, METH_VARARGS | METH_KEYWORDS,
-	"Obtain the configuration group with the given type and name",
+      { "networks", (PyCFunction) Config_networks, METH_VARARGS | METH_KEYWORDS,
+	"Get the networks of the test project",
       },
-      {	"value", (PyCFunction) Config_get, METH_VARARGS | METH_KEYWORDS,
-	"Query global string attribute"
+
+      /* Node attributes */
+      {	"node_target", (PyCFunction) Config_node_target, METH_VARARGS | METH_KEYWORDS,
+	"Get the node's target description"
       },
-      {	"get", (PyCFunction) Config_get, METH_VARARGS | METH_KEYWORDS,
-	"Query global string attribute"
+      {	"node_internal_ip", (PyCFunction) Config_node_internal_ip, METH_VARARGS | METH_KEYWORDS,
+	"Get the node's internal IPv4 address"
       },
+      {	"node_external_ip", (PyCFunction) Config_node_external_ip, METH_VARARGS | METH_KEYWORDS,
+	"Get the node's external IPv4 address"
+      },
+      {	"node_internal_ip6", (PyCFunction) Config_node_internal_ip6, METH_VARARGS | METH_KEYWORDS,
+	"Get the node's internal IPv6 address"
+      },
+
+      /* Network attributes */
+      {	"network_subnet", (PyCFunction) Config_network_subnet, METH_VARARGS | METH_KEYWORDS,
+	"Get the networks's IPv4 subnet"
+      },
+      {	"network_gateway", (PyCFunction) Config_network_gateway, METH_VARARGS | METH_KEYWORDS,
+	"Get the networks's IPv4 gateway"
+      },
+
+      /* Interface stuff */
       {	NULL }
 };
 
 PyTypeObject susetest_ConfigType = {
 	PyObject_HEAD_INIT(NULL)
 
-	.tp_name	= "susetestimpl.Config",
+	.tp_name	= "curly.Config",
 	.tp_basicsize	= sizeof(susetest_Config),
 	.tp_flags	= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_doc		= "Config object for twopence based tests",
@@ -82,38 +104,6 @@ PyTypeObject susetest_ConfigType = {
 	.tp_init	= (initproc) Config_init,
 	.tp_new		= Config_new,
 	.tp_dealloc	= (destructor) Config_dealloc,
-};
-
-/*
- * Define the python bindings of class "ConfigGroup"
- */
-static PyMethodDef susetest_ConfigGroupMethods[] = {
-	{ "children", (PyCFunction) Config_children, METH_VARARGS | METH_KEYWORDS,
-	  "Obtain all children with the given type",
-	},
-	{ "child", (PyCFunction) Config_child, METH_VARARGS | METH_KEYWORDS,
-	  "Obtain the configuration group with the given type and name",
-	},
-	{ "get", (PyCFunction) Config_get, METH_VARARGS | METH_KEYWORDS,
-	  "Query global string attribute"
-	},
-	{ NULL }
-};
-
-PyTypeObject susetest_ConfigGroupType = {
-	PyObject_HEAD_INIT(NULL)
-
-	.tp_name	= "susetestimpl.ConfigGroup",
-	.tp_basicsize	= sizeof(susetest_Config),
-	.tp_flags	= Py_TPFLAGS_DEFAULT,
-	.tp_doc		= "ConfigGroup object for twopence based tests",
-
-	.tp_methods	= susetest_ConfigGroupMethods,
-	.tp_init	= (initproc) ConfigGroup_init,
-	.tp_new		= ConfigGroup_new,
-	.tp_dealloc	= (destructor) ConfigGroup_dealloc,
-
-	.tp_getattr	= (getattrfunc) ConfigGroup_getattr,
 };
 
 /*
@@ -130,8 +120,7 @@ Config_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 	/* init members */
 	self->config = NULL;
-	self->config_root = NULL;
-	self->parentObject = NULL;
+	self->name = NULL;
 
 	return (PyObject *)self;
 }
@@ -168,9 +157,13 @@ Config_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 	 * the stuff we're interested in.
 	 */
 	self->config = susetest_config_get_child(self->config_root, "testenv", NULL);
-	if (self->config == NULL)
+	if (self->config != NULL) {
+		self->name = susetest_config_name(self->config);
+	} else {
 		self->config = self->config_root;
+	}
 
+	printf("Using curly config file %s\n", filename);
 	return 0;
 }
 
@@ -180,12 +173,12 @@ Config_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 static void
 Config_dealloc(susetest_Config *self)
 {
-	drop_string(&self->name);
+	/* drop_string(&self->name); */
 	if (self->config_root)
 		susetest_config_free(self->config_root);
 	self->config_root = NULL;
 	self->config = NULL;
-	drop_object(&self->parentObject);
+	self->name = NULL;
 }
 
 int
@@ -194,29 +187,42 @@ Config_Check(PyObject *self)
 	return PyType_IsSubtype(Py_TYPE(self), &susetest_ConfigType);
 }
 
-static PyObject *
-Config_get(susetest_Config *self, PyObject *args, PyObject *kwds)
+static bool
+__check_void_args(PyObject *args, PyObject *kwds)
 {
 	static char *kwlist[] = {
-		"attrname",
 		NULL
 	};
-	char *name = NULL;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist, NULL))
+		return false;
+
+	return true;
+}
+
+static bool
+__check_name_args(PyObject *args, PyObject *kwds, const char **name_p)
+{
+	static char *kwlist[] = {
+		"name",
+		NULL
+	};
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, name_p))
+		return false;
+
+	return true;
+}
+
+static PyObject *
+__toplevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, const char *attrname)
+{
 	const char *value;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
+	if (!__check_void_args(args, kwds))
 		return NULL;
 
-	value = susetest_config_get_attr(self->config, name);
-
-	/* Automatically map to new-style internal-ip attribute */
-	if (value == NULL && !strcmp(name, "ipaddr")) {
-		static int warned = 0;
-
-		if (warned++ == 0)
-			fprintf(stderr, "susetest.Config: using deprecated attribute ipaddr; please use internal-ip instead\n");
-		value = susetest_config_get_attr(self->config, "internal-ip");
-	}
+	value = susetest_config_get_attr(self->config, attrname);
 
 	if (value != NULL)
 		return PyString_FromString(value);
@@ -226,15 +232,36 @@ Config_get(susetest_Config *self, PyObject *args, PyObject *kwds)
 }
 
 static PyObject *
-Config_childCommon(susetest_Config *self, const char *type, const char *name)
+__toplevel_name_list(susetest_Config *self, PyObject *args, PyObject *kwds, const char *type)
 {
-	susetest_config_t *child;
-	PyObject *args, *result = NULL;
+	const char **values, **s;
+	PyObject *result;
 
-	if (self->config == NULL) {
-		PyErr_SetString(PyExc_ValueError, "configuration object is empty");
+	if (!__check_void_args(args, kwds))
+		return NULL;
+
+	values = susetest_config_get_children(self->config, type);
+	if (values == NULL) {
+		PyErr_SetString(PyExc_RuntimeError, "failed to get child names for configuration object");
 		return NULL;
 	}
+
+	result = PyList_New(0);
+	for (s = values; *s; ++s)
+		PyList_Append(result, PyString_FromString(*s++));
+
+	free(values);
+	return result;
+}
+
+static PyObject *
+__firstlevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, const char *type, const char *attrname)
+{
+	const char *name, *value;
+	susetest_config_t *child;
+
+	if (!__check_name_args(args, kwds, &name))
+		return NULL;
 
 	child = susetest_config_get_child(self->config, type, name);
 	if (child == NULL) {
@@ -242,248 +269,82 @@ Config_childCommon(susetest_Config *self, const char *type, const char *name)
 		return NULL;
 	}
 
-	args = PyTuple_New(0);
-	result = susetest_callType(&susetest_ConfigGroupType, args, NULL);
-	Py_DECREF(args);
+	value = susetest_config_get_attr(child, attrname);
 
-	if (result != NULL)
-		ConfigGroup_set((susetest_Config *) result, name, child, (PyObject *) self);
-
-	return result;
-}
-
-static PyObject *
-Config_childTyped(susetest_Config *self, const char *type, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {
-		"name",
-		NULL
-	};
-	char *name = NULL;
-
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
-		return NULL;
-
-	return Config_childCommon(self, type, name);
-}
-
-static PyObject *
-Config_node(susetest_Config *self, PyObject *args, PyObject *kwds)
-{
-	return Config_childTyped(self, "node", args, kwds);
-}
-
-static PyObject *
-Config_network(susetest_Config *self, PyObject *args, PyObject *kwds)
-{
-	return Config_childTyped(self, "network", args, kwds);
-}
-
-static PyObject *
-Config_child(susetest_Config *self, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {
-		"type",
-		"name",
-		NULL
-	};
-	char *type = NULL, *name = NULL;
-
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ss", kwlist, &type, &name))
-		return NULL;
-
-	return Config_childCommon(self, type, name);
-}
-
-static PyObject *
-Config_children(susetest_Config *self, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {
-		"type",
-		NULL
-	};
-	char *type = NULL;
-	const char **names;
-	PyObject *result = NULL;
-
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &type))
-		return NULL;
-
-	if (self->config == NULL) {
-		PyErr_SetString(PyExc_ValueError, "configuration object is empty");
-		return NULL;
-	}
-
-	names = susetest_config_get_children(self->config, type);
-	if (names == NULL) {
-		PyErr_SetString(PyExc_RuntimeError, "failed to get child names for configuration object");
-	} else {
-		unsigned int n;
-
-		result = PyList_New(0);
-		for (n = 0; names[n]; ++n) {
-			PyObject *childObject;
-
-			childObject = Config_childCommon(self, type, names[n]);
-			PyList_Append(result, childObject);
-			Py_DECREF(childObject);
-		}
-		free(names);
-	}
-
-	return result;
-}
-
-
-
-static PyObject *
-Config_target(susetest_Config *self, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {
-		"name",
-		NULL
-	};
-	char *name = NULL;
-	susetest_config_t *node_conf;
-	const char *target_spec;
-	PyObject *result = NULL;
-	static int warned = 0;
-
-	if (!warned) {
-		fprintf(stderr, "Config.target() method obsolete, please use Config.get('target') instead\n");
-		warned = 1;
-	}
-
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &name))
-		return NULL;
-
-	node_conf = susetest_config_get_child(self->config, "node", name);
-	if (node_conf == NULL) {
-		PyErr_Format(PyExc_AttributeError, "Unknown node \"%s\"", name);
-		return NULL;
-	}
-
-	target_spec = susetest_config_get_attr(node_conf, "target");
-	if (target_spec == NULL) {
-		PyErr_Format(PyExc_AttributeError, "No target set for node \"%s\"", name);
-		return NULL;
-	} else {
-		PyObject *args = PyTuple_New(3);
-		PyObject *attrs;
-		PyObject *target_type = NULL;
-
-		if (!(target_type = susetest_importType("twopence", "Target")))
-			return NULL;
-
-		PyTuple_SET_ITEM(args, 0, PyString_FromString(target_spec));
-		PyTuple_SET_ITEM(args, 1, attrs = Config_buildAttrs(node_conf));
-		PyTuple_SET_ITEM(args, 2, PyString_FromString(name));
-
-		result = susetest_callType((PyTypeObject *) target_type, args, NULL);
-
-		Py_DECREF(args);
-	}
-
-	return result;
-}
-
-PyObject *
-Config_buildAttrs(susetest_config_t *tgt)
-{
-	PyObject *dict = PyDict_New();
-	const char **names;
-	unsigned int i;
-	
-	names = susetest_config_get_attr_names(tgt);
-	if (names == NULL)
-		return dict; /* no attributes: return empty dict */
-
-	for (i = 0; names[i]; ++i) {
-		const char *value;
-
-		value = susetest_config_get_attr(tgt, names[i]);
-		if (value != NULL)
-			PyDict_SetItemString(dict, names[i], PyString_FromString(value));
-	}
-	return dict;
-}
-
-PyObject *
-ConfigGroup_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-	susetest_Config *self;
-
-	self = (susetest_Config *) type->tp_alloc(type, 0);
-	if (self == NULL)
-		return NULL;
-
-	/* init members */
-	self->config = NULL;
-	self->parentObject = NULL;
-	return (PyObject *) self;
-}
-
-int
-ConfigGroup_init(susetest_Config *self, PyObject *args, PyObject *kwds)
-{
-	static char *kwlist[] = {
-		NULL
-	};
-
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
-		return -1;
-	return 0;
-}
-
-void
-ConfigGroup_set(susetest_Config *self, const char *name, susetest_config_t *node_conf, PyObject *parent)
-{
-	assign_string(&self->name, name);
-	assign_object(&self->parentObject, parent);
-	self->config = node_conf;
-}
-
-void
-ConfigGroup_dealloc(susetest_Config *self)
-{
-	drop_string(&self->name);
-	drop_object(&self->parentObject);
-	self->config = NULL;
-}
-
-static PyObject *
-ConfigGroup_getattr(susetest_Config *self, char *name)
-{
-	if (!strcmp(name, "name")) {
-		if (self->name == NULL)
-			goto return_none;
-		return PyString_FromString(self->name);
-	}
-
-	if (!strcmp(name, "target")) {
-		const char *value = susetest_config_get_attr(self->config, name);
-
-		if (value == NULL)
-			goto return_none;
+	if (value != NULL)
 		return PyString_FromString(value);
-	}
 
-	if (!strcmp(name, "attrs")) {
-		if (self->config == NULL)
-			goto return_none;
-		return Config_buildAttrs(self->config);
-	}
-
-	if (!strcmp(name, "container")) {
-		if (self->parentObject == NULL)
-			goto return_none;
-		Py_INCREF(self->parentObject);
-		return self->parentObject;
-	}
-
-	return Py_FindMethod(susetest_ConfigGroupMethods, (PyObject *) self, name);
-
-return_none:
 	Py_INCREF(Py_None);
 	return Py_None;
+}
+
+static PyObject *
+Config_name(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	if (self->name != NULL)
+		return PyString_FromString(self->name);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *
+Config_workspace(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __toplevel_string_attr(self, args, kwds, "workspace");
+}
+
+static PyObject *
+Config_report(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __toplevel_string_attr(self, args, kwds, "report");
+}
+
+static PyObject *
+Config_nodes(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __toplevel_name_list(self, args, kwds, "node");
+}
+
+static PyObject *
+Config_node_target(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __firstlevel_string_attr(self, args, kwds, "node", "target");
+}
+
+static PyObject *
+Config_node_internal_ip(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __firstlevel_string_attr(self, args, kwds, "node", "ipv4_addr");
+}
+
+static PyObject *
+Config_node_external_ip(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+static PyObject *
+Config_node_internal_ip6(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __firstlevel_string_attr(self, args, kwds, "node", "ipv6_addr");
+}
+
+static PyObject *
+Config_networks(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __toplevel_name_list(self, args, kwds, "network");
+}
+
+static PyObject *
+Config_network_subnet(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __firstlevel_string_attr(self, args, kwds, "network", "subnet");
+}
+
+static PyObject *
+Config_network_gateway(susetest_Config *self, PyObject *args, PyObject *kwds)
+{
+	return __firstlevel_string_attr(self, args, kwds, "network", "gateway");
 }

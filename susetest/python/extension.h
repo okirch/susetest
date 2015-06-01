@@ -31,14 +31,11 @@ typedef struct {
 	PyObject_HEAD
 
 	char *		name;
-	PyObject *	parentObject;
-
 	susetest_config_t *config_root;
 	susetest_config_t *config;
 } susetest_Config;
 
 extern PyTypeObject	susetest_ConfigType;
-extern PyTypeObject	susetest_ConfigGroupType;
 
 extern PyObject *	susetest_importType(const char *module, const char *typeName);
 extern PyObject *	susetest_callType(PyTypeObject *typeObject, PyObject *args, PyObject *kwds);

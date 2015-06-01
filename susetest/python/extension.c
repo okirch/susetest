@@ -86,12 +86,11 @@ susetest_callType(PyTypeObject *typeObject, PyObject *args, PyObject *kwds)
 }
 
 PyMODINIT_FUNC
-initsusetestimpl(void) 
+initcurly(void) 
 {
 	PyObject* m;
 
-	m = Py_InitModule3("susetestimpl", susetest_methods, "Module for susetest helper functions");
+	m = Py_InitModule3("curly", susetest_methods, "Module for susetest helper functions");
 
 	susetest_registerType(m, "Config", &susetest_ConfigType);
-	susetest_registerType(m, "ConfigGroup", &susetest_ConfigGroupType);
 }
