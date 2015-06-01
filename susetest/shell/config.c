@@ -45,7 +45,6 @@ struct option long_options[] = {
   { "filename",		required_argument,	NULL, 'f' },
   { "group",		required_argument,	NULL, 'g' },
   { "use-defaults",	no_argument,		NULL, 'd' },
-  { "file-format",	required_argument,	NULL, 'F' },
   { "help",		no_argument,		NULL, 'h' },
   { NULL }
 };
@@ -109,12 +108,10 @@ show_usage(void)
 int
 do_config(int argc, char **argv)
 {
-	int fileformat = SUSETEST_CONFIG_FMT_DEFAULT;
 	susetest_config_t *cfg = NULL, *cfg_root = NULL;
 	char *opt_pathname = NULL;
 	char *opt_groupname = NULL;
 	bool opt_apply_defaults = false;
-	int opt_fileformat = SUSETEST_CONFIG_FMT_DEFAULT;
 	char *cmd;
 	int c;
 
@@ -148,14 +145,6 @@ do_config(int argc, char **argv)
 			opt_groupname = optarg;
 			break;
 
-		case 'F':
-			opt_fileformat = susetest_config_format_from_string(optarg);
-			if (opt_fileformat == SUSETEST_CONFIG_FMT_INVALID) {
-				fprintf(stderr, "Unknown file format \"%s\"\n", optarg);
-				return 1;
-			}
-			break;
-
 		default:
 			fprintf(stderr, "Unsupported option\n");
 			/* show usage */
@@ -172,8 +161,6 @@ do_config(int argc, char **argv)
 	if (!strcmp(cmd, "create")) {
 		const char *testname = "unknown";
 		int i;
-
-		fileformat = SUSETEST_DEFAULT_FMT;
 
 		for (i = optind; i < argc; ++i) {
 			if (!strncmp(argv[i], "name=", 5)) {
@@ -203,7 +190,8 @@ do_config(int argc, char **argv)
 		}
 		opt_pathname = NULL; /* don't re-write it */
 	} else {
-		cfg_root = susetest_config_read(opt_pathname, &fileformat);
+		cfg_root = susetest_config_read(opt_pathname);
+
 		if (cfg_root == NULL) {
 			fprintf(stderr, "susetest: unable to read config file \"%s\"\n", opt_pathname);
 			return 1;
@@ -364,7 +352,7 @@ do_config(int argc, char **argv)
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
 				return 1;
 
-			src_group = susetest_config_read(src_file, NULL);
+			src_group = susetest_config_read(src_file);
 			if (src_group == NULL) {
 				fprintf(stderr, "susetest config %s: unable to read config file \"%s\"\n", cmd, src_file);
 				return 1;
@@ -373,38 +361,13 @@ do_config(int argc, char **argv)
 				return 0;
 
 			susetest_config_copy(group, src_group);
-		} else
-		if (!strcmp(cmd, "convert")) {
-			char *outname;
-
-			if (opt_fileformat == SUSETEST_CONFIG_FMT_DEFAULT)
-				fprintf(stderr,
-					"Warning: in order to convert to a different file format, you should\n"
-					"specify the desired format using the --fileformat option.\n");
-
-			if (optind + 1 != argc) {
-				fprintf(stderr, "susetest config %s: expected an output file name\n", cmd);
-				return 1;
-			}
-
-			outname = argv[optind++];
-			printf("Converting %s config file \"%s\", writing to \"%s\" using format %s\n",
-				susetest_config_format_to_string(fileformat), opt_pathname,
-				outname, susetest_config_format_to_string(opt_fileformat));
-
-			/* Otherwise, this is a NOP - see write-out code below */
-			opt_pathname = outname;
 		} else {
 			fprintf(stderr, "susetest config: unsupported subcommand \"%s\"\n", cmd);
 			return 1;
 		}
 	}
 
-	/* If we have been asked to write our data in a specific format, use that now */
-	if (opt_fileformat != SUSETEST_CONFIG_FMT_DEFAULT)
-		fileformat = opt_fileformat;
-
-	if (opt_pathname && susetest_config_write(cfg_root, opt_pathname, fileformat) < 0) {
+	if (opt_pathname && susetest_config_write(cfg_root, opt_pathname) < 0) {
 		fprintf(stderr, "susetest config %s: unable to rewrite config file\n", cmd);
 		return 1;
 	}

@@ -10,7 +10,7 @@ else
 CCOPT	= -Wall -O2 -g
 endif
 
-CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT) -I/usr/include/twopence -I../../minixml/library
+CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT) -I/usr/include/twopence
 
 LIBDIR ?= /usr/lib64
 INCDIR ?= /usr/include
@@ -21,7 +21,7 @@ LIB_OBJS= config.o \
 all: libsusetest.so
 
 libsusetest.so: susetest.h $(LIB_OBJS) Makefile
-	$(CC) $(CFLAGS) -o $@ --shared -Wl,-soname,$@.$(VERSION) $(LIB_OBJS) -L../../minixml/library -lminixml
+	$(CC) $(CFLAGS) -o $@ --shared -Wl,-soname,$@.$(VERSION) $(LIB_OBJS)
 
 install: libsusetest.so susetest.h
 	install -d $(DESTDIR)$(INCDIR)

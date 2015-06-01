@@ -146,7 +146,7 @@ Config_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 			filename = "twopence.conf";
 	}
 
-	self->config_root = susetest_config_read(filename, NULL);
+	self->config_root = susetest_config_read(filename);
 	if (self->config_root == NULL) {
 		PyErr_Format(PyExc_SystemError, "Unable to read susetest config from file \"%s\"", filename);
 		return -1;

@@ -453,81 +453,10 @@ __susetest_config_attrs_free(susetest_config_attr_t **list)
 /*
  * I/O routines
  */
-static int
-susetest_config_guess_format(const char *path)
-{
-	int result = SUSETEST_CONFIG_FMT_DEFAULT;
-	char buffer[256];
-	FILE *fp;
-
-	if ((fp = fopen(path, "r")) == NULL)
-		return SUSETEST_CONFIG_FMT_DEFAULT;
-
-	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		char *s = buffer;
-
-		while (isspace(*s))
-			++s;
-
-		switch (*s) {
-		case '\0':
-			/* Empty line, keep looping */
-			break;
-
-		case '<':
-			result = SUSETEST_CONFIG_FMT_XML;
-			goto out;
-
-		default:
-			result = SUSETEST_CONFIG_FMT_CURLY;
-			goto out;
-		}
-	}
-out:
-	fclose(fp);
-	return result;
-}
-
 int
-susetest_config_format_from_string(const char *s)
+susetest_config_write(susetest_config_t *cfg, const char *path)
 {
-	if (s == NULL || !strcasecmp(s, "default"))
-		return SUSETEST_CONFIG_FMT_DEFAULT;
-	if (!strcasecmp(s, "xml"))
-		return SUSETEST_CONFIG_FMT_XML;
-	if (!strcasecmp(s, "curly"))
-		return SUSETEST_CONFIG_FMT_CURLY;
-
-	return SUSETEST_CONFIG_FMT_INVALID;
-}
-
-const char *
-susetest_config_format_to_string(int fmt)
-{
-	switch (fmt) {
-	case SUSETEST_CONFIG_FMT_DEFAULT:
-		return "default";
-	case SUSETEST_CONFIG_FMT_INVALID:
-		return "invalid";
-	case SUSETEST_CONFIG_FMT_XML:
-		return "xml";
-	case SUSETEST_CONFIG_FMT_CURLY:
-		return "curly";
-	}
-
-	return "unknown";
-}
-
-int
-susetest_config_write(susetest_config_t *cfg, const char *path, int fmt)
-{
-	if (fmt == SUSETEST_CONFIG_FMT_DEFAULT)
-		fmt = susetest_config_guess_format(path);
-
-	if (fmt == SUSETEST_CONFIG_FMT_CURLY)
-		susetest_config_write_curly(cfg, path);
-	else
-		susetest_config_write_xml(cfg, path);
+	susetest_config_write_curly(cfg, path);
 	return 0;
 }
 
@@ -547,21 +476,9 @@ susetest_config_write_curly(susetest_config_t *cfg, const char *path)
 }
 
 susetest_config_t *
-susetest_config_read(const char *path, int *format_p)
+susetest_config_read(const char *path)
 {
-	susetest_config_t *cfg;
-	int fmt;
-
-	fmt = susetest_config_guess_format(path);
-	if (format_p)
-		*format_p = fmt;
-
-	if (fmt == SUSETEST_CONFIG_FMT_CURLY)
-		cfg = susetest_config_read_curly(path);
-	else
-		cfg = susetest_config_read_xml(path);
-	/* fprintf(stderr, "%s: root node type=%s name=%s\n", __func__, cfg->type, cfg->name); */
-	return cfg;
+	return susetest_config_read_curly(path);
 }
 
 susetest_config_t *
@@ -570,112 +487,5 @@ susetest_config_read_curly(const char *path)
 	susetest_config_t *cfg;
 
 	cfg = curly_parse(path);
-	return cfg;
-}
-
-/*
- * XML I/O routines for config
- *
- * For now, very straightforward
- */
-#include "xml.h"
-
-static void
-susetest_config_to_xml(const susetest_config_t *cfg, xml_node_t *parent)
-{
-	const susetest_config_attr_t *attr;
-	const susetest_config_t *child;
-	xml_node_t *node;
-
-	node = xml_node_new(cfg->type, parent);
-	if (cfg->name)
-		xml_node_add_attr(node, "name", cfg->name);
-
-	for (attr = cfg->attrs; attr; attr = attr->next) {
-		if (attr->nvalues != 1)
-			continue;
-		xml_node_add_attr(node, attr->name, attr->values[0]);
-	}
-
-	for (child = cfg->children; child; child = child->next) {
-		susetest_config_to_xml(child, node);
-	}
-}
-
-static susetest_config_t *
-susetest_config_from_xml(const xml_node_t *node)
-{
-	susetest_config_t *result, **tail;
-	xml_node_t *child;
-	const char *name;
-	unsigned int i;
-
-	name = xml_node_get_attr(node, "name");
-
-	result = __susetest_config_new(node->name, name);
-	for (i = 0; i < node->attrs.count; ++i) {
-		xml_attr_t *ap = &node->attrs.data[i];
-
-		if (strcmp(ap->name, "name") && ap->value != NULL)
-			susetest_config_set_attr(result, ap->name, ap->value);
-	}
-
-	tail = &result->children;
-	for (child = node->children; child; child = child->next) {
-		*tail = susetest_config_from_xml(child);
-		tail = &(*tail)->next;
-	}
-
-	return result;
-}
-
-int
-susetest_config_write_xml(susetest_config_t *cfg, const char *path)
-{
-	susetest_config_t testenv_cfg;
-	xml_document_t *doc;
-
-	/* If this was read from a curly file, the top node will be
-	 * named "root".
-	 * Fake a testenv node if needed
-	 */
-	if (cfg->type && !strcmp(cfg->type, "root") && cfg->name == NULL) {
-		susetest_config_t *child = cfg->children;
-
-		if (child->type && !strcmp(child->type, "testenv") && child->next == NULL) {
-			/* We just continue with this */
-			cfg = child;
-		} else {
-			testenv_cfg = *cfg;
-			testenv_cfg.type = "testenv";
-			testenv_cfg.name = "unknown";
-			cfg = &testenv_cfg;
-
-		}
-	}
-
-	doc = xml_document_new();
-	susetest_config_to_xml(cfg, doc->root);
-
-	xml_document_write(doc, path);
-	xml_document_free(doc);
-	return 0;
-}
-
-susetest_config_t *
-susetest_config_read_xml(const char *path)
-{
-	susetest_config_t *cfg;
-	xml_document_t *doc;
-
-	doc = xml_document_read(path);
-	if (doc == NULL)
-		return NULL;
-
-	cfg = susetest_config_from_xml(doc->root);
-	xml_document_free(doc);
-
-	if (cfg->type == NULL)
-		cfg->type = strdup("root");
 	return cfg;
 }
