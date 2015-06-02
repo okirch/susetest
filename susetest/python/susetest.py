@@ -8,6 +8,7 @@
 import exceptions
 import suselog
 import twopence
+import time
 import re
 
 ifcfg_template = '''
@@ -88,6 +89,8 @@ class Target(twopence.Target):
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
 		self.ip6addr = self.ipv6_addr
+
+		self.__syslogSize = -1
 
 	def logInfo(self, message):
 		self.journal.info(self.name + ": " + message)
@@ -180,6 +183,9 @@ class Target(twopence.Target):
 			path = path + "/" + relativeName
 		return path
 
+	def __run(self, cmd, **kwargs):
+		return super(Target, self).run(cmd, **kwargs)
+
 	def run(self, cmd, **kwargs):
 		fail_on_error = 0
 		if isinstance(kwargs, dict) and kwargs.has_key('fail_on_error'):
@@ -213,11 +219,15 @@ class Target(twopence.Target):
 		# Call twopence.Target.run() to execute the
 		# command for real.
 		# If there's an exception, catch it and log an error.
+		t0 = time.time()
 		try:
 			status = super(Target, self).run(cmd)
 		except:
 			self.logError("command execution failed with exception")
 			self.journal.info(self.describeException())
+
+			t1 = time.time()
+			self.journal.info("Command ran for %u seconds" % (t1 - t0))
 
 		        status = twopence.Status(256, bytearray(), bytearray())
 
@@ -354,6 +364,36 @@ class Target(twopence.Target):
 
 		        return twopence.Status(256)
 
+	# These functions can help you capture log messages written
+	# while a test was executed.
+	# Use them as
+	#  server.syslogCapture()
+	#  ... do stuff ...
+	#  if stuffFailed:
+	#	server.syslogDisplay()
+	def syslogCapture(self):
+		self.__syslogSize = -1
+		try:
+			status = server.__run("/bin/stat -c %s /var/log/messages", quiet = True)
+			self.__syslogSize = int(status.stdout)
+		except:
+			pass
+
+	def syslogDisplay(self):
+		if self.__syslogSize < 0:
+			return
+
+		try:
+			status = server.__run("dd bs=1 skip=%u if=/var/log/messages" % self.__syslogSize, quiet = True)
+			if status and len(status.stdout):
+				journal.info("--- begin %s log messages ---" % self.name)
+				journal.recordStdout(status.stdout);
+				print str(status.stdout)
+				journal.info("--- end %s log messages ---" % self.name)
+		except:
+			pass
+
+		self.__syslogSize = -1
 
 	def addHostEntry(self, addr, fqdn):
 		alias = fqdn.split('.')[0]
