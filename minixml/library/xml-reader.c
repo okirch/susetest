@@ -190,7 +190,8 @@ xml_process_pi_node(xml_reader_t *xr, xml_node_t *pi)
 			fprintf(stderr, "Warning: unexpected XML version %s", attrval);
 
 		if ((attrval = xml_node_get_attr(pi, "encoding")) != NULL
-		 && strcasecmp(attrval, "utf8")) {
+		 && strcasecmp(attrval, "utf8")
+		 && strcasecmp(attrval, "utf-8")) {
 			/* TBD: set up iconv to translate from encoding to utf8,
 			   and make sure we process all input that way. */
 		}

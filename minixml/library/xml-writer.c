@@ -95,7 +95,7 @@ xml_document_sprint(const xml_document_t *doc)
 void
 xml_document_output(const xml_document_t *doc, xml_writer_t *writer)
 {
-	xml_writer_printf(writer, "<?xml version=\"1.0\" encoding=\"utf8\"?>\n");
+	xml_writer_printf(writer, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
 	xml_node_output(doc->root, writer, 0);
 }
 
