@@ -14,7 +14,10 @@ nodesfile=$2
 runscript=$3
 instroot=$4
 
+ctrlnew=/var/lib/slenkins
+
 ctrldir=/var/lib/jenkins/testsuites/twopence-$name
+ctrldir2=$ctrlnew/twopence-$name
 testdir=/usr/lib/twopence/$name
 
 function do_install {
@@ -92,3 +95,6 @@ do_install -m 755 -d $instroot$ctrldir
 do_install -m 755 -d $instroot$ctrldir/bin
 do_install -m 444 "$nodesfile" $instroot$ctrldir
 do_symlink $testdir/control $ctrldir/bin/01_run.sh
+
+do_install -m 755 -d $instroot$ctrlnew
+do_symlink $ctrldir $ctrldir2
