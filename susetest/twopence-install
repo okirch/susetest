@@ -19,21 +19,76 @@ testdir=/usr/lib/twopence/$name
 
 function do_install {
 
-	echo "install $*"
+	echo "== install $*"
 	install "$@" || exit 1
 }
 
-function do_ln {
+function do_symlink {
 
-	echo "ln $*"
-	ln "$@" || exit 1
+	echo "== symlink $2 -> $1"
+
+	if [ $# -ne 2 ]; then
+		echo "do_symlink: need exactly two arguments" >&2
+		exit 1
+	fi
+
+	case "$1" in
+	/*) : ;;
+	*)  # Symlink is already relative
+	    echo "ln -sf \"$1\" \"$instroot$2\""
+	    ln -sf "$1" "$instroot$2" || exit 1
+	    return 0;;
+	esac
+
+	targ=$(echo "$1" | sed 's://*:/:g;s:^/::')
+	link=$(echo "$2" | sed 's://*:/:g;s:^/::')
+
+	echo "Turning absolute symlink into relative one"
+
+	common=
+	while true; do
+		tgtnext=${targ%%/*}
+		dstnext=${link%%/*}
+
+		test "$tgtnext" = "$dstnext" || break
+
+		common="$common/$tgtnext"
+		targ=${targ#*/}
+		link=${link#*/}
+
+		if [ -z "$link" -o -z "$targ" ]; then
+			echo "Link is a prefix of target, or vice versa" >&1
+			exit 1
+		fi
+
+		echo "$common/{$targ -> $link}"
+	done
+
+	# Now count the number of directory components
+	# remaining in the link name
+	ndirs=0
+	while true; do
+		case $link in
+		*/*)
+			let ndirs++
+			targ="../$targ"
+			link="${link#*/}";;
+		*)
+			break;;
+		esac
+	done
+
+	echo "Link has $ndirs more dir components"
+
+	echo "ln -sf \"$targ\" \"$instroot$2\""
+	ln -sf "$targ" "$instroot$2" || exit 1
 }
 
 do_install -m 755 -d $instroot$testdir
 do_install -m 555 $runscript $instroot$testdir
-do_ln -sf /usr/lib/susetest/twopence-run $instroot$testdir/control
+do_symlink /usr/lib/susetest/twopence-run $testdir/control
 
 do_install -m 755 -d $instroot$ctrldir
 do_install -m 755 -d $instroot$ctrldir/bin
 do_install -m 444 "$nodesfile" $instroot$ctrldir
-do_ln -sf $testdir/control $instroot$ctrldir/bin/01_run.sh
+do_symlink $testdir/control $ctrldir/bin/01_run.sh
