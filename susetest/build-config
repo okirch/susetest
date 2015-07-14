@@ -109,7 +109,7 @@ done
 
 if [ -n "$WORKSPACE" ]; then
 	susetest config set-attr workspace="$WORKSPACE"
-	susetest config set-attr report="$WORKSPACE/report.xml"
+	susetest config set-attr report="$WORKSPACE/junit-results.xml"
 fi
 
 if [ -n "$opt_verbose" ]; then
