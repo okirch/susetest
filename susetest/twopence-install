@@ -20,10 +20,27 @@ ctrldir=/var/lib/jenkins/testsuites/twopence-$name
 ctrldir2=$ctrlnew/twopence-$name
 testdir=/usr/lib/twopence/$name
 
+function do_mkdir {
+
+	echo "== mkdir $*"
+	for dir; do
+		mkdir -m 755 -p "$instroot/$dir" || exit 1
+	done
+}
+
 function do_install {
 
+	declare -a args
+
 	echo "== install $*"
-	install "$@" || exit 1
+
+	while [ $# -gt 1 ]; do
+		args+=("$1")
+		shift
+	done
+	destination=$1
+
+	install "${args[@]}" "$instroot/$destination" || exit 1
 }
 
 function do_symlink {
@@ -87,14 +104,14 @@ function do_symlink {
 	ln -sf "$targ" "$instroot$2" || exit 1
 }
 
-do_install -m 755 -d $instroot$testdir
-do_install -m 555 $runscript $instroot$testdir
+do_mkdir $testdir
+do_install -m 555 $runscript $testdir
 do_symlink /usr/lib/susetest/twopence-run $testdir/control
 
-do_install -m 755 -d $instroot$ctrldir
-do_install -m 755 -d $instroot$ctrldir/bin
-do_install -m 444 "$nodesfile" $instroot$ctrldir
+do_mkdir $ctrldir{,/bin}
+do_install -m 444 "$nodesfile" $ctrldir
 do_symlink $testdir/control $ctrldir/bin/01_run.sh
 
-do_install -m 755 -d $instroot$ctrlnew
-do_symlink $ctrldir $ctrldir2
+do_mkdir $ctrldir2{,/bin,/control}
+do_install -m 444 "$nodesfile" $ctrldir2/control
+do_symlink $testdir/control $ctrldir2/bin/01_run.sh
