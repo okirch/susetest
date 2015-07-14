@@ -112,6 +112,6 @@ do_mkdir $ctrldir{,/bin}
 do_install -m 444 "$nodesfile" $ctrldir
 do_symlink $testdir/control $ctrldir/bin/01_run.sh
 
-do_mkdir $ctrldir2{,/bin,/control}
+do_mkdir $ctrldir2/control/bin
 do_install -m 444 "$nodesfile" $ctrldir2/control
-do_symlink $testdir/control $ctrldir2/bin/01_run.sh
+do_symlink $testdir/control $ctrldir2/control/bin/01_run.sh
