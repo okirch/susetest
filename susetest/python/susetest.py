@@ -69,7 +69,13 @@ def Config(name, **kwargs):
 	
 	raise exceptions.RuntimeError("unable to create a valid config object")
 	return None
-		
+
+def finish(journal):
+	if journal:
+		journal.writeReport()
+		if journal.num_failed() + journal.num_errors():
+			exit(1)
+	exit(0)
 
 class Target(twopence.Target):
 	def __init__(self, name, config):
