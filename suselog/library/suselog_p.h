@@ -75,16 +75,6 @@ struct suselog_autoname {
 	unsigned int		index;
 };
 
-typedef struct suselog_stats	suselog_stats_t;
-struct suselog_stats {
-	unsigned int		num_tests;
-	unsigned int		num_succeeded;
-	unsigned int		num_failed;
-	unsigned int		num_errors;
-	unsigned int		num_warnings;
-	unsigned int		num_disabled;
-};
-
 struct suselog_test {
 	suselog_test_t *	next;
 	suselog_group_t *	parent;

@@ -20,6 +20,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <Python.h>
 #include <fcntl.h>
+#include <stdbool.h>
 #include "suselog.h"
 
 typedef struct {
@@ -44,6 +45,10 @@ static PyObject *	Journal_record_stdout(PyObject *self, PyObject *args, PyObject
 static PyObject *	Journal_record_stderr(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_record_buffer(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_num_tests(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_num_succeeded(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_num_failed(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_num_errors(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_mergeReport(PyObject *self, PyObject *args, PyObject *kwds);
 
 /*
@@ -101,6 +106,18 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"writeReport", (PyCFunction) Journal_writeReport, METH_VARARGS | METH_KEYWORDS,
 	"Write the test report"
+      },
+      { "num_tests", (PyCFunction) Journal_num_tests, METH_VARARGS | METH_KEYWORDS,
+	"Return the number of tests run"
+      },
+      { "num_succeeded", (PyCFunction) Journal_num_succeeded, METH_VARARGS | METH_KEYWORDS,
+	"Return the number of succeeded tests"
+      },
+      { "num_failed", (PyCFunction) Journal_num_failed, METH_VARARGS | METH_KEYWORDS,
+	"Return the number of failed tests"
+      },
+      { "num_errors", (PyCFunction) Journal_num_errors, METH_VARARGS | METH_KEYWORDS,
+	"Return the number of tests with errors"
       },
 
       {	NULL }
@@ -557,6 +574,82 @@ Journal_writeReport(PyObject *self, PyObject *args, PyObject *kwds)
 	Py_INCREF(Py_None);
 	return Py_None;
 }
+
+static bool
+__check_void_args(PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {
+		NULL
+	};
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist, NULL))
+		return false;
+
+	return true;
+}
+
+
+/*
+ * Return statistics
+ */
+static const suselog_stats_t *
+Journal_stats(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	suselog_journal_t *journal;
+
+	if (!__check_void_args(args, kwds))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	return suselog_journal_get_stats(journal);
+}
+
+static PyObject *
+Journal_num_tests(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	const suselog_stats_t *stats;
+
+	if (!(stats = Journal_stats(self, args, kwds)))
+		return NULL;
+
+	return PyInt_FromLong(stats->num_tests);
+}
+
+static PyObject *
+Journal_num_succeeded(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	const suselog_stats_t *stats;
+
+	if (!(stats = Journal_stats(self, args, kwds)))
+		return NULL;
+
+	return PyInt_FromLong(stats->num_succeeded);
+}
+
+static PyObject *
+Journal_num_failed(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	const suselog_stats_t *stats;
+
+	if (!(stats = Journal_stats(self, args, kwds)))
+		return NULL;
+
+	return PyInt_FromLong(stats->num_failed);
+}
+
+static PyObject *
+Journal_num_errors(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	const suselog_stats_t *stats;
+
+	if (!(stats = Journal_stats(self, args, kwds)))
+		return NULL;
+
+	return PyInt_FromLong(stats->num_errors);
+}
+
 
 static void
 registerType(PyObject *m, const char *name, PyTypeObject *type)

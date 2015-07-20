@@ -219,6 +219,12 @@ suselog_journal_set_color(suselog_journal_t *journal, int enabled)
 	journal->use_colors = !!enabled;
 }
 
+const suselog_stats_t *
+suselog_journal_get_stats(const suselog_journal_t *journal)
+{
+	return &journal->stats;
+}
+
 suselog_group_t *
 suselog_current_group(suselog_journal_t *journal)
 {

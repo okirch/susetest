@@ -58,6 +58,16 @@ typedef enum {
 	SUSELOG_LEVEL_TEST,
 } suselog_level_t;
 
+typedef struct suselog_stats	suselog_stats_t;
+struct suselog_stats {
+	unsigned int		num_tests;
+	unsigned int		num_succeeded;
+	unsigned int		num_failed;
+	unsigned int		num_errors;
+	unsigned int		num_warnings;
+	unsigned int		num_disabled;
+};
+
 extern suselog_group_t *suselog_current_group(suselog_journal_t *);
 extern suselog_test_t *	suselog_current_test(suselog_journal_t *);
 extern suselog_journal_t *suselog_journal_new(const char *, suselog_writer_t *);
@@ -67,6 +77,7 @@ extern void		suselog_journal_set_pathname(suselog_journal_t *, const char *name)
 extern void		suselog_journal_set_max_name_level(suselog_journal_t *, suselog_level_t);
 extern void		suselog_journal_set_systemout_level(suselog_journal_t *, suselog_level_t);
 extern void		suselog_journal_set_color(suselog_journal_t *, int);
+extern const suselog_stats_t *suselog_journal_get_stats(const suselog_journal_t *);
 extern void		suselog_journal_write(suselog_journal_t *);
 extern int		suselog_journal_merge(suselog_journal_t *, const char *);
 extern void		suselog_journal_free(suselog_journal_t *);
