@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# NOTE: This is going to be obsolete soonishly. The susetest python
+# code is capable of reading Eric's testenv files now, so there should be
+# no need to use build-config any longer. --okir, 2015-09-11
+#
 
 # This is how it works, assuming we're looking at the twopence-ntp test
 # suite, which consists of two packages
@@ -23,7 +28,7 @@
 # And, this is what you're looking at.
 #
 # The control package installs this symlink:
-#   /var/lib/jenkins/testsuites/twopence-ntp/01_run.sh -> /usr/lib/twopence/ntp/control
+#   /var/lib/slenkins/twopence-ntp/01_run.sh -> /usr/lib/twopence/ntp/control
 # The twopence-ntp package, in turn, comes with this symlink:
 #   /usr/lib/twopence/ntp/control -> /usr/lib/susetest/twopence-run
 # which refers to the script you're just reading.
@@ -34,7 +39,7 @@
 set -e
 
 # Obtain the directory of the control package,
-# e.g. /var/lib/jenkins/testsuites/twopence-ntp.
+# e.g. /var/lib/slenkins/twopence-ntp.
 # This is where the nodes file lives
 ctrlbindir=${0%/*}
 if [ "$ctrlbindir" = "." ]; then
