@@ -14,10 +14,7 @@ nodesfile=$2
 runscript=$3
 instroot=$4
 
-ctrlnew=/var/lib/slenkins
-
-ctrldir=/var/lib/jenkins/testsuites/twopence-$name
-ctrldir2=$ctrlnew/twopence-$name
+ctrldir=/var/lib/slenkins/twopence-$name
 testdir=/usr/lib/twopence/$name
 
 function do_mkdir {
@@ -108,10 +105,6 @@ do_mkdir $testdir
 do_install -m 555 $runscript $testdir
 do_symlink /usr/lib/susetest/twopence-run $testdir/control
 
-do_mkdir $ctrldir{,/bin}
-do_install -m 444 "$nodesfile" $ctrldir
-do_symlink $testdir/control $ctrldir/bin/01_run.sh
-
-do_mkdir $ctrldir2/control/bin
-do_install -m 444 "$nodesfile" $ctrldir2/control
-do_symlink $testdir/control $ctrldir2/control/bin/01_run.sh
+do_mkdir $ctrldir/control/bin
+do_install -m 444 "$nodesfile" $ctrldir/control
+do_install -m 555 $runscript $ctrldir/control/bin/01_run.sh
