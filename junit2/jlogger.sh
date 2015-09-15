@@ -16,6 +16,9 @@ function usage
   echo "  $1 success" >&2
   echo "      end succesful test case" >&2
   echo "" >&2
+  echo "  $1 skipped" >&2
+  echo "      skips test that is not suitable for configuration/machine" >&2
+  echo "" >&2
   echo "  $1 failure [-T <type>] [-t <text>]" >&2
   echo "      end failed test case" >&2
   echo "" >&2
@@ -64,7 +67,7 @@ case "$1" in
       esac
     done
     ;;
-  "endsuite"|"success")
+  "endsuite"|"success"|"skipped")
     shift
     ;;
   "failure"|"error")
