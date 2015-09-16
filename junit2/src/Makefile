@@ -3,8 +3,8 @@
 # and
 #   -lQt5Xml -lQt5Core 
 # instead.
-QT_INC	= $(CCOPT)
-QT_LIBS	= -lQtXml -lQtCore
+QT_INC	= $(CCOPT) $(shell pkg-config QtCore --cflags)
+QT_LIBS = $(shell pkg-config QtXml --libs) $(shell pkg-config QtCore --libs)
 
 ifdef RPM_OPT_FLAGS
 CCOPT	= $(RPM_OPT_FLAGS)
