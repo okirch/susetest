@@ -138,7 +138,7 @@ void ToJunit::closeTestsuite(const Decomposition *d)
 
   systemErr = output.createElement("system-err");
   testsuite.appendChild(systemErr);
-  errText = output.createTextNode(suiteText);
+  errText = output.createCDATASection(suiteText);
   systemErr.appendChild(errText);
 }
 
