@@ -48,7 +48,7 @@ double ToJunit::timeSpan(QDateTime &date1, QDateTime &date2) const
 ToJunit::ToJunit()
   : output(), root(), testsuite(), testcase(),
     line(NULL), state(none),
-    suites(0), tests(0), failures(0), errors(0),
+    suites(0), tests(0), failures(0), errors(0), skipps(0),
     suiteText(""), caseText("")
 {
 }
@@ -128,6 +128,7 @@ void ToJunit::closeTestsuite(const Decomposition *d)
   testsuite.setAttribute("tests", tests);
   testsuite.setAttribute("failures", failures);
   testsuite.setAttribute("errors", errors);
+  testsuite.setAttribute("skipped", skipps);
   testsuite.setAttribute("time", span);
 
 // TBD: we currently arbitrarily assume that all output was sent to stderr
@@ -137,7 +138,7 @@ void ToJunit::closeTestsuite(const Decomposition *d)
 
   systemErr = output.createElement("system-err");
   testsuite.appendChild(systemErr);
-  errText = output.createTextNode(suiteText);
+  errText = output.createCDATASection(suiteText);
   systemErr.appendChild(errText);
 }
 
@@ -185,6 +186,14 @@ void ToJunit::createError(const Decomposition *d)
   error.appendChild(errText);
 }
 
+void ToJunit::createSkipped(const Decomposition *d)
+{
+	QDomElement skipp;
+
+	skipp = output.createElement("skipped");
+	testcase.appendChild(skipp);
+}
+
 // Process one directive
 void ToJunit::directive(const char *line)
 {
@@ -220,7 +229,7 @@ void ToJunit::directive(const char *line)
       }
       break;
     case test_case:
-      if (d.keyword("success") || d.keyword("failure") || d.keyword("error"))
+      if (d.keyword("success") || d.keyword("failure") || d.keyword("error") || d.keyword("skipped"))
       {
         tests++;
         if (d.keyword("failure"))
@@ -233,6 +242,11 @@ void ToJunit::directive(const char *line)
           errors++;
           createError(&d);
         }
+	else if (d.keyword("skipped"))
+	{
+	  skipps++;
+	  createSkipped(&d);
+	}
         closeTestcase(&d);
         caseText = "";
         state = test_suite;

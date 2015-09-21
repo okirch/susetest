@@ -34,7 +34,7 @@ class ToJunit
     char *line;
     enum
       { none = 0, test_suite, test_case } state;
-    int suites, tests, failures, errors;
+    int suites, tests, failures, errors, skipps;
     QString suiteText, caseText;
     QDateTime suiteTime, caseTime;
 
@@ -46,6 +46,7 @@ class ToJunit
     void closeTestcase(const Decomposition *d);
     void createFailure(const Decomposition *d);
     void createError(const Decomposition *d);
+    void createSkipped(const Decomposition *d);
     void directive(const char *line);
 
   public:
