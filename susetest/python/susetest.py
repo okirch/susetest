@@ -326,6 +326,11 @@ class Target(twopence.Target):
 		if self.defaultUser and not kwargs.has_key('user'):
 			kwargs['user'] = self.defaultUser
 
+		quiet = False
+		if kwargs.has_key('quiet') and kwargs['quiet']:
+			quiet = kwargs['quiet']
+			del kwargs['quiet']
+
 		xfer = twopence.Transfer(remoteFilename, **kwargs)
 
 		if xfer.localfile:
@@ -345,19 +350,27 @@ class Target(twopence.Target):
 			self.logFailure("download failed: " + status.message)
 			return None
 
-		self.logInfo("<<< --- Data: ---\n" + str(status.buffer) + "\n --- End of Data --->>>\n");
+		if not quiet:
+			self.logInfo("<<< --- Data: ---\n" + str(status.buffer) + "\n --- End of Data --->>>\n");
 		return status.buffer
 
 	def sendbuffer(self, remoteFilename, buffer, **kwargs):
 		if self.defaultUser and not kwargs.has_key('user'):
 			kwargs['user'] = self.defaultUser
 
+		quiet = False
+		if kwargs.has_key('quiet') and kwargs['quiet']:
+			quiet = kwargs['quiet']
+			del kwargs['quiet']
+
+		xfer = twopence.Transfer(remoteFilename, **kwargs)
 		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), **kwargs)
 		if xfer.permissions < 0:
 			xfer.permissions = 0
 
 		self.logInfo("uploading data to " + remoteFilename)
-		self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
+		if not quiet:
+			self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
 
 		if not isinstance(xfer.data, bytearray):
 			print "data is not a buffer"
