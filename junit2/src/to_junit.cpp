@@ -167,7 +167,7 @@ void ToJunit::createFailure(const Decomposition *d)
 
   failure.setAttribute("type", d->getValue("type", "randomError"));
   failure.setAttribute("message", d->getValue("text", "(unknown)"));
-  errText = output.createTextNode(caseText);
+  errText = output.createCDATASection(caseText);
   failure.appendChild(errText);
 }
 
@@ -182,7 +182,7 @@ void ToJunit::createError(const Decomposition *d)
 
   error.setAttribute("type", d->getValue("type", "randomError"));
   error.setAttribute("message", d->getValue("text", "(unknown)"));
-  errText = output.createTextNode(caseText);
+  errText = output.createCDATASection(caseText);
   error.appendChild(errText);
 }
 
