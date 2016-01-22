@@ -160,6 +160,19 @@ void ToJunit::closeTestcase(const Decomposition *d)
   span = timeSpan(caseTime, endTime);
 
   testcase.setAttribute("time", span);
+
+  if (d->keyword("failure"))
+  {
+    testcase.setAttribute("status", "failure");
+  }
+  else if (d->keyword("error"))
+  {
+    testcase.setAttribute("status", "error");
+  }
+  else if (d->keyword("success"))
+  {
+    testcase.setAttribute("status", "success");
+  }
 }
 
 // Create a failure
