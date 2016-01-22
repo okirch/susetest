@@ -300,10 +300,10 @@ void ToJunit::parse(FILE *fp)
 
   while (getline(&line, &size, fp) != -1)
   {
-    recordLine(line);
-
     if (!strncmp(line, "###junit ", 9))
       directive(line + 9);
+    else
+      recordLine(line);
   }
 }
 
