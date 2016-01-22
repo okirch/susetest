@@ -86,8 +86,11 @@ void ToJunit::openTestsuite(const Decomposition *d)
   testsuite = output.createElement("testsuite");
   root.appendChild(testsuite);
 
-  testsuite.setAttribute("package", d->getValue("id", "(unknown)"));
-  testsuite.setAttribute("name", d->getValue("text", "(unknown)"));
+  QString package = d->getValue("id", "(unknown)");
+  testsuite.setAttribute("package", package);
+  QString name = d->getValue("text", NULL);
+  if (name.isNull()) name = package;
+  testsuite.setAttribute("name", name);
   testsuite.setAttribute("timestamp", suiteTime.toString(Qt::ISODate));
   testsuite.setAttribute("hostname", d->getValue("host", "localhost"));
 
@@ -107,8 +110,11 @@ void ToJunit::openTestcase(const Decomposition *d)
   testcase = output.createElement("testcase");
   testsuite.appendChild(testcase);
 
-  testcase.setAttribute("classname", d->getValue("id", "(unknown)"));
-  testcase.setAttribute("name", d->getValue("text", "(unknown)"));
+  QString classname = d->getValue("id", "(unknown)");
+  testcase.setAttribute("classname", classname);
+  QString name = d->getValue("text", NULL);
+  if (name.isNull()) name = classname;
+  testcase.setAttribute("name", name);
 }
 
 // Close a testsuite
