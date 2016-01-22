@@ -47,6 +47,7 @@ class ToJunit
     void createFailure(const Decomposition *d);
     void createError(const Decomposition *d);
     void createSkipped(const Decomposition *d);
+    void createOutput(const Decomposition *d);
     void directive(const char *line);
 
   public:

@@ -67,6 +67,7 @@ void ToJunit::recordLine(const char *line)
   {
     case test_case:
       caseText += line;
+      break;
     case test_suite:
       suiteText += line;
     case none:
@@ -213,6 +214,18 @@ void ToJunit::createSkipped(const Decomposition *d)
 	testcase.appendChild(skipp);
 }
 
+// Add output of successful testcase as "system-err"
+void ToJunit::createOutput(const Decomposition *d)
+{
+  QDomElement systemErr;
+  QDomText errText;
+
+  systemErr = output.createElement("system-err");
+  testcase.appendChild(systemErr);
+  errText = output.createCDATASection(caseText);
+  systemErr.appendChild(errText);
+}
+
 // Process one directive
 void ToJunit::directive(const char *line)
 {
@@ -265,6 +278,9 @@ void ToJunit::directive(const char *line)
 	{
 	  skipps++;
 	  createSkipped(&d);
+	}
+	else {
+	  createOutput(&d);
 	}
         closeTestcase(&d);
         caseText = "";
