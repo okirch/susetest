@@ -414,7 +414,11 @@ class Target(twopence.Target):
 
 		self.__syslogSize = -1
 
-	def addHostEntry(self, addr, fqdn):
+	# Add a new entry to the node's hosts file.
+	# if @clobber is set, all other entries containing either the hostname
+	# or the IP address will be removed, so that applications do not
+	# get confused by conflicting information in forward or reverse host lookups
+	def addHostEntry(self, addr, fqdn, clobber = False):
 		alias = fqdn.split('.')[0]
 		if alias != fqdn:
 			line = "%s %s %s" % (addr, fqdn, alias)
@@ -427,11 +431,45 @@ class Target(twopence.Target):
 			self.logError("unable to download hosts file");
 			return False;
 
-		if line in str(status.buffer).split('\n'):
-			self.logInfo("requested line already in hosts file, nothing to be done")
-			return True
+		if clobber:
+			found = False
+			changed = False
+			result = []
+			for l in str(status.buffer).split('\n'):
+				if l == line:
+					result += l
+					found = True
 
-		buffer = status.buffer + "\n" + line + "\n"
+				# nuke comments and split line
+				n = l.find('#')
+				if n >= 0:
+					w = l[:n].split()
+				else:
+					w = l.split()
+
+				if addr in w or alias in w or fqdn in w:
+					self.logInfo("removing conflicting hosts entry \"%s\"" % l)
+					changed = True
+					continue
+
+				result += l
+
+			if not found:
+				result += line
+				changed = True
+
+			if not changed:
+				self.logInfo("requested line already in hosts file, nothing to be done")
+				return True
+
+			buffer = "\n".join(result)
+		else:
+			if line in str(status.buffer).split('\n'):
+				self.logInfo("requested line already in hosts file, nothing to be done")
+				return True
+
+			buffer = status.buffer + "\n" + line
+
 		if not self.sendfile("/etc/hosts", data = buffer, user = "root"):
 			self.logError("unable to upload modified hosts file");
 			return False
