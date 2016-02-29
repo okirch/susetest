@@ -363,7 +363,6 @@ class Target(twopence.Target):
 			quiet = kwargs['quiet']
 			del kwargs['quiet']
 
-		xfer = twopence.Transfer(remoteFilename, **kwargs)
 		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), **kwargs)
 		if xfer.permissions < 0:
 			xfer.permissions = 0
