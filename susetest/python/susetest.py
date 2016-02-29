@@ -436,8 +436,9 @@ class Target(twopence.Target):
 			result = []
 			for l in str(status.buffer).split('\n'):
 				if l == line:
-					result += l
+					result.append(l)
 					found = True
+					continue
 
 				# nuke comments and split line
 				n = l.find('#')
@@ -451,17 +452,17 @@ class Target(twopence.Target):
 					changed = True
 					continue
 
-				result += l
+				result.append(l)
 
 			if not found:
-				result += line
+				result.append(line)
 				changed = True
 
 			if not changed:
 				self.logInfo("requested line already in hosts file, nothing to be done")
 				return True
 
-			buffer = "\n".join(result)
+			buffer = bytearray("\n".join(result))
 		else:
 			if line in str(status.buffer).split('\n'):
 				self.logInfo("requested line already in hosts file, nothing to be done")
