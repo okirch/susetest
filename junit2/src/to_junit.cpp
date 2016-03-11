@@ -67,6 +67,7 @@ void ToJunit::recordLine(const char *line)
   {
     case test_case:
       caseText += line;
+      break;
     case test_suite:
       suiteText += line;
     case none:
@@ -86,8 +87,11 @@ void ToJunit::openTestsuite(const Decomposition *d)
   testsuite = output.createElement("testsuite");
   root.appendChild(testsuite);
 
-  testsuite.setAttribute("package", d->getValue("id", "(unknown)"));
-  testsuite.setAttribute("name", d->getValue("text", "(unknown)"));
+  QString package = d->getValue("id", "(unknown)");
+  testsuite.setAttribute("package", package);
+  QString name = d->getValue("text", NULL);
+  if (name.isNull()) name = package;
+  testsuite.setAttribute("name", name);
   testsuite.setAttribute("timestamp", suiteTime.toString(Qt::ISODate));
   testsuite.setAttribute("hostname", d->getValue("host", "localhost"));
 
@@ -107,8 +111,11 @@ void ToJunit::openTestcase(const Decomposition *d)
   testcase = output.createElement("testcase");
   testsuite.appendChild(testcase);
 
-  testcase.setAttribute("classname", d->getValue("id", "(unknown)"));
-  testcase.setAttribute("name", d->getValue("text", "(unknown)"));
+  QString classname = d->getValue("id", "(unknown)");
+  testcase.setAttribute("classname", classname);
+  QString name = d->getValue("text", NULL);
+  if (name.isNull()) name = classname;
+  testcase.setAttribute("name", name);
 }
 
 // Close a testsuite
@@ -154,6 +161,19 @@ void ToJunit::closeTestcase(const Decomposition *d)
   span = timeSpan(caseTime, endTime);
 
   testcase.setAttribute("time", span);
+
+  if (d->keyword("failure"))
+  {
+    testcase.setAttribute("status", "failure");
+  }
+  else if (d->keyword("error"))
+  {
+    testcase.setAttribute("status", "error");
+  }
+  else if (d->keyword("success"))
+  {
+    testcase.setAttribute("status", "success");
+  }
 }
 
 // Create a failure
@@ -167,7 +187,7 @@ void ToJunit::createFailure(const Decomposition *d)
 
   failure.setAttribute("type", d->getValue("type", "randomError"));
   failure.setAttribute("message", d->getValue("text", "(unknown)"));
-  errText = output.createTextNode(caseText);
+  errText = output.createCDATASection(caseText);
   failure.appendChild(errText);
 }
 
@@ -182,7 +202,7 @@ void ToJunit::createError(const Decomposition *d)
 
   error.setAttribute("type", d->getValue("type", "randomError"));
   error.setAttribute("message", d->getValue("text", "(unknown)"));
-  errText = output.createTextNode(caseText);
+  errText = output.createCDATASection(caseText);
   error.appendChild(errText);
 }
 
@@ -192,6 +212,18 @@ void ToJunit::createSkipped(const Decomposition *d)
 
 	skipp = output.createElement("skipped");
 	testcase.appendChild(skipp);
+}
+
+// Add output of successful testcase as "system-err"
+void ToJunit::createOutput(const Decomposition *d)
+{
+  QDomElement systemErr;
+  QDomText errText;
+
+  systemErr = output.createElement("system-err");
+  testcase.appendChild(systemErr);
+  errText = output.createCDATASection(caseText);
+  systemErr.appendChild(errText);
 }
 
 // Process one directive
@@ -247,6 +279,9 @@ void ToJunit::directive(const char *line)
 	  skipps++;
 	  createSkipped(&d);
 	}
+	else {
+	  createOutput(&d);
+	}
         closeTestcase(&d);
         caseText = "";
         state = test_suite;
@@ -265,10 +300,10 @@ void ToJunit::parse(FILE *fp)
 
   while (getline(&line, &size, fp) != -1)
   {
-    recordLine(line);
-
     if (!strncmp(line, "###junit ", 9))
       directive(line + 9);
+    else
+      recordLine(line);
   }
 }
 
