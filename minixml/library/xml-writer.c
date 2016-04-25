@@ -291,7 +291,7 @@ xml_escape_quote(const char *string)
 	while ((cc = *string++) != '\0') {
 		if (cc == '"' || cc == '<' || cc == '>')
 			cc = '\'';
-		else if (cc == '\\')
+		else if (cc == '\\' || cc == '&')
 			cc = '/';
 		*s++ = cc;
 	}
