@@ -26,6 +26,27 @@ class SlenkinsError(Exception):
                 def __str__(self):
                         return repr(self.code)
 
+def assert_fail_equal(node, command, expected, exit_code):
+        ''' this function catch the output of command and expect a result string
+        it check that a command fail with something as string.'''
+        journal.beginTest("For command \"{}\" is expected \"{}\" ".format(command, expected))
+
+        status = node.run(command)
+        if (status):
+                journal.failure("COMMAND SHOULD FAIL but is not! !!{}".format(command))
+                return False
+        # check code exit of command.
+        if (status.code != exit_code):
+                journal.failure("COMMAND returned \"{}\" EXPECTED \"{}\"".format(str(status.code), str(exit_code)) )
+        # check output of failed command.
+        s = str(status.stdout)
+        if  (expected in s):
+                journal.success("ASSERT_TEST_FAILURE_EQUAL for {} PASS! OK".format(command))
+                return True
+        else :
+           journal.failure("GOT \"{}\",  EXPECTED\"{}\"".format(s, expected))
+           return False
+
 # finish the junit report.
 def finish(journal):
         journal.writeReport()
