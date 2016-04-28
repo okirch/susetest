@@ -10,6 +10,7 @@ import suselog
 import twopence
 import time
 import re
+import sys
 
 ifcfg_template = '''
 BOOTPROTO="static"
@@ -17,42 +18,21 @@ STARTMODE="auto"
 IPADDR="@IPADDR@"
 '''
 
-
-# this exception, is needed to show red balls in jenkins, instead of yellow,
-# because yellow balls in jenkins are defined as unstable tests,
-# and we want to show red balls, when test fail.
-# USAGE in the run(main with susetest) :
-
-# (1):  in the testcase
-#
-#     status = node.run("cat /etc/salt/minion_id")
-#        if not (status):
-#                journal.failure("error minion_id file doesn't exist")
-#                raise susetest.SlenkinsError(1)
-#
-# (2): in the main control execution of the testsuite:
-# try :
-#       my_susetest(server)
-#       really_nice_test(client)
-#       .. testcases(n+1)
-#
-# except  susetest.SlenkinsError as e:      # here we catch the exception and make the exit for jenkins.
-#        journal.writeReport()
-#        sys.exit(e.code)
-#
-# except:
-#        print "Unexpected error:", sys.exc_info()[0]
-#        journal.error("Oops, caught unexpected exception")
-#        journal.info(traceback.format_exc(None))
-#        raise
-#
-#
-
+# This class is needed for break a whole testsuite, exit without run all tests. Wanted in some scenarios.
+# Otherwise we can use susetest.finish(journal) to continue after  failed tests, 
 class SlenkinsError(Exception):
                 def __init__(self, code):
                         self.code = code
                 def __str__(self):
                         return repr(self.code)
+
+# finish the junit report.
+def finish(journal):
+        journal.writeReport()
+        if (journal.num_failed() + journal.num_errors()):
+                        sys.exit(1)
+        sys.exit(0)
+
 
 class ConfigWrapper():
 	def __init__(self, name, data):
@@ -107,12 +87,6 @@ def Config(name, **kwargs):
 	raise exceptions.RuntimeError("unable to create a valid config object")
 	return None
 
-def finish(journal):
-	if journal:
-		journal.writeReport()
-		if journal.num_failed() + journal.num_errors():
-			exit(1)
-	exit(0)
 
 class Target(twopence.Target):
 	def __init__(self, name, config):
