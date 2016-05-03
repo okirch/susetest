@@ -1252,6 +1252,7 @@ __suselog_writer_normal_begin_group(const suselog_group_t *group)
 #define TI_RED		1
 #define TI_GREEN	2
 #define TI_BLUE		4
+#define TI_DEFAULT	9
 
 static int
 __suselog_writer_putc(int c)
@@ -1296,7 +1297,7 @@ __suselog_writer_print_colored(const suselog_test_t *test, int color, const char
 	/* write(2, setaf, strlen(setaf)); */
 	tputs(tparm(setaf, color), 1, __suselog_writer_putc);
 	(void) write(2, word, strlen(word));
-	tputs(tparm(setaf, TI_BLACK), 1, __suselog_writer_putc);
+	tputs(tparm(setaf, TI_DEFAULT), 1, __suselog_writer_putc);
 }
 
 static void
