@@ -244,7 +244,7 @@ a handle to use for reporting; it is called "journal":
 The basic API provided by the Journal class is this:
 
 journal.beginGroup(tag, description)
-journal.endGroup()
+journal.finishGroup()
   In JUnit, you can group test cases that belong together. The
   tag should be a short identifier consisting of alphanumeric
   characters plus "-" and "_", and should be unique within your
