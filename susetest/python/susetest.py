@@ -37,7 +37,7 @@ def finish(journal):
 class ConfigWrapper():
 	def __init__(self, name, data):
 		self.name = name
-		self.data = data;
+		self.data = data
 
 		# Set the workspace
 		self.workspace = self.data.workspace()
@@ -60,6 +60,9 @@ class ConfigWrapper():
 
 	def ipv4_address(self, nodename):
 		return self.data.node_internal_ip(nodename)
+
+	def ipv4_ext(self, nodename):
+		return self.data.node_external_ip(nodename)
 
 	def ipv6_address(self, nodename):
 		try:
@@ -106,6 +109,9 @@ class Target(twopence.Target):
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
 		self.ip6addr = self.ipv6_addr
+
+                # external ip for cloud
+                self.ipaddr_ext = config.ipv4_ext(self.name)
 
 		self.__syslogSize = -1
 
