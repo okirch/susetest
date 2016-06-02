@@ -41,13 +41,17 @@ def assert_ok_equal(node, command, expected):
                 node.journal.failure("GOT Output:\"{}\",  EXPECTED\"{}\"".format(s, expected))
 	        return False
 
-# assert_fail_equal(sut, "zypper lifecycle IAM_NOT_EXISTING_PACKAGE;", 2 "SKIP")
+# assert_fail_equal(sut, "zypper in IAM_NOT_EXISTING_PACKAGE;", 2 ,"SKIP")
+# assert_fail_equal(sut, "zypper in IAM_NOT_EXISTING_PACKAGE;", 2 ,"HI I'M FAILING MESSAGE")
 def assert_fail_equal(node, command, code,  expected="SKIP"):
         ''' this function catch the output of failed command and expect a result string
         it check that a command fail with something as string.
 	by default we don't check the string returned by cmd, only the return_code'''
 
-        node.journal.beginTest("For failed command \"{}\" is expected \"{}\" ".format(command, expected))
+	if ( expected != "SKIP"):
+      		  node.journal.beginTest("command \"{}\" should fail with this err Mess \"{}\" and errcode \"{}\" ".format(command, expected, code))
+	else : 
+		  node.journal.beginTest("command \"{}\" should fail with retcode : \"{}\"".format(command, code))
         if ( type(code) is str):
                 node.journal.fatal("please insert a integer for variable code !")
         status = node.run(command)

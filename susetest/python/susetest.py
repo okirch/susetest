@@ -112,6 +112,19 @@ class Target(twopence.Target):
 
                 # external ip for cloud
                 self.ipaddr_ext = config.ipv4_ext(self.name)
+  		self.family = self.get_family()
+
+	def get_family(self):
+                ''' get_family return a string : 42.1(leap), 12.2, 12.1, 11.4 for  sles etc. '''
+                status = self.run("grep VERSION_ID /etc/os-release | cut -c13- | head -c -2 ", quiet=True)
+                if not status:
+                        self.logError("cannot get os-release family")
+                        return None
+                family = str(status.stdout)
+                if not family:
+                        self.logError("cannot get os-release strings")
+                        return None
+                return family
 
 		self.__syslogSize = -1
 
