@@ -1,4 +1,10 @@
 susetest
 ========
 
-Testing utilities
+# Testing utilities @ SUSE/Opensuse
+
+##  Documentation.
+
+* [HOWTO](doc/HOWTO.doc)
+
+*  

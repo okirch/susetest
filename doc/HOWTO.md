@@ -318,3 +318,19 @@ If errors (not failures !) or failed test happens, then exit with 1.
 
 This is usefull for integration with susetest and Jenkins automation-framework.
 
+---------------------------------------------------------------------------------
+
+Susetest static setup:
+
+Config file :
+
+The config file can be specified the the --filename option, or through the
+TWOPENCE_CONFIG_PATH environment variable. If neither is given, it will default
+to susetest.conf in the current working directory
+
+Typical global attributes might be the default user to run commands as,
+or a timeout value. Typical node attributes may be the node's hostname
+or its IP address.
+
+
+
