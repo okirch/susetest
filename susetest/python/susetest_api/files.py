@@ -30,3 +30,12 @@ def replace_string(node, replacements, _file, _max_replace=0):
                 node.journal.fatal("error writing file {}".format(_file))
  	        return False 
         return True
+
+### TODO: add function that add text in file, to specific position in file. ( after a pattern, or in a line, etc)
+
+# node -> node type susetest, strings -> dictionary of strings/text to be added
+# _file -> file where to add strings
+# methot do insert stings-> with line number or after a pattern, etc
+
+def addString_file(node, strings, _file, methodTO_INSERT_STRING):
+	pass
