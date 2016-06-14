@@ -84,7 +84,7 @@ def assert_fail_equal(node, command, code,  expected="SKIP"):
 
 def fail_retcode(node, command, code):
         ''' this function expected that the command under test fail with the integer given as ret_code'''
-        node.journal.beginTest("Command must fail \"{}\" with retcode\"{}\" ".format(command, expected))
+        node.journal.beginTest("Command must fail \"{}\" with retcode\"{}\" ".format(command, code))
         if not type(code) is int:
                 node.journal.fatal("please insert a integer for variable code !")
                 return False
