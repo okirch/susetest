@@ -5,6 +5,6 @@ Testing utilities
 
 ##  Documentation.
 
-* [HOWTO](doc/HOWTO.doc)
+* [HOWTO](doc/HOWTO.md)
 
 *  
