@@ -24,7 +24,7 @@ def systemd_check(node, prio_default=4):
          # systemd/journalctl return 1 when it found no log. so we have to cheat to make the inverse. 
          # ge is greater than or equal to --> >=
 	 node.journal.beginTest("check systemd logs for PRIO: {}".format(prio))
-	 node.run(system_journal)
+	 status = node.run(system_journal)
 	 if not status and status.code != 0 : 
                 node.journal.failure("systemd check for PRIO: {} FAIL!".format(prio))
                 return False
