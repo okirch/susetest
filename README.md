@@ -7,4 +7,4 @@ Testing utilities
 
 * [HOWTO](doc/HOWTO.md)
 
-*  
+* [First steps and real examples](doc/first_steps)
