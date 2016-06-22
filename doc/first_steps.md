@@ -2,9 +2,9 @@
 
 
 * the logging facility on susetest.
-* [susetest core library](## susetest core)
-* [susetest_api](##susetest api)
-* [examples](##examples)
+* [susetest core library](# susetest-core)
+* [susetest_api](#susetest-api)
+* [examples](#examples)
 
 Some words on logging
 =====================
