@@ -1,32 +1,4 @@
 
-Generic instructions on how to run tests based on twopence + susetest
-=====================================================================
-
-Twopence provides a generic layer for test scripts for communication with
-nodes (SUT aka System Under Test). It is important to understand that in the
-twopence model of operation, there is always an idependent control node that
-orchestrates the test between the SUTs.
-
-Where that control node resides, and what exactly it looks like, depends
-on the environment you test in. If you test locally using KVM, then the
-SUTs would be KVM guests and the control script would run on the host side.
-If you run your tests under jenkins, then the SUTs might be VMs running in an
-OpenStack clould while the control script runs on the jenkins host itself. In
-an OpenQA environment, the control node might actually be in a separate VM.
-
-The basic operations that twopence can provide are execution of commands,
-as well as upload and download of files. So, a bit like what ssh will do for
-you, except it's a bit more convenient to use and actually supports several
-different modes of transport.  Twopence also provides shell commands as well
-as a python and a ruby binding.
-
-But, in a nutshell, twopence is the communication layer.
-
-susetest sits on top of twopence and provides a convenience layer for test
-scripts written in python.  Apart from offering a (small, so far) library of
-helper functions, susetest provides logging facilities, and a simple interface
-for constructing python objects for talking to the SUTs needed by your test.
-
 Installing the required pieces
 ==============================
 
@@ -149,7 +121,7 @@ means you also need to add the public portion of your SSH key to testuser's
 authorized_keys file as well.
 
 
-Running a susetest script on KVM or on slenkins
+Running a susetest script on KVM or on SLEnkins
 ===============================================
 
 The mechanics of this are still undergoing constant change.
@@ -210,114 +182,6 @@ but I would expect a future OpenQA integration to use the same conventions.
 we should then consider to move the nodes file out of /var/lib/jenkins and
 into a more generic location.
 
-
-Some words on logging
-=====================
-
-When we looked for a reasonable file format for reporting test results, we
-decided to settle for JUnit XML. It seems to be a pretty common standard,
-plus jenkins is able to use it to generate reports from it.
-
-The basic structure of a JUnit report is a collection of test groups, and each
-test group containing a number of individual test cases. The basic report
-has a name (such as "mytest" or "nfs"), and each group (or "testsuite" as
-it's called within the junit file) has a name prefixed with that base name
-(such as "nfs.init" or "nfs.regressions").
-
-Individual test cases can have a result of "success", "failure", or "error".
-The difference between "failure" and "error" is this: if the test case does
-not produce the expected result, then this is a failure by default. However,
-if the code executing the test case behaves erractically (for instance,
-by throwing a python exception), then this would be an error.
-
-There are other states, but we're not using these effectively right now.
-
-Apart from the test result, it is possible to log the standard output of the
-command to the test report. Built-in functions provided by susetest do this
-for you already.
-
-
-When using susetest, the global Config object will provide you with
-a handle to use for reporting; it is called "journal":
-```
-  import susetest
-
-  config = susetest.Config("mytest")
-  journal = config.journal
-```
-The basic API provided by the Journal class is this
-```
-journal.beginGroup(tag, description)
-journal.finishGroup()
-```
-  In JUnit, you can group test cases that belong together. The
-  tag should be a short identifier consisting of alphanumeric
-  characters plus "-" and "_", and should be unique within your
-  test suite.
-```
-journal.beginTest(tag, description)
-journal.beginTest(description)
-```
-  Either of these two calls indicates the beginning of a new test case. The
-  tag is a unique identifier, like the tags used in beginGroup. However,
-  given that it may not be practical or needed to define separate tags for
-  each test case, this argument is optional. If no explicit tag is specified,
-  the logging library will just make up a tag automatically.
-
-  If you call beginTest() without having explicitly finished the previous
-  test case, the logging library will assume that the test succeeded.
-```
-journal.info(msg)
-journal.warning(msg)
-```
-  These functions let you print informational and warning messages.
-  These messages will show up both on screen and in the test report.
-```
-journal.recordStdout(data)
-journal.recordStderr(data)
-```
-  This will record the given data as standard output/error for the
-  current test case. The argument can be either a string or a
-  bytearray object.
-```
-journal.success(msg)
-journal.failure(msg)
-journal.error(msg)
-```
-  These calls finish the current test and sets its status accordingly.
-  The msg argument is optional for success(), but is required for the
-  other calls.
-
-  Note to those relatively new to python: printf style formatting
-  is done using the "%" operator, like this:
-```
-   Journal.failure("Argh, unable to contact %s at %s" % (service, ipaddr))
-```
-
-``` 
-journal.writeReport()
-```
-
-```
-susetest.finish(journal)
-```
-
-
-susetest.finish(journal) function is equivalent to 
-
-
-```
-journal.writeReport()
-        if (journal.num_failed() + journal.num_errors()):
-                        sys.exit(1)
-        sys.exit(0)
-
-```
-
-If errors (not failures !) or failed test happens, then exit with 1.
-
-This is usefull for integration with susetest and Jenkins automation-framework.
-
 ---------------------------------------------------------------------------------
 
 Susetest static setup:
@@ -331,6 +195,3 @@ to susetest.conf in the current working directory
 Typical global attributes might be the default user to run commands as,
 or a timeout value. Typical node attributes may be the node's hostname
 or its IP address.
-
-
-
