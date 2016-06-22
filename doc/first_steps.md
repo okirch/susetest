@@ -135,7 +135,6 @@ import suselog
 
 
 journal = None
-suite = "/var/lib/slenkins/tests-tomcat"
 client = None
 server = None
 
