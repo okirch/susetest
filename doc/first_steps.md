@@ -2,7 +2,7 @@
 
 
 * the logging facility on susetest.
-* [susetest core library](# susetest-core)
+* [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
 * [examples](#examples)
 
@@ -115,7 +115,101 @@ This is usefull for integration with susetest and Jenkins automation-framework.
 
 ## susetest core
 
-#### How do i run commands ? 
+#### How do i run commands on my systems under test?. (Run family commands)
+
+* run, runOrFail, runBackground, wait commands
+* wait command
+* the targets attributes (ip_addr, etc)
+* how to work with files
+
+First , we have to define the target.
+
+```
+#! /usr/bin/python
+
+import sys
+import traceback
+import twopence
+import susetest
+import suselog
+
+
+journal = None
+suite = "/var/lib/slenkins/tests-tomcat"
+client = None
+server = None
+
+def setup():
+    global client, server, journal
+
+    config = susetest.Config("tests-tomcat")
+    journal = config.journal
+
+    client = config.target("client")
+    server = config.target("server")
+
+```
+
+Now we have 2 targets (in example) : client and server.
+
+so after the setup, we can run some commands with run.
+
+```
+server.run("uptime")
+client.run("uptime")
+```
+
+THe run method as different parameter. here we are with the parameters that you can use.
+
+```
+server.run("uptime", user="testuser", timeout=500, quiet=True)
+```
+* user, let you specify with which user you want to run on the command. (by default all command are runned as root.
+* timeout , you can increase the timeout for the command. by default is 60 seconds
+* quiet =True  will suppress the stdout of the command. default is false 
+
+```
+server.run("ip a s", user="testuser", timeout=500)
+```
+will print th ip on the logging output. with true you suppress it.
+
+
+#### runOrFail command
+
+runOrFail is similar to run, but you can use for automatically make a test fails( as the name suggest) .
+
+```
+  journal.beginTest("Verify host lookup of %s" % hostname)
+        client.runOrFail("getent hosts %s" % hostname)
+```
+
+#### What is the basic workflow for one test? An example for run command.
+
+```
+        journal.beginGroup("apache2 tests")
+        
+        journal.beginTest("check status apache2") 
+        status = server.run("systemctl status apache2)
+        if not status and status.code != 0
+                 journal.failure("Oops: fail to get the status of apache2 service")
+        journal.success("apache2 is running")
+        
+        journal.beginTest("restart apache2 service")
+        server.runOrFail("systemctl restart apache2")
+```
+
+*** Make some cool magics with run command.
+
+
+
+
+
+
+this target have differents attributes:
+
+```
+server.ipadrr
+```
 
 
 
