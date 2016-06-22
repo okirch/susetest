@@ -1,9 +1,10 @@
 ## Susetest api functions.
 
 
-* logging.
-* how to run commands on SUTs(system_under_test)
-
+* the logging facility on susetest.
+* [susetest core library](## susetest core)
+* [susetest_api)(## susetest api)
+* [examples](## examples)
 
 Some words on logging
 =====================
@@ -112,3 +113,8 @@ If errors (not failures !) or failed test happens, then exit with 1.
 
 This is usefull for integration with susetest and Jenkins automation-framework.
 
+## susetest core
+
+## susetest api
+
+## examples
