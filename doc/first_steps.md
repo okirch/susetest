@@ -197,20 +197,17 @@ runOrFail is similar to run, but you can use for automatically make a test fails
         server.runOrFail("systemctl restart apache2")
 ```
 
-*** Make some cool magics with run command.
+#### Make some cool magics with run command.
 
+* capture the output of a command
+* check the retcode of a command.
+* check the returned string of a command
 
-
-
-
-
-this target have differents attributes:
+#### The differents attributes of susetest targets.
 
 ```
 server.ipadrr
 ```
-
-
 
 ## susetest api
 
