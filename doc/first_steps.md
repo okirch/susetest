@@ -117,8 +117,10 @@ This is usefull for integration with susetest and Jenkins automation-framework.
 
 #### How do i run commands on my systems under test?. (Run family commands)
 
+> you don't need os or subprocess from python! run is the answer!
+
 * run, runOrFail, runBackground, wait commands
-* wait command
+* wait commands
 * the targets attributes (ip_addr, etc)
 * how to work with files
 
@@ -154,8 +156,11 @@ Now we have 2 targets (in example) : client and server.
 so after the setup, we can run some commands with run.
 
 ```
-server.run("uptime")
-client.run("uptime")
+setup()
+try:
+  server.run("uptime")
+  client.run("uptime")
+...
 ```
 
 THe run method as different parameter. here we are with the parameters that you can use.
@@ -197,11 +202,47 @@ runOrFail is similar to run, but you can use for automatically make a test fails
         server.runOrFail("systemctl restart apache2")
 ```
 
-#### Make some cool magics with run command.
+#### Capture output or code of commands.
 
 * capture the output of a command
+
+you can capture the output of comand with the **stdout** method of the run object. here an example:
+Remeber that you have to transfom it into a string.
+```
+ status = client1.run("cat " + tf)
+        if not(status):
+                journal.failure("unable to read testfile on client1")
+        else:
+                after = str(status.stdout)
+                if after == "frankzappa":
+                        journal.success("Great: file contains \"frankzappa\"")
+                else:
+                        journal.failure("Too bad: file contains \"%s\" (expected \"frankzappa\")" % after)
+
+```
 * check the retcode of a command.
-* check the returned string of a command
+
+Similar to the stdout , we can check the return code of a command. 
+
+```
+  journal.beginTest("Check status of stopped NFS server")
+        st = server.run("rcnfsserver status")
+        if st.code != 3:
+                journal.info("rcnfsserver status returned exit code %d" % st.code)
+                journal.failure("rcnfsserver should have returned 3 [unused]")
+
+```
+* the susetest_api has some common function to do this basic stuff, but susetest_core api give you the possibility to implement your own functions
+
+**Hint:**
+Take care, that sometimes commands that you run, doesn't eliminate white spaces.
+Here is an example for cleaning up. For this, you can use strip(), or s.rstrip(). take a look on python doc for this.
+```
+        status = node.run("losetup -f")
+        if status and status.stdout:
+                dev = str(status.stdout).strip()
+```
+
 
 #### The differents attributes of susetest targets.
 
