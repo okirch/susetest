@@ -1,4 +1,4 @@
-## Susetest api functions.
+## Susetest api functions documentation.[Work in progress]
 
 
 * the logging facility on susetest.
@@ -206,7 +206,7 @@ runOrFail is similar to run, but you can use for automatically make a test fails
 #### The differents attributes of susetest targets.
 
 ```
-server.ipadrr
+server.ipadrr, self.ip6addr ,  server.family,  server.name 
 ```
 
 ## susetest api
