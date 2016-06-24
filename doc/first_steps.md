@@ -1,12 +1,12 @@
 ## Susetest api functions documentation.[Work in progress]
 
-* [your first susetest run.py test](#Helloworld-susetest)
+* First Halloworld code with susetest
 * [the logging facility on susetest](#some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
 
-## Helloworld susetest
+## Helloworld test with  susetest
 
 ```
 #! /usr/bin/python
@@ -31,6 +31,8 @@ def setup():
     client = config.target("client")
     server = config.target("server")
 
+### Here we make one function, that can be used from server or client node
+
 def some_test(node):
     journal.beginTest("This is some test")
 
@@ -39,7 +41,7 @@ def some_test(node):
     else:
         journal.failure("Test on " + node.name + " has failed")
 
-######################
+###################### MAIN-FUNCTION is here ..
 
 setup()
 
