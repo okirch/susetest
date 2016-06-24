@@ -300,9 +300,31 @@ Here is an example for cleaning up. For this, you can use strip(), or s.rstrip()
 
 #### The differents attributes of susetest targets.
 
+When you define a target, like server, you have some attributes that can help you for testing.
+
+Here the actual list:
 ```
-server.ipadrr, self.ip6addr ,  server.family,  server.name 
+server.ipadrr, self.ip6addr , self.ipaddr_ext  server.family,  server.name 
 ```
+
+Some example why this are cool attributes, ( you maybe just understood why ? :) )
+
+server.ipaddr (ip internal 192. etc, != ipaddr_ext cloud_ip = 10.*)
+```
+client1.runOrFail("/usr/sbin/showmount -e %s" % server.ipaddr)
+```
+
+**server.name**
+
+```
+journal.beginTest("Ping all Salt-Minions via Salt %s" %  (server.name) )
+```
+
+
+
+
+
+
 
 ## susetest api
 
