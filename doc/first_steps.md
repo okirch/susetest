@@ -1,13 +1,65 @@
 ## Susetest api functions documentation.[Work in progress]
 
-
-* the logging facility on susetest.
+* [your first susetest run.py test](#Your-first-test-with-susetest)
+* [the logging facility on susetest](#Some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
-* [examples](#examples)
+* [advanced examples](#examples)
 
-Some words on logging
-=====================
+## Your first test with susetest
+
+```
+#! /usr/bin/python
+
+import sys
+import traceback
+import twopence
+import susetest
+import suselog
+
+journal = None
+client = None
+server = None
+
+### we need this function for setup logging and sut
+def setup():
+    global client, server, journal
+
+    config = susetest.Config("workshop-helloworld")
+    journal = config.journal
+
+    client = config.target("client")
+    server = config.target("server")
+
+def some_test(node):
+    journal.beginTest("This is some test")
+
+    if node.run("uptime"):
+        journal.success("Test on " + node.name + " has succeeded")
+    else:
+        journal.failure("Test on " + node.name + " has failed")
+
+######################
+
+setup()
+
+try:
+    some_test(client)
+    some_test(server)
+
+except:
+    print "Unexpected error"
+    journal.info(traceback.format_exc(None))
+    raise
+
+susetest.finish(journal)
+
+
+```
+
+
+
+#Some words on logging
 
 When we looked for a reasonable file format for reporting test results, we
 decided to settle for JUnit XML. It seems to be a pretty common standard,
