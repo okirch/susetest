@@ -1,12 +1,12 @@
 ## Susetest api functions documentation.[Work in progress]
 
-* [your first susetest run.py test](#Your-first-test-with-susetest)
-* [the logging facility on susetest](#Some-words-on-logging)
+* [your first susetest run.py test](#Helloworld-susetest)
+* [the logging facility on susetest](#some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
 
-## Your first test with susetest
+## Helloworld susetest
 
 ```
 #! /usr/bin/python
@@ -59,7 +59,7 @@ susetest.finish(journal)
 
 
 
-#Some words on logging
+#  some words on logging
 
 When we looked for a reasonable file format for reporting test results, we
 decided to settle for JUnit XML. It seems to be a pretty common standard,
