@@ -1,13 +1,67 @@
 ## Susetest api functions documentation.[Work in progress]
 
-
-* the logging facility on susetest.
+* Helloworld test with susetest
+* [the logging facility on susetest](#some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
-* [examples](#examples)
+* [advanced examples](#examples)
 
-Some words on logging
-=====================
+## Helloworld test with  susetest
+
+```
+#! /usr/bin/python
+
+import sys
+import traceback
+import twopence
+import susetest
+import suselog
+
+journal = None
+client = None
+server = None
+
+### we need this function for setup logging and sut
+def setup():
+    global client, server, journal
+
+    config = susetest.Config("workshop-helloworld")
+    journal = config.journal
+
+    client = config.target("client")
+    server = config.target("server")
+
+### Here we make one function, that can be used from server or client node
+
+def some_test(node):
+    journal.beginTest("This is some test")
+
+    if node.run("uptime"):
+        journal.success("Test on " + node.name + " has succeeded")
+    else:
+        journal.failure("Test on " + node.name + " has failed")
+
+###################### MAIN-FUNCTION is here ..
+
+setup()
+
+try:
+    some_test(client)
+    some_test(server)
+
+except:
+    print "Unexpected error"
+    journal.info(traceback.format_exc(None))
+    raise
+
+susetest.finish(journal)
+
+
+```
+
+
+
+#  some words on logging
 
 When we looked for a reasonable file format for reporting test results, we
 decided to settle for JUnit XML. It seems to be a pretty common standard,
@@ -117,8 +171,10 @@ This is usefull for integration with susetest and Jenkins automation-framework.
 
 #### How do i run commands on my systems under test?. (Run family commands)
 
+> you don't need os or subprocess from python! run is the answer!
+
 * run, runOrFail, runBackground, wait commands
-* wait command
+* wait commands
 * the targets attributes (ip_addr, etc)
 * how to work with files
 
@@ -154,8 +210,11 @@ Now we have 2 targets (in example) : client and server.
 so after the setup, we can run some commands with run.
 
 ```
-server.run("uptime")
-client.run("uptime")
+setup()
+try:
+  server.run("uptime")
+  client.run("uptime")
+...
 ```
 
 THe run method as different parameter. here we are with the parameters that you can use.
@@ -197,18 +256,136 @@ runOrFail is similar to run, but you can use for automatically make a test fails
         server.runOrFail("systemctl restart apache2")
 ```
 
-#### Make some cool magics with run command.
+#### Capture output or code of commands.
 
 * capture the output of a command
+
+you can capture the output of comand with the **stdout** method of the run object. here an example:
+Remeber that you have to transfom it into a string.
+```
+ status = client1.run("cat " + tf)
+        if not(status):
+                journal.failure("unable to read testfile on client1")
+        else:
+                after = str(status.stdout)
+                if after == "frankzappa":
+                        journal.success("Great: file contains \"frankzappa\"")
+                else:
+                        journal.failure("Too bad: file contains \"%s\" (expected \"frankzappa\")" % after)
+
+```
 * check the retcode of a command.
-* check the returned string of a command
+
+Similar to the stdout , we can check the return code of a command. 
+
+```
+  journal.beginTest("Check status of stopped NFS server")
+        st = server.run("rcnfsserver status")
+        if st.code != 3:
+                journal.info("rcnfsserver status returned exit code %d" % st.code)
+                journal.failure("rcnfsserver should have returned 3 [unused]")
+
+```
+* the susetest_api has some common function to do this basic stuff, but susetest_core api give you the possibility to implement your own functions
+
+**Hint:**
+Take care, that sometimes commands that you run, doesn't eliminate white spaces.
+Here is an example for cleaning up. For this, you can use strip(), or s.rstrip(). take a look on python doc for this.
+```
+        status = node.run("losetup -f")
+        if status and status.stdout:
+                dev = str(status.stdout).strip()
+```
+
 
 #### The differents attributes of susetest targets.
 
+When you define a target, like server, you have some attributes that can help you for testing.
+
+Here the actual list:
 ```
-server.ipadrr, self.ip6addr ,  server.family,  server.name 
+server.ipadrr, self.ip6addr , self.ipaddr_ext  server.family,  server.name 
 ```
 
+Some example why this are cool attributes, ( you maybe just understood why ? :) )
+
+**server.ipaddr**
+ip internal 192. etc, != ipaddr_ext cloud_ip = 10.*)
+```
+client1.runOrFail("/usr/sbin/showmount -e %s" % server.ipaddr)
+```
+**server.family**
+```
+# we do something if we have opensuse_leap42.2
+if (server.family == 42.2):
+    server.run("zypper in docker")
+# sles-12-sp2
+if (server.family == 12.2)    
+etc..    
+```
+
+**server.name**
+The name attribute give you the node name, not the hostname.
+this is useful, when you have a  generic function like this:
+```
+if node.name == "server":
+    node.run("systemctl start apache2")
+if node.name == "client"
+    do other stuff for client
+```
+
+#### working with files 
+
+*  sendfile, recvfile
+*  recvbuffer, sendbuffer
+
+*recvfile/sendfile*: these functions transfer a file from the SUT to a file on the control node, or vice versa. 
+This is useful, for instance, if you need to copy a tarball to the SUT and unpack it there. 
+
+```
+node.sendfile(remotefile = "/etc/idmapd.conf", data = idmapd_conf)
+```
+
+```
+	localPath = server.workspaceFile("rpcunit.xml")
+	print "localPath is ", localPath
+    if not server.recvfile("/tmp/rpcunit.xml", localfile = localPath, permissions = 0644):
+		journal.failure("unable to download /tmp/rpcunit.xml to " + localPath)
+		return
+
+```
+
+
+*recvbuffer/sendbuffer* these functions transfer a file from the SUT to a python bytearray object, or vice versa. This is useful if you want to process the content of a file on the SUT (eg add an entry to /etc/hosts)
+
+Here some examples. i take the function from susetest_api.files
+
+```
+def replace_string(node, replacements, _file, _max_replace=0):
+        ''' replace given strings as dict in the file '''
+        data = node.recvbuffer(_file)
+        if not data:
+                node.journal.fatal("something bad with getting the file {}!".format(_file))
+      		return False
+        data_str = str(data)
+        for src, target in replacements.iteritems():
+                if not _max_replace:
+                        data_str = data_str.replace(str(src), str(target))
+                else:
+                        data_str = data_str.replace(str(src), str(target), _max_replace)
+        if not node.sendbuffer(_file,  bytearray(data_str)):
+                node.journal.fatal("error writing file {}".format(_file))
+return False 
+
+```
 ## susetest api
 
-## examples
+The main goal of this, is to improve the susetest_core api.
+One important choice by creating this api, was the design. Susetest_api is on top of susetest_core. 
+THi imply: susetest_api doesn't change the stable basic design, and is optional to susetest. So no regression is added, because this are two linux stand-alone tools.
+
+If you want to use the susetest_api, you need to import the specific modules.
+
+https://github.com/okirch/susetest/tree/master/susetest/python/susetest_api
+
+## advanced examples
