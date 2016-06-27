@@ -7,7 +7,7 @@
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
 
-## (susetest design concept)[susetest.jpeg]
+## [susetest design concept](susetest.jpeg)
 
 
 
