@@ -383,9 +383,10 @@ return False
 
 The main goal of this, is to improve the susetest_core api.
 One important choice by creating this api, was the design. Susetest_api is on top of susetest_core. 
-THi imply: susetest_api doesn't change the stable basic design, and is optional to susetest. So no regression is added, because this are two linux stand-alone tools.
+This  imply following: susetest_api doesn't change the stable basic design of the core api: it is optional to susetest core api.
+So no regression is added, because this are two linux stand-alone tools.
 
-In future, we can integrate some functions of susetest_api to susetest_core, if this are really advantagous for the nodes and are nodes methods.
+In future, we can integrate some functions from susetest_api to susetest_core, if this are really advantagous for the nodes and are nodes methods, and we have some unit-testing automation for this functions. (see how-to-contribute).
 
 the susetest_core api is here:
 https://github.com/okirch/susetest/blob/master/susetest/python/susetest.py
@@ -393,8 +394,10 @@ https://github.com/okirch/susetest/blob/master/susetest/python/susetest.py
 the susetest_api is here:
 https://github.com/okirch/susetest/tree/master/susetest/python/susetest_api
 
+susetest_api is somthing like a rolling api. If you think that you have a cool generic function, you can create one. see how-to-contribute for this.
 
 If you want to use the susetest_api, you need to import the specific modules, and function you want to use. 
+
 Like this:
 
 ```
@@ -403,7 +406,8 @@ from susetest_api.log import systemd_check
 systemd_check(sut)
 ```
 
-or 
+or  an example with more functions
+
 ```
 from susetest_api.assertions import fail_retcode, assert_ok_equal
 
