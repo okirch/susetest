@@ -89,8 +89,8 @@ def fail_retcode(node, command, code):
                 node.journal.fatal("please insert a integer for variable code !")
                 return False
         status = node.run(command, timeout=500)
-        if (status and status.code != code):
-                node.journal.failure("Command error_code\"{0}\" expected retcode: \"{}\". TEST_FAIL!!".format(str(status.code), str(code)) )
+        if (status.code != code):
+                node.journal.failure("Command error_code\"{0}\" expected retcode: \"{1}\". TEST_FAIL!!".format(str(status.code), str(code)) )
                 return False
         node.journal.success("Command failed with retcode \"{0}\" as expected  \"{1}\" PASS! OK".format(code, command))
         return True
