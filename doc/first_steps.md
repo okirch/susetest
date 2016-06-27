@@ -1,11 +1,24 @@
-## Susetest api functions documentation.[Work in progress]
+## Susetest api functions documentation.
 
+* susetest design concept
 * Helloworld test with susetest
 * [the logging facility on susetest](#some-words-on-logging)
-* [susetest design concept](#design-concept)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
+
+##  Susetest design concept
+
+As you can see [susetest design concept](susetest_design.jpg). 
+
+
+Susetest can run in every automation frameworks, run tests for 1 or more TARGETs machines( virtual, docker or bare machine).
+
+The **control-node** is an isolated environment, could be a vm or a systemd-jail, or a bare machine. In SLEnkins is a systemd-jail
+
+The separation between SUTs (Systems under test) and Control-node is very important for testing. This give you 100 % Reproducibility for testing: you don't mix up stuff between machines under tests.
+
+
 
 ## Helloworld test with  susetest
 
