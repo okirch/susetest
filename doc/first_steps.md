@@ -1,12 +1,16 @@
 ## Susetest api functions documentation.
 
-* [susetest design concept](#design-concept)
-* 
+* susetest design concept
 * [Helloworld test with susetest](#helloworld-test-with-susetest)
 * [the logging facility on susetest](#some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
+
+## (susetest design concept)[susetest.jpeg]
+
+
+
 
 ## Helloworld test with  susetest
 
