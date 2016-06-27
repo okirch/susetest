@@ -9,7 +9,7 @@
 
 ##  Susetest design concept
 
-As you can see [susetest design concept](susetest.jpg). 
+As you can see [susetest design concept](susetest_design.jpg). 
 
 
 Susetest can run in every automation frameworks, run tests for 1 or more TARGETs machines( virtual, docker or bare machine).
