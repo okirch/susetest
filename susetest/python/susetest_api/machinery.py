@@ -30,5 +30,3 @@ class machinery:
 
         def show(self):
                 self.run_control("machinery show --no-pager {}".format(self.node.ipaddr))
-~                                                                                                                                                                                                                  
-~ 
