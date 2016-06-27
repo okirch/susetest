@@ -2,6 +2,7 @@
 
 * Helloworld test with susetest
 * [the logging facility on susetest](#some-words-on-logging)
+* [susetest design concept](#design-concept)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
@@ -173,8 +174,8 @@ This is usefull for integration with susetest and Jenkins automation-framework.
 
 > you don't need os or subprocess from python! run is the answer!
 
-* run, runOrFail, runBackground, wait commands
-* wait commands
+* run, runOrFail, runOrRaise
+* runBackground, wait commands
 * the targets attributes (ip_addr, etc)
 * how to work with files
 
@@ -304,17 +305,17 @@ When you define a target, like server, you have some attributes that can help yo
 
 Here the actual list:
 ```
-server.ipadrr, self.ip6addr , self.ipaddr_ext  server.family,  server.name 
+node.ipadrr, self.ip6addr , self.ipaddr_ext  self.family,  self.name 
 ```
 
 Some example why this are cool attributes, ( you maybe just understood why ? :) )
 
-**server.ipaddr**
+**node.ipaddr**
 ip internal 192. etc, != ipaddr_ext cloud_ip = 10.*)
 ```
 client1.runOrFail("/usr/sbin/showmount -e %s" % server.ipaddr)
 ```
-**server.family**
+**node.family**
 ```
 # we do something if we have opensuse_leap42.2
 if (server.family == 42.2):
@@ -324,7 +325,7 @@ if (server.family == 12.2)
 etc..    
 ```
 
-**server.name**
+**node.name**
 The name attribute give you the node name, not the hostname.
 this is useful, when you have a  generic function like this:
 ```
@@ -384,8 +385,67 @@ The main goal of this, is to improve the susetest_core api.
 One important choice by creating this api, was the design. Susetest_api is on top of susetest_core. 
 THi imply: susetest_api doesn't change the stable basic design, and is optional to susetest. So no regression is added, because this are two linux stand-alone tools.
 
-If you want to use the susetest_api, you need to import the specific modules.
+In future, we can integrate some functions of susetest_api to susetest_core, if this are really advantagous for the nodes and are nodes methods.
 
+the susetest_core api is here:
+https://github.com/okirch/susetest/blob/master/susetest/python/susetest.py
+
+the susetest_api is here:
 https://github.com/okirch/susetest/tree/master/susetest/python/susetest_api
+
+
+If you want to use the susetest_api, you need to import the specific modules, and function you want to use. 
+Like this:
+
+```
+from susetest_api.log import systemd_check
+
+systemd_check(sut)
+```
+
+or 
+```
+from susetest_api.assertions import fail_retcode, assert_ok_equal
+
+   fail_retcode(sut, "ls #I FAIL", 127)
+   fail_retcode(sut, "ls -ERROR_COMMAND", 2)
+   assert_ok_equal(sut, "whoami", "root")
+
+```
+this last two function, when runned will print you this :
+
+```   
+---------------------------------
+TEST: Command must fail "ls -ERROR_COMMAND" with retcode"127" 
+sut: ls -ERROR_COMMAND
+ls: invalid option -- 'E'
+Try 'ls --help' for more information.
+sut: command "ls -ERROR_COMMAND" failed: status 2
+Failing: Command error_code"2" expected retcode: "127". TEST_FAIL!!
+FAIL: Command error_code"2" expected retcode: "127". TEST_FAIL!!
+
+---------------------------------
+
+---------------------------------
+TEST: Command must fail "ls -ERROR_COMMAND" with retcode"2" 
+sut: ls -ERROR_COMMAND
+ls: invalid option -- 'E'
+Try 'ls --help' for more information.
+sut: command "ls -ERROR_COMMAND" failed: status 2
+Command failed with retcode "2" as expected  "ls -ERROR_COMMAND" PASS! OK
+SUCCESS
+
+---------------------------------
+
+---------------------------------
+TEST: for successful cmd: "whoami" ASSERT_OUTPUT:  "root" 
+sut: whoami
+root
+ASSERT_TEST_EQUAL to whoami PASS! OK
+SUCCESS
+
+```
+
+
 
 ## advanced examples
