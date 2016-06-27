@@ -7,7 +7,17 @@
 * [susetest_api](#susetest-api)
 * [advanced examples](#examples)
 
-## [susetest design concept](susetest.jpeg)
+##  Susetest design concept
+
+As you can see [susetest design concept](susetest.jpg)
+
+Susetest can run in every automation frameworks, run tests for 1 or more TARGETs machines( virtual, docker or bare machine).
+
+The **control-node** is an isolated environment, could be a vm or a systemd-jail, or a bare machine. In SLEnkins is a systemd-jail
+
+THe separation between SUTs (Systems under test) and Control-node is very important for testing. This give you 100 % Reproducibility for testing.
+
+
 
 
 
