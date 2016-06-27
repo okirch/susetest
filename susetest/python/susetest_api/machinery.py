@@ -25,8 +25,12 @@ class machinery:
         def inspect(self):
                 if self.check_machinery() != True:
                         return False
+
+                self.run_control("ssh-copy-id root@{}".format(self.node.ipaddr_ext))
+                # need for force machinery to work. 
+                self.node.run("uptime", quiet=True)
                 self.node.journal.info("inspecting {}".format(self.node.name))
-                self.run_control("machinery inspect {}".format(self.node.ipaddr))
+                self.run_control("machinery inspect {}".format(self.node.ipaddr_ext))
 
         def show(self):
-                self.run_control("machinery show --no-pager {}".format(self.node.ipaddr))
+                self.run_control("machinery show --no-pager {}".format(self.node.ipaddr_ext))
