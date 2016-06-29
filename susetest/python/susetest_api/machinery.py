@@ -26,11 +26,15 @@ class machinery:
                 if self.check_machinery() != True:
                         return False
 
-                self.run_control("ssh-copy-id root@{}".format(self.node.ipaddr_ext))
+                #self.run_control("ssh-copy-id root@{}".format(self.node.ipaddr_ext))
                 # need for force machinery to work. 
-                self.node.run("uptime", quiet=True)
+                self.node.run("uptime")
                 self.node.journal.info("inspecting {}".format(self.node.name))
                 self.run_control("machinery inspect {}".format(self.node.ipaddr_ext))
 
-        def show(self):
-                self.run_control("machinery show --no-pager {}".format(self.node.ipaddr_ext))
+        def show(self, suite_name, console=False):
+                if not console :
+                        self.run_control("machinery show --no-pager {} > $WORKSPACE/{}_machinery.txt".format(self.node.ipaddr_ext, suite_name))
+                else:
+                        self.run_control("machinery show --no-pager {}".format(self.node.ipaddr_ext))
+                self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf *")
