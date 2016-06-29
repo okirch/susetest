@@ -8,6 +8,7 @@ and fun for everybody involved.
 
 * create an automation testing like travis or jenkins for testing new PR. (to avoid regression)
 * susetest_api need more cool functions:
+   * machinery library need some improvements.
 
 
 ## Designer tasks:
