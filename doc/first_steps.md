@@ -5,7 +5,7 @@
 * [the logging facility on susetest](#some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
-* [advanced examples](#examples)
+* [advanced examples](#advanced-examples)
 
 ##  Susetest design concept
 
@@ -463,6 +463,24 @@ SUCCESS
 
 ```
 
-
-
 ## advanced examples
+
+### Machinery integration on susetest.
+
+Ensure that your control-node as the following option on the file: ```/var/lib/slenkins/.ssh/config```
+```
+Host *
+    StrictHostKeyChecking no
+~             
+```
+This is needed for machinery. (Maybe in future i will see for more dynamic way)
+
+
+```
+machinery_sut = machinery(sut)
+machinery_sut.inspect()
+machinery_sut.show("tests-systemd") # name of your testsuite
+```
+
+at the end you will have a machinery report on the Workspace directory. 
+
