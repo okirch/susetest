@@ -5,7 +5,7 @@
 * [the logging facility on susetest](#some-words-on-logging)
 * [susetest core library](#susetest-core)
 * [susetest_api](#susetest-api)
-* [advanced examples](#examples)
+* [advanced examples](#advanced-examples)
 
 ##  Susetest design concept
 
@@ -463,6 +463,33 @@ SUCCESS
 
 ```
 
-
-
 ## advanced examples
+
+### Machinery integration on susetest.
+
+This is needed for machinery. (Maybe in future i will see for more dynamic way)
+
+Ensure that your control-node as the following option on the file: ```/var/lib/slenkins/.ssh/config```
+```
+Host *
+    StrictHostKeyChecking no
+~             
+```
+
+Now, you run.py should only contain this:
+
+```
+machinery_sut = machinery(sut)
+machinery_sut.inspect()
+machinery_sut.show("tests-systemd") # name of your testsuite
+```
+at the end you will have a machinery report on the Workspace directory.
+
+for the command show you can chose to save the inspect file to workspace (default) or to put the result on the console log
+```
+machinery_sut.show("tests-systemd", console=True) # name of your testsuite
+```
+
+
+
+I don't have implemented a compare function, this will be cool for future, but i have to think were to store the results.
