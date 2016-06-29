@@ -467,14 +467,16 @@ SUCCESS
 
 ### Machinery integration on susetest.
 
+This is needed for machinery. (Maybe in future i will see for more dynamic way)
+
 Ensure that your control-node as the following option on the file: ```/var/lib/slenkins/.ssh/config```
 ```
 Host *
     StrictHostKeyChecking no
 ~             
 ```
-This is needed for machinery. (Maybe in future i will see for more dynamic way)
 
+Now, you run.py should only contain this:
 
 ```
 machinery_sut = machinery(sut)
@@ -484,3 +486,4 @@ machinery_sut.show("tests-systemd") # name of your testsuite
 
 at the end you will have a machinery report on the Workspace directory. 
 
+I don't have implemented a compare function, this will be cool for future, but i have to think were to store the results.
