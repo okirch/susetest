@@ -482,6 +482,7 @@ Now, you run.py should only contain this:
 machinery_sut = machinery(sut)
 machinery_sut.inspect()
 machinery_sut.show("tests-systemd") # name of your testsuite
+
 ```
 at the end you will have a machinery report on the Workspace directory.
 
@@ -490,6 +491,12 @@ for the command show you can chose to save the inspect file to workspace (defaul
 machinery_sut.show("tests-systemd", console=True) # name of your testsuite
 ```
 
+Experimental Feature:
+
+```
+machinery_sut.compare("SYSTEM_TO_COMPARE")
+```
+This feature is under development(it works fine, but some feature, and testing should be done, before will be documented). Compare, will call machinery compare command, with the actual system and a Description of a systemd stored.
 
 
-I don't have implemented a compare function, this will be cool for future, but i have to think were to store the results.
+
