@@ -4,11 +4,14 @@ Susetest is an open project and welcomes contributions. We have written these
 guidelines so you know how the project works, and to make contributions smooth
 and fun for everybody involved.
 
-## Developers Tasks:
+## Developers Tasks (some suggestions)
 
 * create an automation testing like travis or jenkins for testing new PR. (to avoid regression)
 * susetest_api need more cool functions:
-   * machinery library need some improvements.
+   * machinery library need some improvements: (testing, description images need creation, adding full support) 
+   * system library (function to start services 
+   * 
+* Integrate supportconfig to susetest
 
 
 ## Designer tasks:
