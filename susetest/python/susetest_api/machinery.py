@@ -28,12 +28,12 @@ class machinery:
                 return False
 
         def inspect(self):
-		if self.node.desktop :
+		if not self.node.desktop :
 			variant = "-default"
 		else :
 			variant = "-gnome"
-		system = self.node.build 
-		# FIXME + variant
+		system = self.node.build + variant 
+ 
                 if self.check_machinery() != True:
                         return False
                 # need for force machinery to work. 
