@@ -11,8 +11,13 @@ import subprocess
 class machinery:
         def __init__(self, node):
                 self.node = node
+                self.run_control("rm /var/lib/slenkins/.ssh/known_hosts")
+     		self.check_ssh_config_control()
 
-        def run_control(self, cmd):
+	def check_ssh_config_control(self):
+		pass
+ 
+	def run_control(self, cmd):
                 subprocess.call(cmd, shell=True)
 
         def check_machinery(self):
@@ -23,18 +28,33 @@ class machinery:
                 return False
 
         def inspect(self):
+		if self.node.desktop :
+			variant = "-default"
+		else :
+			variant = "-gnome"
+		system = self.node.build 
+		# FIXME + variant
                 if self.check_machinery() != True:
                         return False
-
-                #self.run_control("ssh-copy-id root@{}".format(self.node.ipaddr_ext))
                 # need for force machinery to work. 
-                self.node.run("uptime")
                 self.node.journal.info("inspecting {}".format(self.node.name))
                 self.run_control("machinery inspect {}".format(self.node.ipaddr_ext))
+		self.run_control("machinery move {0} {1}".format(self.node.ipaddr_ext, system))
 
         def show(self, suite_name, console=False):
                 if not console :
                         self.run_control("machinery show --no-pager {} > $WORKSPACE/{}_machinery.txt".format(self.node.ipaddr_ext, suite_name))
                 else:
                         self.run_control("machinery show --no-pager {}".format(self.node.ipaddr_ext))
-                self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf *")
+                #self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf *; cd ")
+
+        def compare(self, system, console=False):
+                '''system is like this SLE_12_SP2_Build1641-x86_64-default '''
+                # get system
+                self.run_control("mkdir /var/lib/slenkins/.machinery/{}".format(system))
+                self.run_control("wget -O /var/lib/slenkins/.machinery/{0}/{0} http://slenkins/machinery/{0}.json; mv /var/lib/slenkins/.machinery/{0}/{0} /var/lib/slenkins/.machinery/{0}/manifest.json".format(system))
+
+                self.node.journal.info("comparing {}  with {}".format(self.node.name, system))
+                self.run_control("machinery compare {} {} --no-pager".format(self.node.ipaddr_ext, system))
+                #self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf * ; cd")
+
