@@ -109,10 +109,36 @@ class Target(twopence.Target):
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
 		self.ip6addr = self.ipv6_addr
-
                 # external ip for cloud
                 self.ipaddr_ext = config.ipv4_ext(self.name)
-  		self.family = self.get_family()
+  		# *** os attributes ***
+		# family 42.1 , 12.2 etc 
+		self.family = self.get_family()
+		# boolean var, true if gnome,kde are used, else false 
+		self.desktop = self.get_graphical()
+		# this is from cat /etc/YaST2/build
+		self.build =  self.get_build()
+
+	def get_graphical(self):
+		''' return true if gnome is enabled, false if minimal'''
+		status = self.run("test -x /usr/bin/gdm", quiet=True)
+		if (status.code == 0):
+			graphical = True
+		else :
+			graphical = False
+                return graphical
+	
+	def get_build(self):
+                ''' '''
+                status = self.run("cat /etc/YaST2/build", quiet=True)
+                if not status:
+                        self.logError("cannot get build of system")
+                        return None
+                build = str(status.stdout)
+                if not build:
+                        self.logError("cannot get os-release strings")
+                        return None
+                return build.rstrip()
 
 	def get_family(self):
                 ''' get_family return a string : 42.1(leap), 12.2, 12.1, 11.4 for  sles etc. '''
@@ -124,9 +150,12 @@ class Target(twopence.Target):
                 if not family:
                         self.logError("cannot get os-release strings")
                         return None
-                return family
+                return family.rstrip()
 
 		self.__syslogSize = -1
+	
+
+
 
 	def logInfo(self, message):
 		self.journal.info(self.name + ": " + message)

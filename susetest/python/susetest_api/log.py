@@ -13,7 +13,19 @@ def has_systemd(node):
                 # init -> skip
                 return False
     return True
-    
+
+def support_config(node):
+    node.journal.beginTest("retrieve data with supportconfig")
+    status =  node.run("whereis supportconfig")
+	    if status.code != 0 and status != 0:
+                journal.failure("supportconfig not installed? something went bad")
+                return False
+    node.run("supportconfig -A -U foo" , timeout=900)
+    node.runOrFail("mv  /var/log/nts_* $WORKSPACE/")
+    node.journal.success("support config runned! check the tarball(on workspace")
+    return True
+
+
 # systemd_check(server, prio_default=5)
 def systemd_check(node, prio_default=4):
     # jounrnalctl is strange, it behave different:
