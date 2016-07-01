@@ -17,7 +17,7 @@ def has_systemd(node):
 def support_config(node):
     node.journal.beginTest("retrieve data with supportconfig")
     status =  node.run("whereis supportconfig")
-	    if status.code != 0 and status != 0:
+    if status.code != 0 and status != 0:
                 journal.failure("supportconfig not installed? something went bad")
                 return False
     node.run("supportconfig -A -U foo" , timeout=900)
