@@ -13,8 +13,9 @@ class machinery:
                 self.node = node
                 self.run_control("rm /var/lib/slenkins/.ssh/known_hosts")
      		self.check_ssh_config_control()
-
+		self.system = ""
 	def check_ssh_config_control(self):
+		##FIXME: this function should check that ssh config is setted for machinery, otherwise should set it propeedrich_Nietzscherly
 		pass
  
 	def run_control(self, cmd):
@@ -32,18 +33,19 @@ class machinery:
 			variant = "-default"
 		else :
 			variant = "-gnome"
-		system = self.node.build + variant 
+		
+		self.system = self.node.build + variant 
  
                 if self.check_machinery() != True:
                         return False
                 # need for force machinery to work. 
                 self.node.journal.info("inspecting {}".format(self.node.name))
                 self.run_control("machinery inspect {}".format(self.node.ipaddr_ext))
-		self.run_control("machinery move {0} {1}".format(self.node.ipaddr_ext, system))
+		self.run_control("machinery move {0} {1}".format(self.node.ipaddr_ext, self.system))
 
         def show(self, suite_name, console=False):
                 if not console :
-                        self.run_control("machinery show --no-pager {} > $WORKSPACE/{}_machinery.txt".format(self.node.ipaddr_ext, suite_name))
+                        self.run_control("machinery show --no-pager {} > $WORKSPACE/{}_machinery.txt".format(self.system, suite_name))
                 else:
                         self.run_control("machinery show --no-pager {}".format(self.node.ipaddr_ext))
                 #self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf *; cd ")
