@@ -26,6 +26,8 @@ def support_config(node):
     return True
 
 
+#FIXME: we need to implement the systemd_check, that can ignore some know-errors
+
 # systemd_check(server, prio_default=5)
 def systemd_check(node, prio_default=4):
     # jounrnalctl is strange, it behave different:
