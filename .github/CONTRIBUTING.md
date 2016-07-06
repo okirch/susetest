@@ -10,8 +10,10 @@ and fun for everybody involved.
 * susetest_api need more cool functions:
    * machinery library need some improvements: (testing, description images need creation, adding full support) 
    * system library (function to start services 
-   * 
-* Integrate supportconfig to susetest
+   * i make some prototype for functions that we need. see the .py functions here:
+    https://github.com/okirch/susetest/tree/master/susetest/python/susetest_api
+   * correct some fixme that are in the code :) 
+* Integrate supportconfig to susetest: 
 
 
 ## Designer tasks:
