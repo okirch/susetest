@@ -61,7 +61,7 @@ Test suite finished
 
 
 
-Installing the required pieces
+Susetest static full doc.
 ==============================
 
 All packages that you need for this should be available from Devel:SLEnkins
@@ -241,17 +241,3 @@ Currently, the nodes file is used only by jenkins and the scripts around it,
 but I would expect a future OpenQA integration to use the same conventions.
 we should then consider to move the nodes file out of /var/lib/jenkins and
 into a more generic location.
-
----------------------------------------------------------------------------------
-
-Susetest static setup:
-
-Config file :
-
-The config file can be specified the the --filename option, or through the
-TWOPENCE_CONFIG_PATH environment variable. If neither is given, it will default
-to susetest.conf in the current working directory
-
-Typical global attributes might be the default user to run commands as,
-or a timeout value. Typical node attributes may be the node's hostname
-or its IP address.
