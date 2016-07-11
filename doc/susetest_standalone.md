@@ -1,3 +1,65 @@
+# Minimal example HOWTO run susetest in static-mode( without a testing-automation env.)
+
+This example is choosed as minimal as possible, just as helloworld. For detail see the nice doc that Olaf wrote, just after this example.
+
+So we have following limitation, or prerequisites:
+
+a) You don't install extra packages on your systemd under tests. 
+
+b) You have only one machine as target.
+
+c) you installed the susetest-python and susetest package, on your host machine, where do you want to run the tests.
+
+d) you have a run.py file, where you coded something. ( if you can take the helloworld example from api documentation)
+
+**So let's hack now:**
+
+1) Your machine (virtual or bare), SUT (system under test). has the ip-adress is 192.168.** 
+
+1b) In the SUT machine( where you want to execute the tests), you have to copy your ssh pub key and copy it on authorized_keys. (see for details the doc from Olaf) 
+
+I quote him here :
+By default, you probably want to execute most commands on the SUT as root,
+so the public part of your key needs to go into root's authorized_keys file.
+
+
+2) Create a run.conf or susetest.conf file.
+
+```
+node "sut" {
+      target       "ssh:192.168.15.225";
+      ipv4_ddr       "192.168.15.225";
+ }
+```
+3)  ```$ export TWOPENCE_CONFIG_PATH="/tmp/bin/susetest.conf```
+ export this variable in bash, to the location where you saved the file.
+
+4) now, you can run the run.py. ( run.py must not be on the same directory as the susetest.conf)
+
+```python run.py```
+
+you will have now you test executed, and the junit.xml file there :) 
+
+```
+---------------------------------
+
+---------------------------------
+TEST: add a simple rule for auditing shadow
+sut: auditctl -w /etc/shadow 
+add a simple rule for auditing shadow OK! 
+SUCCESS
+
+---------------------------------
+
+Test suite finished
+      11 total tests run
+       8 tests succeeded
+       3 tests failed
+       0 test suite errors
+
+```
+
+
 
 Installing the required pieces
 ==============================
@@ -17,9 +79,7 @@ This should install the python script as well as the integration files for
 jenkins - you want to install them even if you're not running under jenkins.
 
 If you want to run the test suite on physical hardware (setting things up
-manually), you don't need anything else. However, if you want to run the
-suite under KVM, you need the slenkins-run package in addition.
-
+manually), you don't need anything else.
 
 Getting started
 ===============
