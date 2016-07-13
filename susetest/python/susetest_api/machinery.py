@@ -15,12 +15,10 @@ class machinery:
      		self.check_ssh_config_control()
 		self.system = ""
 	def check_ssh_config_control(self):
-		##FIXME: this function should check that ssh config is setted for machinery, otherwise should set it propeedrich_Nietzscherly
 		pass
  
 	def run_control(self, cmd):
-                subprocess.call(cmd, shell=True)
-
+        	subprocess.call(cmd, shell=True)
         def check_machinery(self):
                 ''' this function ensure that machinery is installed on control node '''
                 if not subprocess.call("which machinery", shell=True):
@@ -33,7 +31,6 @@ class machinery:
 			variant = "-default"
 		else :
 			variant = "-gnome"
-		
 		self.system = self.node.build + variant 
  
                 if self.check_machinery() != True:
@@ -48,15 +45,16 @@ class machinery:
                         self.run_control("machinery show --no-pager {} > $WORKSPACE/{}_machinery.txt".format(self.system, suite_name))
                 else:
                         self.run_control("machinery show --no-pager {}".format(self.node.ipaddr_ext))
-                #self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf *; cd ")
 
         def compare(self, system, console=False):
                 '''system is like this SLE_12_SP2_Build1641-x86_64-default '''
                 # get system
+		if  not subprocess.call("machinery list --short | grep {0}".format(system)):
+                	self.node.journal.info("comparing {}  with {}".format(self.node.name, system))
+                	self.run_control("machinery compare {} {} --no-pager".format(self.system, system))
+
                 self.run_control("mkdir /var/lib/slenkins/.machinery/{}".format(system))
                 self.run_control("wget -O /var/lib/slenkins/.machinery/{0}/{0} http://slenkins/machinery/{0}.json; mv /var/lib/slenkins/.machinery/{0}/{0} /var/lib/slenkins/.machinery/{0}/manifest.json".format(system))
 
                 self.node.journal.info("comparing {}  with {}".format(self.node.name, system))
                 self.run_control("machinery compare {} {} --no-pager".format(self.node.ipaddr_ext, system))
-                #self.run_control("cd /var/lib/slenkins/.machinery/ ; rm -Rf * ; cd")
-
