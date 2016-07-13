@@ -66,7 +66,7 @@ class ConfigWrapper():
 
 	def ipv6_address(self, nodename):
 		try:
-			return self.data.node_internal_ip6(nodename)
+			return self.data.node_ip6(nodename)
 		except:
 			pass
 
