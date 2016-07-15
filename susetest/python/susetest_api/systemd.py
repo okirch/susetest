@@ -11,7 +11,7 @@ class SYSTEMD(Exception):
 class systemd(node):
         def __init__(self, node):
                 self.node = node
-                self.systemd = self.has_systemd(node)
+                self.systemd = self.has_systemd()
                 self.version = get_version()
                 self.journal  = self.get_journal()
 
