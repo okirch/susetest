@@ -32,7 +32,7 @@ def install_pkg(node, package):
 def versioncmp(node, package, version):
     status = node.run("rpm -qi " + package, quiet=True)
     if status.code == 1:
-        node.journal.fail("rpm -qi " + package + "failed")
+        node.journal.failure("rpm -qi " + package + "failed")
         return
 
     line = str(status.stdout)
@@ -40,8 +40,8 @@ def versioncmp(node, package, version):
 
     if installed_version:
         status = node.run("zypper versioncmp " + installed_version + " " + version, quiet=True)
-        if status != 0:
-            node.journal.fail("zypper versioncmp failed")
+        if status.code != 0:
+            node.journal.failure("zypper versioncmp failed")
             return
 
         comparison = str(status.stdout)
