@@ -9,7 +9,7 @@ from susetest_api.assertions import run_cmd
 import re
 
 
-# Thx to Aurelian Aptel, Samba Dev.
+# Thx to Aurelien Aptel, Samba Dev.
 def install_pkg(node, package):
     """On @node, install @package.
 
