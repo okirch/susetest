@@ -6,15 +6,14 @@ and fun for everybody involved.
 
 ## Developers Tasks (some suggestions)
 
-* create an automation testing like travis or jenkins for testing new PR. (to avoid regression)
-* susetest_api need more cool functions:
-   * machinery library need some improvements: (testing, description images need creation, adding full support) 
-   * system library (function to start services 
+* create unit-testing for api functions and suite generally for susetest (to avoid regression)
+
+* susetest library
+   * system.py (functions to start services, reboot, etc)
    * i make some prototype for functions that we need. see the .py functions here:
     https://github.com/okirch/susetest/tree/master/susetest/python/susetest_api
-   * correct some fixme that are in the code :) 
-* Integrate supportconfig to susetest: 
-
+   
+* integrate salt and docker with susetest
 
 ## Designer tasks:
 
