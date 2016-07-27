@@ -490,11 +490,3 @@ For the command `show` you can choose to save the inspect file to the workspace 
 ```
 machinery_sut.show("tests-systemd", console=True) # name of your testsuite
 ```
-
-Experimental Feature:
-
-```
-machinery_sut.compare("SYSTEM_TO_COMPARE")
-```
-
-This feature is under development (it works fine, but some feature, and testing should be done, before it will be documented). `Compare`, will call machinery compare command, with the actual system and a description of a systemd stored.
