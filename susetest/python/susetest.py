@@ -106,7 +106,7 @@ class Target(twopence.Target):
 		self.ipv4_addr = config.ipv4_address(self.name)
 		self.ipv6_addr = config.ipv6_address(self.name)
                 # N/A when ipv6 is not available.
-                if (self.ipv6_addr = "N/A"):
+                if (self.ipv6_addr == "N/A"):
                 	self.ipv6_addr = None
                 
 		# Backward compat
