@@ -121,6 +121,20 @@ class Target(twopence.Target):
 		self.desktop = self.get_graphical()
 		# this is from cat /etc/YaST2/build
 		self.build =  self.get_build()
+		# hostname (not fully qualified)
+		self.hostname = self.get_hostname()
+        
+	def get_hostname(self):
+		''' get hostname of the sut '''
+                status = self.run("hostname", quiet=True)
+                if not status:
+                        self.logError("cannot get os-release family")
+                        return None
+
+                hostname = str(status.stdout)
+                return hostname.rstrip()
+
+
 
 	def get_graphical(self):
 		''' return true if gnome is enabled, false if minimal'''
