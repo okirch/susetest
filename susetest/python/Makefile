@@ -5,13 +5,21 @@ else
 CCOPT	= -Wall -O2 -g
 endif
 
+MACHINE := $(shell uname -m)
+
+ifeq ($(MACHINE), i686)
+libdir = /usr/lib
+else
+libdir = /usr/lib64
+endif
+
 CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT) \
 	  -I/usr/include/twopence \
 	  -I/usr/include/python \
 	  -I../library
 #python library
-PYDIR  := $(shell readlink -f /usr/lib64/python/site-packages)
-PYLIB  = /usr/lib64/python/site-packages/susetest_api/
+PYDIR  := $(shell readlink -f /$(libdir)/python/site-packages)
+PYLIB  = /$(libdir)/python/site-packages/susetest_api/
 
 OBJS	= extension.o \
 	  config.o

@@ -4,9 +4,17 @@ else
 CCOPT	= -Wall -O2 -g
 endif
 
+MACHINE := $(shell uname -m)
+
+ifeq ($(MACHINE), i686)
+libdir = /usr/lib
+else
+libdir = /usr/lib64
+endif
+
 CFLAGS	= -fPIC $(CCOPT) -I/usr/include/python -I../library
 
-PYDIR  := $(shell readlink -f /usr/lib64/python/site-packages)
+PYDIR  := $(shell readlink -f /$(libdir)/python/site-packages)
 
 OBJS	= extension.o
 

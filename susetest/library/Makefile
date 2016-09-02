@@ -10,9 +10,17 @@ else
 CCOPT	= -Wall -O2 -g
 endif
 
+MACHINE := $(shell uname -m)
+
+ifeq ($(MACHINE), i686)
+libdir = /usr/lib
+else
+libdir = /usr/lib64
+endif
+
 CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT) -I/usr/include/twopence
 
-LIBDIR ?= /usr/lib64
+LIBDIR ?= /$(libdir)
 INCDIR ?= /usr/include
 
 LIB_OBJS= config.o \
@@ -28,8 +36,8 @@ install: libsusetest.so susetest.h
 	install -m444 susetest.h $(DESTDIR)$(INCDIR)
 	install -d $(DESTDIR)$(LIBDIR)
 	install -m555 libsusetest.so $(DESTDIR)$(LIBDIR)/libsusetest.so.$(VERSION)
-	ln -sf libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so.$(MAJOR)
-	ln -sf libsusetest.so.$(VERSION) $(DESTDIR)/usr/lib64/libsusetest.so
+	ln -sf libsusetest.so.$(VERSION) $(DESTDIR)/$(libdir)/libsusetest.so.$(MAJOR)
+	ln -sf libsusetest.so.$(VERSION) $(DESTDIR)/$(libdir)/libsusetest.so
 
 
 config.o: config.c susetest.h

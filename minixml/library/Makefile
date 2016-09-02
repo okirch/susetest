@@ -4,6 +4,14 @@ else
 CCOPT	= -Wall -O2 -g
 endif
 
+MACHINE := $(shell uname -m)
+
+ifeq ($(MACHINE), i686)
+libdir = /usr/lib
+else
+libdir = /usr/lib64
+endif
+
 TARGETS = \
 	  libminixml.so
 
@@ -21,10 +29,10 @@ all: $(TARGETS)
 
 install: $(TARGETS)
 	install -d $(DESTDIR)/usr/include
-	install -d $(DESTDIR)/usr/lib64
-	install -m 555 libminixml.so $(DESTDIR)/usr/lib64/libminixml.so.$(VERSION)
-	ln -sf libminixml.so.$(VERSION) $(DESTDIR)/usr/lib64/libminixml.so.$(MAJOR)
-	ln -sf libminixml.so.$(VERSION) $(DESTDIR)/usr/lib64/libminixml.so
+	install -d $(DESTDIR)/$(libdir)
+	install -m 555 libminixml.so $(DESTDIR)/$(libdir)/libminixml.so.$(VERSION)
+	ln -sf libminixml.so.$(VERSION) $(DESTDIR)/$(libdir)/libminixml.so.$(MAJOR)
+	ln -sf libminixml.so.$(VERSION) $(DESTDIR)/$(libdir)/libminixml.so
 
 clean distclean::
 	rm -f $(TARGETS) *.o
