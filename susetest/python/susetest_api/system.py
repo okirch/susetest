@@ -2,7 +2,7 @@
 
 import susetest
 import suselog
-# needed by install_pkg 
+# needed by install_pkg
 from pipes import quote
 from susetest_api.assertions import run_cmd
 # needed by versioncmp
@@ -60,7 +60,7 @@ def versioncmp(node, package, version):
 # Reboot a node and wait until it's back
 def reboot_and_wait(node):
    # 1. Trigger reboot
-   addr = node.ipv4_addr
+   addr = node.ipaddr_ext
    opt = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
    os.system("ssh {} root@{} \"reboot >/dev/null 2>/dev/null\"".format(opt, addr))
 
@@ -89,7 +89,7 @@ def reboot_and_wait(node):
 
 # TODO: poweroff(node) -> simulate an unexpected shutdown
 
-# TODO: implement snapper functions for backups 
+# TODO: implement snapper functions for backups
 
 ## DIFFICULTY : HIGH -> utopic :)
 # TODO: implement a function like spawn(node, type, number, os) to spawn docker/systemd containers inside a sut.
