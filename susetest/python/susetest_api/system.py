@@ -7,6 +7,9 @@ from pipes import quote
 from susetest_api.assertions import run_cmd
 # needed by versioncmp
 import re
+# needed by reboot_and_wait
+import os
+import time
 
 
 # Thx to Aurelien Aptel, Samba Dev.
@@ -53,18 +56,42 @@ def versioncmp(node, package, version):
         elif "older" in comparison:
             return "<"
 
-## EASY-HACKS
 
-# TODO: implement a function to start/stop/status of services that is initd/systemd indipendent
-#      service(node, action, service) --> service(server, stop, postifix)
+# Reboot a node and wait until it's back
+def reboot_and_wait(node):
+   # 1. Trigger reboot
+   addr = node.ipv4_addr
+   opt = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+   os.system("ssh {} root@{} \"reboot >/dev/null 2>/dev/null\"".format(opt, addr))
 
-## TODO: implement functions that manipulete the machines.
+   # 2. Wait for system to stop answering pings
+   c = 0
+   while os.system("ping -q -c1 {}".format(addr)) == 0 and c < 60:
+      time.sleep(1)
+      c += 1
 
-# reboot(node)
-# poweroff(node) -> simulate an unexpected shutdown
+   # 3. Wait for system to restart answering pings
+   c = 0
+   while os.system("ping -q -c1 {}".format(addr)) != 0 and c < 60:
+      time.sleep(1)
+      c += 1
+
+   # 4. Wait for system to restart executing SSH commands
+   c = 0
+   while os.system("ssh {} root@{} \"whoami\"".format(opt, addr)) != 0 and c < 60:
+      time.sleep(1)
+      c += 1
+
+
+## EASY HACKS
+# TODO: implement a function to start/stop/status of services that is initd/systemd independent
+#       service(node, action, service) --> service(server, stop, postifix)
+
+# TODO: poweroff(node) -> simulate an unexpected shutdown
 
 # TODO: implement snapper functions for backups 
 
 ## DIFFICULTY : HIGH -> utopic :)
-## TODO: implement a function to spawn docker/systemd containers inside a sut. This will make like a datacenter inside a vm
-#        like   spawn(type, number, os).  spawn(systemd, 10, SLE-12-SP2). this will create  10 systemd-containers inside the node.
+# TODO: implement a function like spawn(node, type, number, os) to spawn docker/systemd containers inside a sut.
+#       This will make a kind of datacenter inside a vm.
+#       For example, spawn(sut, systemd, 10, SLE_12_SP2) will create 10 systemd containers inside the node.
