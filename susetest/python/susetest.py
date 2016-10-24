@@ -25,6 +25,12 @@ class SlenkinsError(Exception):
                         self.code = code
                 def __str__(self):
                         return repr(self.code)
+# Same for basiliqa
+class BasiliqaError(Exception):
+                def __init__(self, code):
+                        self.code = code
+                def __str__(self):
+			return repr(self.code)
 
 # finish the junit report.
 def finish(journal):
