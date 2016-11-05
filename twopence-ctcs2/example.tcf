@@ -1,0 +1,52 @@
+#
+# Run a simple shell command once
+#
+timer 300
+fg 1 test_echo echo "This is a test"
+wait
+
+#
+# Run a simple shell command, with 2 iterations
+#
+timer 300
+fg 2 test_echo2 echo Say it twice
+wait
+
+#
+# Run a shell command in the background.
+# Due to limitations in suselog's journal implementation,
+# we cannot wrap this command as a test case, but its output
+# will appear intermingled with the output of the next
+# fg command
+timer 300
+bg 1 test_echo3 echo Say it in the background
+wait
+
+#
+# Two examples of conditional commands: fgif, bgif
+timer 300
+fgif true 1 test_echo4 echo This should print something
+wait
+
+timer 300
+fgif false 1 test_echo5 echo This should not be printed
+wait
+
+#
+# Demonstrate the notify feature.
+# Attention, on event is not implemented ATM
+notify 1 This_message_should_be_displayed_after_1_sec
+fg 1 test_notify sleep 4
+wait
+
+#
+# These two test cases have a very short timeout, which will
+# fire in the middle of the first command still running.
+# The expected behavior is to
+#  (a) cancel the running "sleep 4" command
+#  (b) skip all subsequent ctcs statements until the next "wait" or "cleanup
+#
+timer 2
+fg 1 test_timeout sleep 4
+fg 1 should_be_skipped echo This test should have been skipped && false
+wait
