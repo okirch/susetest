@@ -315,7 +315,7 @@ Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 	firstArg = NULL;
 	if (firstArgObj != Py_None) {
 		if (!PyString_Check(firstArgObj)) {
-			PyErr_SetString(PyExc_TypeError, "Journal.beginGroup: first argument must be None or string");
+			PyErr_SetString(PyExc_TypeError, "Journal.beginTest: first argument must be None or string");
 			return NULL;
 		}
 		firstArg = PyString_AsString(firstArgObj);
@@ -330,7 +330,7 @@ Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 	}
 
 	if (description == NULL) {
-		PyErr_SetString(PyExc_TypeError, "Journal.beginGroup: no group description given");
+		PyErr_SetString(PyExc_TypeError, "Journal.beginTest: no test description given");
 		return NULL;
 	}
 
