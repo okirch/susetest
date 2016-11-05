@@ -277,6 +277,12 @@ suselog_success(suselog_journal_t *journal)
 }
 
 void
+suselog_skipped(suselog_journal_t *journal)
+{
+	suselog_test_finish(journal, SUSELOG_STATUS_SKIPPED);
+}
+
+void
 suselog_success_msg(suselog_journal_t *journal, const char *fmt, ...)
 {
 	va_list ap;
@@ -635,6 +641,10 @@ suselog_stats_update(suselog_stats_t *stats, suselog_status_t status)
 		stats->num_succeeded++;
 		break;
 
+	case SUSELOG_STATUS_SKIPPED:
+		stats->num_skipped++;
+		break;
+
 	case SUSELOG_STATUS_FAILURE:
 		stats->num_failed++;
 		break;
@@ -656,6 +666,7 @@ suselog_stats_aggregate(suselog_stats_t *agg, const suselog_stats_t *sub)
 	agg->num_errors += sub->num_errors;
 	agg->num_warnings += sub->num_warnings;
 	agg->num_disabled += sub->num_disabled;
+	agg->num_skipped += sub->num_skipped;
 }
 
 /*
@@ -832,6 +843,9 @@ __suselog_junit_test(suselog_test_t *test, xml_node_t *parent)
 	case SUSELOG_STATUS_SUCCESS:
 		status = "success";
 		break;
+	case SUSELOG_STATUS_SKIPPED:
+		status = "skipped";
+		break;
 	case SUSELOG_STATUS_FAILURE:
 		__suselog_junit_pre_string(node, "failure", "randomFailure", test, SUSELOG_MSG_FAILURE);
 		status = "failure";
@@ -991,6 +1005,7 @@ __suselog_junit_stats(xml_node_t *node, const suselog_stats_t *stats)
 	xml_node_add_attr_uint(node, "tests", stats->num_tests);
 	xml_node_add_attr_uint(node, "failures", stats->num_failed);
 	xml_node_add_attr_uint(node, "disabled", stats->num_disabled);
+	xml_node_add_attr_uint(node, "skipped", stats->num_skipped);
 	xml_node_add_attr_uint(node, "errors", stats->num_errors);
 }
 
@@ -1230,10 +1245,12 @@ __suselog_writer_normal_end_testsuite(const suselog_journal_t *journal)
 		" %7u total tests run\n"
 		" %7u tests succeeded\n"
 		" %7u tests failed\n"
+		" %7u tests skipped\n"
 		" %7u test suite errors\n"
 		, journal->stats.num_tests
 		, journal->stats.num_succeeded
 		, journal->stats.num_failed
+		, journal->stats.num_skipped
 		, journal->stats.num_errors
 	       );
 }

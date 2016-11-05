@@ -37,6 +37,7 @@ static PyObject *	Journal_finishGroup(PyObject *self, PyObject *args, PyObject *
 static PyObject *	Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_info(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_success(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_skipped(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_failure(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_warning(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_error(PyObject *self, PyObject *args, PyObject *kwds);
@@ -79,6 +80,9 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"success", (PyCFunction) Journal_success, METH_VARARGS | METH_KEYWORDS,
 	"Report success for current test case"
+      },
+      {	"skipped", (PyCFunction) Journal_skipped, METH_VARARGS | METH_KEYWORDS,
+	"Report that the current test case was skipped"
       },
       {	"failure", (PyCFunction) Journal_failure, METH_VARARGS | METH_KEYWORDS,
 	"Report failure for current test case"
@@ -380,6 +384,29 @@ Journal_success(PyObject *self, PyObject *args, PyObject *kwds)
 		suselog_success_msg(journal, "%s", message);
 	else
 		suselog_success(journal);
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+/*
+ * test case was skipped
+ */
+static PyObject *
+Journal_skipped(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = { "message", NULL };
+	suselog_journal_t *journal;
+	char *message = NULL;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|s", kwlist, &message))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	(void) message; /* ignore message for now */
+	suselog_skipped(journal);
 
 	Py_INCREF(Py_None);
 	return Py_None;
