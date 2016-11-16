@@ -66,6 +66,7 @@ struct suselog_stats {
 	unsigned int		num_errors;
 	unsigned int		num_warnings;
 	unsigned int		num_disabled;
+	unsigned int		num_skipped;
 };
 
 extern suselog_group_t *suselog_current_group(suselog_journal_t *);
@@ -95,6 +96,7 @@ extern void		suselog_test_finish(suselog_journal_t *, suselog_status_t);
 
 extern void		suselog_success(suselog_journal_t *);
 extern void		suselog_success_msg(suselog_journal_t *, const char *fmt, ...);
+extern void		suselog_skipped(suselog_journal_t *);
 extern void		suselog_warning(suselog_journal_t *, const char *fmt, ...);
 extern void		suselog_failure(suselog_journal_t *, const char *, ...);
 extern void		suselog_fatal(suselog_journal_t *, const char *, ...);
