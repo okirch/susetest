@@ -1,10 +1,6 @@
-.PHONY: all install clean
+include ../../Make.defs
 
-ifdef RPM_OPT_FLAGS
-CCOPT	= $(RPM_OPT_FLAGS)
-else
-CCOPT	= -Wall -O2 -g
-endif
+.PHONY: all install clean
 
 CFLAGS	= -D_GNU_SOURCE $(CCOPT) -I../library
 

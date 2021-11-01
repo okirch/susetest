@@ -1,4 +1,4 @@
-BINDIR ?= /usr/bin
+include ../Make.defs
 
 all:	twopence-ctcs2.py
 

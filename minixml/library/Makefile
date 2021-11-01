@@ -1,16 +1,4 @@
-ifdef RPM_OPT_FLAGS
-CCOPT	= $(RPM_OPT_FLAGS)
-else
-CCOPT	= -Wall -O2 -g
-endif
-
-MACHINE := $(shell uname -m)
-
-ifeq ($(MACHINE), i686)
-libdir = /usr/lib
-else
-libdir = /usr/lib64
-endif
+include ../../Make.defs
 
 TARGETS = \
 	  libminixml.so
@@ -21,18 +9,14 @@ LIBOBJS	= xml.o \
 	  xml-writer.o \
 	  util.o
 
-MAJOR	= 0
-MINOR	= 1
-VERSION = $(MAJOR).$(MINOR)
+VERSION = $(SUSETEST_VERSION)
 
 all: $(TARGETS)
 
 install: $(TARGETS)
 	install -d $(DESTDIR)/usr/include
-	install -d $(DESTDIR)/$(libdir)
-	install -m 555 libminixml.so $(DESTDIR)/$(libdir)/libminixml.so.$(VERSION)
-	ln -sf libminixml.so.$(VERSION) $(DESTDIR)/$(libdir)/libminixml.so.$(MAJOR)
-	ln -sf libminixml.so.$(VERSION) $(DESTDIR)/$(libdir)/libminixml.so
+	install -d $(DESTDIR)/$(LIBDIR)
+	install -m 555 libminixml.so $(DESTDIR)/$(LIBDIR)/libminixml.so.$(VERSION)
 
 clean distclean::
 	rm -f $(TARGETS) *.o

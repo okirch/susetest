@@ -1,19 +1,12 @@
+include ../../Make.defs
+
 .PHONY: all install clean
 
-ifdef RPM_OPT_FLAGS
-CCOPT	= $(RPM_OPT_FLAGS)
-else
-CCOPT	= -Wall -O2 -g
-endif
-
 CFLAGS	= -D_GNU_SOURCE $(CCOPT) \
-	  -I/usr/include/twopence \
+	  $(TWOPENCE_CFLAGS) \
 	  -I../library
 LINK	+= -L../library -lsusetest \
 	  -L../../minixml/library -lminixml
-
-BINDIR ?= /usr/bin
-MANDIR ?= /usr/share/man
 
 all: susetest
 

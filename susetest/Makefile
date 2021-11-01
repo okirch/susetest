@@ -1,3 +1,4 @@
+include ../Make.defs
 
 SUBDIRS	= library shell python tests
 
@@ -7,5 +8,5 @@ all install clean distclean::
 	set -e; for dir in $(SUBDIRS); do make -C $$dir $@; done
 
 install::
-	install -d $(DESTDIR)/usr/lib/susetest
-	install -m555 $(HELPERS) $(DESTDIR)/usr/lib/susetest
+	install -d $(DESTDIR)$(SUSETEST_SCRIPT_DIR)
+	install -m555 $(HELPERS) $(DESTDIR)$(SUSETEST_SCRIPT_DIR)

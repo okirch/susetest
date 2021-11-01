@@ -1,16 +1,4 @@
-ifdef RPM_OPT_FLAGS
-CCOPT	= $(RPM_OPT_FLAGS)
-else
-CCOPT	= -Wall -O2 -g
-endif
-
-MACHINE := $(shell uname -m)
-
-ifeq ($(MACHINE), i686)
-libdir = /usr/lib
-else
-libdir = /usr/lib64
-endif
+include ../../Make.defs
 
 TARGETS = \
 	  libsuselog.so \
@@ -22,19 +10,16 @@ LIBOBJS	= suselog.o
 
 LINK	= -L../library -lsuselog -L../../minixml/library -lminixml
 
-MAJOR	= 0
-MINOR	= 1
-VERSION = $(MAJOR).$(MINOR)
+VERSION = $(SUSETEST_VERSION)
 
 all: $(TARGETS)
 
 install: $(TARGETS)
 	install -d $(DESTDIR)/usr/include
 	install -m 444 suselog.h $(DESTDIR)/usr/include
-	install -d $(DESTDIR)/$(libdir)
-	install -m 555 libsuselog.so $(DESTDIR)/$(libdir)/libsuselog.so.$(VERSION)
-	ln -sf libsuselog.so.$(VERSION) $(DESTDIR)/$(libdir)/libsuselog.so.$(MAJOR)
-	ln -sf libsuselog.so.$(VERSION) $(DESTDIR)/$(libdir)/libsuselog.so
+	install -d $(DESTDIR)/$(LIBDIR)
+	install -m 555 libsuselog.so $(DESTDIR)/$(LIBDIR)/libsuselog.so.$(VERSION)
+	ln -sf libsuselog.so.$(VERSION) $(DESTDIR)/$(LIBDIR)/libsuselog.so
 
 clean distclean::
 	rm -f $(TARGETS) *.o

@@ -1,25 +1,9 @@
-
-ifdef RPM_OPT_FLAGS
-CCOPT	= $(RPM_OPT_FLAGS)
-else
-CCOPT	= -Wall -O2 -g
-endif
-
-MACHINE := $(shell uname -m)
-
-ifeq ($(MACHINE), i686)
-libdir = /usr/lib
-else
-libdir = /usr/lib64
-endif
+include ../../Make.defs
 
 CFLAGS	= -D_GNU_SOURCE -fPIC $(CCOPT) \
-	  -I/usr/include/twopence \
-	  -I/usr/include/python \
+	  $(TWOPENCE_CFLAGS) \
+	  $(PYTHON_CFLAGS) \
 	  -I../library
-#python library
-PYDIR  := $(shell readlink -f /$(libdir)/python/site-packages)
-PYLIB  = /$(libdir)/python/site-packages/susetest_api/
 
 OBJS	= extension.o \
 	  config.o
@@ -36,8 +20,7 @@ distclean::
 	;
 
 install: curly.so susetest.py
-	mkdir -p $(DESTDIR)$(PYDIR)
-	mkdir -p $(DESTDIR)$(PYLIB)
-	install -m555 curly.so $(DESTDIR)$(PYDIR)
-	install -m555 susetest.py $(DESTDIR)$(PYDIR)
-	install -m555 susetest_api/*.py $(DESTDIR)$(PYLIB)
+	mkdir -p $(DESTDIR)$(PYTHON_INSTDIR)/susetest_api
+	install -m555 curly.so $(DESTDIR)$(PYTHON_INSTDIR)
+	install -m555 susetest.py $(DESTDIR)$(PYTHON_INSTDIR)
+	install -m555 susetest_api/*.py $(DESTDIR)$(PYTHON_INSTDIR)/susetest_api
