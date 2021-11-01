@@ -10,4 +10,6 @@ junit/python/test-report.xml
 junit2/report.xml
 susetest/tests/curlies-test
 susetest/shell/susetest
+suselog/shell/suselog
+twopence-ctcs2/junit-results.xml
 Make.defs

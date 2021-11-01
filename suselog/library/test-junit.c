@@ -56,6 +56,10 @@ main(int argc, char **argv)
 
 	suselog_journal_write(journal);
 	suselog_journal_free(journal);
+
+	/* make the compiler believe we did something with the group handle */
+	(void) group;
+
 	return 0;
 }
 

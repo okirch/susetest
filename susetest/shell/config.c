@@ -397,6 +397,7 @@ arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret)
 	if (optind >= argc) {
 		fprintf(stderr, "susetest config %s: missing attribute name\n", cmd);
 		show_usage();
+		*name_ret = NULL;
 		return false;
 	}
 	*name_ret = argv[optind++];

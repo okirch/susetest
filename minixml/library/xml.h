@@ -115,7 +115,7 @@ extern const xml_attr_t *xml_node_get_attr_var(const xml_node_t *, const char *)
 extern bool		xml_node_get_attr_uint(const xml_node_t *, const char *, unsigned int *);
 extern bool		xml_node_get_attr_ulong(const xml_node_t *, const char *, unsigned long *);
 extern bool		xml_node_get_attr_double(const xml_node_t *, const char *, double *);
-extern inline xml_node_t *	xml_node_get_child(const xml_node_t *, const char *);
+extern xml_node_t *	xml_node_get_child(const xml_node_t *, const char *);
 extern xml_node_t *	xml_node_get_next_child(const xml_node_t *, const char *, const xml_node_t *);
 extern xml_node_t *	xml_node_get_child_with_attrs(const xml_node_t *, const char *,
 					const xml_attr_array_t *);
@@ -129,8 +129,8 @@ extern xml_node_t *	xml_node_get_next_named(xml_node_t *, const char *, xml_node
 
 extern bool		xml_node_match_attrs(const xml_node_t *, const xml_attr_array_t *);
 
-inline const char *	xml_node_get_location_filename(const xml_node_t *);
-inline unsigned int	xml_node_get_location_line(const xml_node_t *);
+extern const char *	xml_node_get_location_filename(const xml_node_t *);
+extern unsigned int	xml_node_get_location_line(const xml_node_t *);
 extern const char *	xml_node_location(const xml_node_t *);
 
 extern void		xml_node_array_init(xml_node_array_t *);
