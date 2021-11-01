@@ -128,7 +128,7 @@ static PyMethodDef suselog_journalMethods[] = {
 };
 
 static PyTypeObject suselog_JournalType = {
-	PyObject_HEAD_INIT(NULL)
+	PyVarObject_HEAD_INIT(NULL, 0)
 
 	.tp_name	= "suselog.Journal",
 	.tp_basicsize	= sizeof(suselog_Journal),
@@ -314,11 +314,11 @@ Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds)
 
 	firstArg = NULL;
 	if (firstArgObj != Py_None) {
-		if (!PyString_Check(firstArgObj)) {
+		if (!PyUnicode_Check(firstArgObj)) {
 			PyErr_SetString(PyExc_TypeError, "Journal.beginTest: first argument must be None or string");
 			return NULL;
 		}
-		firstArg = PyString_AsString(firstArgObj);
+		firstArg = PyUnicode_AsUTF8(firstArgObj);
 	}
 
 	if (secondArg != NULL) {
@@ -512,8 +512,8 @@ Journal_record_common(PyObject *self, PyObject *args, PyObject *kwds, void (*fun
 	if ((journal = Journal_handle(self)) == NULL)
 		return NULL;
 
-	if (PyString_Check(object)) {
-		const char *str = PyString_AsString(object);
+	if (PyUnicode_Check(object)) {
+		const char *str = PyUnicode_AsUTF8(object);
 
 		if (str && *str)
 			func(journal, str, strlen(str));
@@ -641,7 +641,7 @@ Journal_num_tests(PyObject *self, PyObject *args, PyObject *kwds)
 	if (!(stats = Journal_stats(self, args, kwds)))
 		return NULL;
 
-	return PyInt_FromLong(stats->num_tests);
+	return PyLong_FromLong(stats->num_tests);
 }
 
 static PyObject *
@@ -652,7 +652,7 @@ Journal_num_succeeded(PyObject *self, PyObject *args, PyObject *kwds)
 	if (!(stats = Journal_stats(self, args, kwds)))
 		return NULL;
 
-	return PyInt_FromLong(stats->num_succeeded);
+	return PyLong_FromLong(stats->num_succeeded);
 }
 
 static PyObject *
@@ -663,7 +663,7 @@ Journal_num_failed(PyObject *self, PyObject *args, PyObject *kwds)
 	if (!(stats = Journal_stats(self, args, kwds)))
 		return NULL;
 
-	return PyInt_FromLong(stats->num_failed);
+	return PyLong_FromLong(stats->num_failed);
 }
 
 static PyObject *
@@ -674,7 +674,7 @@ Journal_num_errors(PyObject *self, PyObject *args, PyObject *kwds)
 	if (!(stats = Journal_stats(self, args, kwds)))
 		return NULL;
 
-	return PyInt_FromLong(stats->num_errors);
+	return PyLong_FromLong(stats->num_errors);
 }
 
 
@@ -689,12 +689,28 @@ registerType(PyObject *m, const char *name, PyTypeObject *type)
 	PyModule_AddObject(m, name, (PyObject *) type);
 }
 
+static struct PyModuleDef suselog_module_def = {
+	PyModuleDef_HEAD_INIT,
+	"suselog",		/* m_name */
+	"Module for suselog based test logging",
+				/* m_doc */
+	-1,			/* m_size */
+	suselog_methods,	/* m_methods */
+	NULL,			/* m_reload */
+	NULL,			/* m_traverse */
+	NULL,			/* m_clear */
+	NULL,			/* m_free */
+};
+
+
 PyMODINIT_FUNC
-initsuselog(void) 
+PyInit_suselog(void) 
 {
 	PyObject* m;
 
-	m = Py_InitModule3("suselog", suselog_methods, "Module for suselog based test logging");
+	m = PyModule_Create(&suselog_module_def);
 
 	registerType(m, "Journal", &suselog_JournalType);
+
+	return m;
 }

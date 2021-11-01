@@ -93,7 +93,7 @@ static PyMethodDef susetest_ConfigMethods[] = {
 };
 
 PyTypeObject susetest_ConfigType = {
-	PyObject_HEAD_INIT(NULL)
+	PyVarObject_HEAD_INIT(NULL, 0)
 
 	.tp_name	= "curly.Config",
 	.tp_basicsize	= sizeof(susetest_Config),
@@ -158,7 +158,7 @@ Config_init(susetest_Config *self, PyObject *args, PyObject *kwds)
 	 */
 	self->config = susetest_config_get_child(self->config_root, "testenv", NULL);
 	if (self->config != NULL) {
-		self->name = susetest_config_name(self->config);
+		self->name = (char *) susetest_config_name(self->config);
 	} else {
 		self->config = self->config_root;
 	}
@@ -225,7 +225,7 @@ __toplevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, co
 	value = susetest_config_get_attr(self->config, attrname);
 
 	if (value != NULL)
-		return PyString_FromString(value);
+		return PyUnicode_FromString(value);
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -248,7 +248,7 @@ __toplevel_name_list(susetest_Config *self, PyObject *args, PyObject *kwds, cons
 
 	result = PyList_New(0);
 	for (s = values; *s; ++s)
-		PyList_Append(result, PyString_FromString(*s++));
+		PyList_Append(result, PyUnicode_FromString(*s++));
 
 	free(values);
 	return result;
@@ -272,7 +272,7 @@ __firstlevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, 
 	value = susetest_config_get_attr(child, attrname);
 
 	if (value != NULL)
-		return PyString_FromString(value);
+		return PyUnicode_FromString(value);
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -282,7 +282,7 @@ static PyObject *
 Config_name(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
 	if (self->name != NULL)
-		return PyString_FromString(self->name);
+		return PyUnicode_FromString(self->name);
 
 	Py_INCREF(Py_None);
 	return Py_None;

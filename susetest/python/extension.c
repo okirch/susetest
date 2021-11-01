@@ -85,12 +85,28 @@ susetest_callType(PyTypeObject *typeObject, PyObject *args, PyObject *kwds)
 	return obj;
 }
 
+static struct PyModuleDef susetest_module_def = {
+	PyModuleDef_HEAD_INIT,
+	"curly",		/* m_name */
+	"Module for susetest helper functions",
+				/* m_doc */
+	-1,			/* m_size */
+	susetest_methods,	/* m_methods */
+	NULL,			/* m_reload */
+	NULL,			/* m_traverse */
+	NULL,			/* m_clear */
+	NULL,			/* m_free */
+};
+
+
+
 PyMODINIT_FUNC
-initcurly(void) 
+PyInit_curly(void)
 {
 	PyObject* m;
 
-	m = Py_InitModule3("curly", susetest_methods, "Module for susetest helper functions");
+	m = PyModule_Create(&susetest_module_def);
 
 	susetest_registerType(m, "Config", &susetest_ConfigType);
+	return m;
 }
