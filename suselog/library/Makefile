@@ -8,7 +8,7 @@ TARGETS = \
 CFLAGS	= -fPIC $(CCOPT) -D_GNU_SOURCE -I../../minixml/library
 LIBOBJS	= suselog.o
 
-LINK	= -L../library -lsuselog -L../../minixml/library -lminixml
+LINK	= -L../library -lsuselog -L../../minixml/library -lminixml -lncurses
 
 VERSION = $(SUSETEST_VERSION)
 

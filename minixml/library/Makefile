@@ -23,5 +23,5 @@ clean distclean::
 	rm -f test-report.xml
 
 libminixml.so: $(LIBOBJS)
-	$(CC) $(CFLAGS) -o $@ -shared -Wl,-soname,$@.$(VERSION) $(LIBOBJS) -lncurses
+	$(CC) $(CFLAGS) -o $@ -shared -Wl,-soname,$@.$(VERSION) $(LIBOBJS)
 	ln -sf $@ $@.$(VERSION)
