@@ -5,7 +5,7 @@
 # These classes refer back to some C code in susetestimpl
 #
 ##################################################################
-import exceptions
+
 import suselog
 import twopence
 import time
@@ -21,23 +21,26 @@ IPADDR="@IPADDR@"
 # This class is needed for break a whole testsuite, exit without run all tests. Wanted in some scenarios.
 # Otherwise we can use susetest.finish(journal) to continue after  failed tests, 
 class SlenkinsError(Exception):
-                def __init__(self, code):
-                        self.code = code
-                def __str__(self):
-                        return repr(self.code)
+	def __init__(self, code):
+		self.code = code
+
+	def __str__(self):
+		return repr(self.code)
+
 # Same for basiliqa
 class BasiliqaError(Exception):
-                def __init__(self, code):
-                        self.code = code
-                def __str__(self):
-			return repr(self.code)
+	def __init__(self, code):
+		self.code = code
+
+	def __str__(self):
+		return repr(self.code)
 
 # finish the junit report.
 def finish(journal):
-        journal.writeReport()
-        if (journal.num_failed() + journal.num_errors()):
-                        sys.exit(1)
-        sys.exit(0)
+	journal.writeReport()
+	if (journal.num_failed() + journal.num_errors()):
+			sys.exit(1)
+	sys.exit(0)
 
 
 class ConfigWrapper():
@@ -48,7 +51,7 @@ class ConfigWrapper():
 		# Set the workspace
 		self.workspace = self.data.workspace()
 		if not self.workspace:
-			print "Oops, no workspace defined. Using current directory"
+			print("Oops, no workspace defined. Using current directory")
 			self.workspace = "."
 
 		# Set the journal
@@ -79,11 +82,13 @@ class ConfigWrapper():
 		return None
 
 def Config(name, **kwargs):
+	print("Config(%s)" % kwargs)
 	try:
 		import curly
 
 		return ConfigWrapper(name, curly.Config(**kwargs));
-	except:
+	except Exception as e:
+		print(e)
 		pass
 
 	try:
@@ -92,8 +97,8 @@ def Config(name, **kwargs):
 		return ConfigWrapper(name, testenv.Testenv(**kwargs))
 	except:
 		pass
-	
-	raise exceptions.RuntimeError("unable to create a valid config object")
+
+	raise RuntimeError("unable to create a valid config object")
 	return None
 
 
@@ -111,16 +116,16 @@ class Target(twopence.Target):
 
 		self.ipv4_addr = config.ipv4_address(self.name)
 		self.ipv6_addr = config.ipv6_address(self.name)
-                # N/A when ipv6 is not available.
-                if (self.ipv6_addr == "N/A"):
-                	self.ipv6_addr = None
-                
+		# N/A when ipv6 is not available.
+		if (self.ipv6_addr == "N/A"):
+			self.ipv6_addr = None
+
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
 		self.ip6addr = self.ipv6_addr
-                # external ip for cloud
-                self.ipaddr_ext = config.ipv4_ext(self.name)
-  		# *** os attributes ***
+		# external ip for cloud
+		self.ipaddr_ext = config.ipv4_ext(self.name)
+		# *** os attributes ***
 		# family 42.1 , 12.2 etc 
 		self.family = self.get_family()
 		# boolean var, true if gnome,kde are used, else false 
@@ -129,16 +134,16 @@ class Target(twopence.Target):
 		self.build =  self.get_build()
 		# hostname (not fully qualified)
 		self.hostname = self.get_hostname()
-        
+
 	def get_hostname(self):
 		''' get hostname of the sut '''
-                status = self.run("hostname", quiet=True)
-                if not status:
-                        self.logError("cannot get os-release family")
-                        return None
+		status = self.run("hostname", quiet=True)
+		if not status:
+			self.logError("cannot get os-release family")
+			return None
 
-                hostname = str(status.stdout)
-                return hostname.rstrip()
+		hostname = status.stdoutString
+		return hostname.rstrip()
 
 
 
@@ -149,34 +154,34 @@ class Target(twopence.Target):
 			graphical = True
 		else :
 			graphical = False
-                return graphical
-	
+		return graphical
+
 	def get_build(self):
-                ''' '''
-                status = self.run("cat /etc/YaST2/build", quiet=True)
-                if not status:
-                        self.logError("cannot get build of system")
-                        return None
-                build = str(status.stdout)
-                if not build:
-                        self.logError("cannot get os-release strings")
-                        return None
-                return build.rstrip()
+		''' '''
+		status = self.run("cat /etc/YaST2/build", quiet=True)
+		if not status:
+			self.logError("cannot get build of system")
+			return None
+		build = status.stdoutString
+		if not build:
+			self.logError("cannot get os-release strings")
+			return None
+		return build.rstrip()
 
 	def get_family(self):
-                ''' get_family return a string : 42.1(leap), 12.2, 12.1, 11.4 for  sles etc. '''
-                status = self.run("grep VERSION_ID /etc/os-release | cut -c13- | head -c -2 ", quiet=True)
-                if not status:
-                        self.logError("cannot get os-release family")
-                        return None
-                family = str(status.stdout)
-                if not family:
-                        self.logError("cannot get os-release strings")
-                        return None
-                return family.rstrip()
+		''' get_family return a string : 42.1(leap), 12.2, 12.1, 11.4 for  sles etc. '''
+		status = self.run("grep VERSION_ID /etc/os-release | cut -c13- | head -c -2 ", quiet=True)
+		if not status:
+			self.logError("cannot get os-release family")
+			return None
+		family = status.stdoutString
+		if not family:
+			self.logError("cannot get os-release strings")
+			return None
+		return family.rstrip()
 
 		self.__syslogSize = -1
-	
+
 
 
 
@@ -190,7 +195,7 @@ class Target(twopence.Target):
 		self.journal.error(self.name + ": " + message)
 
 	def describeException(self):
-	        import traceback
+		import traceback
 
 		return traceback.format_exc(None)
 
@@ -225,7 +230,7 @@ class Target(twopence.Target):
 		# XXXX: Currently broken
 		if_ipaddr = interface.get('ipv4_addr')
 		if not if_ipaddr:
-			print "%s: no ipv4 addr for interface %s" % (self.name, interface.name)
+			print("%s: no ipv4 addr for interface %s" % (self.name, interface.name))
 			return None
 
 		subnet = None
@@ -237,13 +242,13 @@ class Target(twopence.Target):
 
 		prefixlen = 0
 		if not subnet:
-			print "%s: no subnet info for interface %s (network %s)" % (self.name, interface.name, netname)
+			print("%s: no subnet info for interface %s (network %s)" % (self.name, interface.name, netname))
 		else:
 			m = re.match(".*/([0-9]*)", subnet)
 			if m:
 				prefixlen = m.group(1)
 		if not prefixlen:
-			print "Assuming 24 bit prefix"
+			print("Assuming 24 bit prefix")
 			prefixlen = 24
 
 		if_ipaddr = if_ipaddr + "/" + str(prefixlen)
@@ -258,7 +263,7 @@ class Target(twopence.Target):
 			self.logError("cannot get fully qualified hostname")
 			return None
 
-		fqdn = str(status.stdout).strip()
+		fqdn = status.stdoutString.strip()
 		if not fqdn:
 			self.logError("cannot get fully qualified hostname")
 			return None
@@ -317,7 +322,7 @@ class Target(twopence.Target):
 			t1 = time.time()
 			self.journal.info("Command ran for %u seconds" % (t1 - t0))
 
-		        status = twopence.Status(256, bytearray(), bytearray())
+			status = twopence.Status(256, bytearray(), bytearray())
 
 		if status == None or isinstance(status, bool):
 			# The command was backgrounded, and there is no status
@@ -379,7 +384,7 @@ class Target(twopence.Target):
 		except:
 			self.logError("upload failed with exception")
 			self.journal.info(self.describeException())
-		        return None
+			return None
 
 		if not status:
 			self.logFailure("upload failed: " + status.message)
@@ -396,7 +401,7 @@ class Target(twopence.Target):
 		except:
 			self.logError("download failed with exception")
 			self.journal.info(self.describeException())
-		        return None
+			return None
 
 		if not status:
 			self.logFailure("download failed: " + status.message)
@@ -426,7 +431,7 @@ class Target(twopence.Target):
 			self.logError("download failed with exception")
 			self.journal.info(self.describeException())
 
-		        return None
+			return None
 
 		if not status:
 			self.logFailure("download failed: " + status.message)
@@ -454,7 +459,7 @@ class Target(twopence.Target):
 			self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
 
 		if not isinstance(xfer.data, bytearray):
-			print "data is not a buffer"
+			print("data is not a buffer")
 
 		try:
 			return super(Target, self).sendfile(xfer)
@@ -462,7 +467,7 @@ class Target(twopence.Target):
 			self.logError("upload failed with exception")
 			self.journal.info(self.describeException())
 
-		        return twopence.Status(256)
+			return twopence.Status(256)
 
 	# These functions can help you capture log messages written
 	# while a test was executed.
@@ -488,7 +493,7 @@ class Target(twopence.Target):
 			if status and len(status.stdout):
 				journal.info("--- begin %s log messages ---" % self.name)
 				journal.recordStdout(status.stdout);
-				print str(status.stdout)
+				print(status.stdoutString)
 				journal.info("--- end %s log messages ---" % self.name)
 		except:
 			pass
