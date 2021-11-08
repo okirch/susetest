@@ -108,5 +108,6 @@ PyInit_curly(void)
 	m = PyModule_Create(&susetest_module_def);
 
 	susetest_registerType(m, "Config", &susetest_ConfigType);
+	susetest_registerType(m, "ConfigNode", &susetest_ConfigNodeType);
 	return m;
 }

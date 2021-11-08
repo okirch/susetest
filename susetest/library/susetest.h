@@ -34,8 +34,10 @@ extern void			susetest_config_copy(susetest_config_t *dst, const susetest_config
 extern int			susetest_config_write(susetest_config_t *cfg, const char *path);
 extern susetest_config_t *	susetest_config_read(const char *path);
 extern const char *		susetest_config_name(const susetest_config_t *cfg);
+extern const char *		susetest_config_type(const susetest_config_t *cfg);
 extern susetest_config_t *	susetest_config_get_child(const susetest_config_t *cfg, const char *type, const char *name);
 extern susetest_config_t *	susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *name);
+extern unsigned int		susetest_config_drop_child(susetest_config_t *cfg, const susetest_config_t *child);
 extern const char **		susetest_config_get_children(const susetest_config_t *, const char *type);
 extern const char **		susetest_config_get_attr_names(const susetest_config_t *);
 extern void			susetest_config_set_attr(susetest_config_t *cfg, const char *name, const char *value);

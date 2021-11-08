@@ -116,6 +116,12 @@ susetest_config_name(const susetest_config_t *cfg)
 	return cfg->name;
 }
 
+const char *
+susetest_config_type(const susetest_config_t *cfg)
+{
+	return cfg->type;
+}
+
 /*
  * Accessor functions for child nodes
  */
@@ -153,6 +159,26 @@ susetest_config_add_child(susetest_config_t *cfg, const char *type, const char *
 	return child;
 }
 
+unsigned int
+susetest_config_drop_child(susetest_config_t *cfg, const susetest_config_t *child)
+{
+	susetest_config_t *cur, **pos;
+	unsigned int count = 0;
+
+	for (pos = &cfg->children; (cur = *pos) != NULL; ) {
+		if (cur == child) {
+			*pos = cur->next;
+			cur->next = NULL;
+
+			__susetest_config_free(cur);
+			count += 1;
+		} else {
+			pos = &cur->next;
+		}
+	}
+
+	return count;
+}
 
 const char **
 susetest_config_get_children(const susetest_config_t *cfg, const char *type)
@@ -456,8 +482,7 @@ __susetest_config_attrs_free(susetest_config_attr_t **list)
 int
 susetest_config_write(susetest_config_t *cfg, const char *path)
 {
-	susetest_config_write_curly(cfg, path);
-	return 0;
+	return susetest_config_write_curly(cfg, path);
 }
 
 int

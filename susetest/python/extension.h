@@ -35,7 +35,15 @@ typedef struct {
 	susetest_config_t *config;
 } susetest_Config;
 
+typedef struct {
+	PyObject_HEAD
+
+	PyObject *		config_object;
+	susetest_config_t *	node;
+} susetest_ConfigNode;
+
 extern PyTypeObject	susetest_ConfigType;
+extern PyTypeObject	susetest_ConfigNodeType;
 
 extern PyObject *	susetest_importType(const char *module, const char *typeName);
 extern PyObject *	susetest_callType(PyTypeObject *typeObject, PyObject *args, PyObject *kwds);

@@ -11,6 +11,7 @@ import twopence
 import time
 import re
 import sys
+import os
 
 ifcfg_template = '''
 BOOTPROTO="static"
@@ -82,11 +83,17 @@ class ConfigWrapper():
 		return None
 
 def Config(name, **kwargs):
-	print("Config(%s)" % kwargs)
+	filename = kwargs.get('filename')
+	if not filename:
+		# This does not really belong here...
+		filename = os.getenv("TWOPENCE_CONFIG_PATH")
+		if not filename:
+			filename = "twopence.conf";
+
 	try:
 		import curly
 
-		return ConfigWrapper(name, curly.Config(**kwargs));
+		return ConfigWrapper(name, curly.Config(filename));
 	except Exception as e:
 		print(e)
 		pass
@@ -101,6 +108,61 @@ def Config(name, **kwargs):
 	raise RuntimeError("unable to create a valid config object")
 	return None
 
+class NodesFile:
+	class Node:
+		def __init__(self, name):
+			self.name = name
+			self.role = name
+			self.repository = None
+			self.installPackages = set()
+
+	def __init__(self, path):
+		self.nodes = []
+
+		self.currentFile = path
+		self.currentLine = 0
+		self.currentNode = None
+		with open(path, "r") as f:
+			for l in f.readlines():
+				self.currentLine += 1
+				self.parseLine(l)
+
+	def addNode(self, name):
+		n = self.Node(name)
+		self.nodes.append(n)
+		return n
+
+	def parseError(self, msg):
+		return ValueError("%s:%d: parse error: %s" % (self.currentFile, self.currentLine, msg))
+
+	def parseLine(self, l):
+		i = l.find('#')
+		if i >= 0:
+			l = l[:i]
+
+		l = l.strip()
+		if not l:
+			return
+
+		words = l.split(maxsplit = 1)
+		if len(words) != 2:
+			raise self.parseError("expected \"key value\" statement")
+
+		key = words[0]
+		value = words[1].strip()
+
+		if key == 'node':
+			self.currentNode = self.addNode(value)
+		elif self.currentNode is None:
+			raise self.parseError("%s statement before first node" % key)
+		elif key == 'repository':
+			self.currentNode.repository = value
+		elif key == 'role':
+			self.currentNode.role = value
+		elif key == 'install':
+			self.currentNode.installPackages.add(value)
+		else:
+			raise self.parseError("unknown statement %s" % key)
 
 class Target(twopence.Target):
 	def __init__(self, name, config):
