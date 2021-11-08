@@ -343,12 +343,12 @@ class Target(twopence.Target):
 
 	def run(self, cmd, **kwargs):
 		fail_on_error = 0
-		if isinstance(kwargs, dict) and kwargs.has_key('fail_on_error'):
+		if 'fail_on_error' in kwargs:
 			fail_on_error = kwargs['fail_on_error']
 			del kwargs['fail_on_error']
 
 		# Workaround for a twopence problem
-		if isinstance(kwargs, dict) and kwargs.has_key('timeout'):
+		if 'timeout' in kwargs:
 			if kwargs['timeout'] < 0:
 				del kwargs['timeout']
 

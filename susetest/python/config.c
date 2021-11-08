@@ -310,9 +310,9 @@ __toplevel_name_list(susetest_Config *self, PyObject *args, PyObject *kwds, cons
 }
 
 static PyObject *
-__firstlevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, const char *type, const char *attrname)
+__firstlevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, const char *type, const char *attrname, const char *compat_attrname)
 {
-	const char *name;
+	const char *name, *value;
 	susetest_config_t *child;
 
 	if (!__get_single_string_arg(args, kwds, "name", &name))
@@ -324,7 +324,11 @@ __firstlevel_string_attr(susetest_Config *self, PyObject *args, PyObject *kwds, 
 		return NULL;
 	}
 
-	return __to_string(susetest_config_get_attr(child, attrname));
+	value = susetest_config_get_attr(child, attrname);
+	if (value == NULL && compat_attrname)
+		value = susetest_config_get_attr(child, compat_attrname);
+
+	return __to_string(value);
 }
 
 static PyObject *
@@ -354,13 +358,13 @@ Config_nodes(susetest_Config *self, PyObject *args, PyObject *kwds)
 static PyObject *
 Config_node_target(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
-	return __firstlevel_string_attr(self, args, kwds, "node", "target");
+	return __firstlevel_string_attr(self, args, kwds, "node", "target", NULL);
 }
 
 static PyObject *
 Config_node_internal_ip(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
-	return __firstlevel_string_attr(self, args, kwds, "node", "ipv4_addr");
+	return __firstlevel_string_attr(self, args, kwds, "node", "ipv4_address", "ipv4_addr");
 }
 
 static PyObject *
@@ -373,7 +377,7 @@ Config_node_external_ip(susetest_Config *self, PyObject *args, PyObject *kwds)
 static PyObject *
 Config_node_internal_ip6(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
-	return __firstlevel_string_attr(self, args, kwds, "node", "ipv6_addr");
+	return __firstlevel_string_attr(self, args, kwds, "node", "ipv6_address", "ipv6_addr");
 }
 
 static PyObject *
@@ -385,13 +389,13 @@ Config_networks(susetest_Config *self, PyObject *args, PyObject *kwds)
 static PyObject *
 Config_network_subnet(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
-	return __firstlevel_string_attr(self, args, kwds, "network", "subnet");
+	return __firstlevel_string_attr(self, args, kwds, "network", "subnet", NULL);
 }
 
 static PyObject *
 Config_network_gateway(susetest_Config *self, PyObject *args, PyObject *kwds)
 {
-	return __firstlevel_string_attr(self, args, kwds, "network", "gateway");
+	return __firstlevel_string_attr(self, args, kwds, "network", "gateway", NULL);
 }
 
 
