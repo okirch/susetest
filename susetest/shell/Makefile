@@ -3,14 +3,12 @@ include ../../Make.defs
 .PHONY: all install clean
 
 CFLAGS	= -D_GNU_SOURCE $(CCOPT) \
-	  $(TWOPENCE_CFLAGS) \
-	  -I../library
-LINK	+= -L../library -lsusetest \
-	  -L../../minixml/library -lminixml
+	  $(TWOPENCE_CFLAGS)
+LINK	+= -lcurlies
 
 all: susetest
 
-susetest: susetest.o config.o ../library/susetest.h
+susetest: susetest.o config.o
 	$(CC) $(CFLAGS) -o $@ susetest.o config.o $(LINK)
 
 install: susetest

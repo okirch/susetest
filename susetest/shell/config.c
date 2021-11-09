@@ -38,7 +38,7 @@
 #include <getopt.h>
 #include <ctype.h>
 
-#include "susetest.h"
+#include "curlies.h"
 
 char *short_options = "f:F:g:h";
 struct option long_options[] = {
@@ -60,8 +60,8 @@ enum {
 static bool			arg_get_type_and_name(const char *cmd, int argc, char **argv, const char **type_ret, const char **name_ret);
 static bool			arg_get_attr_name(const char *cmd, int argc, char **argv, const char **name_ret);
 static bool			arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret);
-static void			apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const char *type);
-static bool			resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **cfg_p);
+static void			apply_defaults(curly_node_t *group, const curly_node_t *cfg, const char *type);
+static bool			resolve_group(const char *cmd, char *groupname, int flags, curly_node_t **cfg_p);
 static int			split_key_value(char *nameattr, char **namep, char **valuep);
 
 static void
@@ -108,7 +108,7 @@ show_usage(void)
 int
 do_config(int argc, char **argv)
 {
-	susetest_config_t *cfg = NULL, *cfg_root = NULL;
+	curly_node_t *cfg = NULL, *cfg_root = NULL;
 	char *opt_pathname = NULL;
 	char *opt_groupname = NULL;
 	bool opt_apply_defaults = false;
@@ -169,8 +169,8 @@ do_config(int argc, char **argv)
 			}
 		}
 
-		cfg_root = susetest_config_new();
-		cfg = susetest_config_add_child(cfg_root, "testenv", testname);
+		cfg_root = curly_node_new();
+		cfg = curly_node_add_child(cfg_root, "testenv", testname);
 
 		/* config create [attr="value"] ... */
 		while (optind < argc) {
@@ -179,7 +179,7 @@ do_config(int argc, char **argv)
 			if (!split_key_value(argv[optind++], &name, &value))
 				return 1;
 			if (strcmp(name, "name")) {
-				susetest_config_set_attr(cfg, name, value);
+				curly_node_set_attr(cfg, name, value);
 			}
 		}
 	} else
@@ -190,19 +190,19 @@ do_config(int argc, char **argv)
 		}
 		opt_pathname = NULL; /* don't re-write it */
 	} else {
-		cfg_root = susetest_config_read(opt_pathname);
+		cfg_root = curly_node_read(opt_pathname);
 
 		if (cfg_root == NULL) {
 			fprintf(stderr, "susetest: unable to read config file \"%s\"\n", opt_pathname);
 			return 1;
 		}
 
-		cfg = susetest_config_get_child(cfg_root, "testenv", NULL);
+		cfg = curly_node_get_child(cfg_root, "testenv", NULL);
 		if (cfg == NULL)
 			cfg = cfg_root;
 
 		if (!strcmp(cmd, "add-group")) {
-			susetest_config_t *group = cfg, *child;
+			curly_node_t *group = cfg, *child;
 			const char *type, *name;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
@@ -212,9 +212,9 @@ do_config(int argc, char **argv)
 			if (!arg_get_type_and_name(cmd, argc, argv, &type, &name))
 				return 1;
 
-			child = susetest_config_get_child(group, type, name);
+			child = curly_node_get_child(group, type, name);
 			if (child == NULL)
-				child = susetest_config_add_child(group, type, name);
+				child = curly_node_add_child(group, type, name);
 			if (child == NULL) {
 				fprintf(stderr, "susetest config: unable to add %s \"%s\"\n", type, name);
 				return 1;
@@ -228,11 +228,11 @@ do_config(int argc, char **argv)
 
 				if (!split_key_value(argv[optind++], &name, &value))
 					return 1;
-				susetest_config_set_attr(child, name, value);
+				curly_node_set_attr(child, name, value);
 			}
 		} else
 		if (!strcmp(cmd, "set-attr")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
 				return 1;
@@ -242,11 +242,11 @@ do_config(int argc, char **argv)
 
 				if (!split_key_value(argv[optind++], &name, &value))
 					return 1;
-				susetest_config_set_attr(group, name, value);
+				curly_node_set_attr(group, name, value);
 			}
 		} else
 		if (!strcmp(cmd, "clear-attr")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 			const char *name;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_IGNORE_MISSING, &group))
@@ -255,20 +255,20 @@ do_config(int argc, char **argv)
 			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
-			susetest_config_set_attr(group, name, NULL);
+			curly_node_set_attr(group, name, NULL);
 		} else
 		if (!strcmp(cmd, "set-attr-list")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 			const char *name;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group)
 			 || !arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
-			susetest_config_set_attr_list(group, name, (const char * const *) argv + optind);
+			curly_node_set_attr_list(group, name, (const char * const *) argv + optind);
 		} else
 		if (!strcmp(cmd, "append-attr-list")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 			const char *name;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group)
@@ -276,11 +276,11 @@ do_config(int argc, char **argv)
 				return 1;
 
 			while (optind < argc) {
-				susetest_config_add_attr_list(group, name, argv[optind++]);
+				curly_node_add_attr_list(group, name, argv[optind++]);
 			}
 		} else
 		if (!strcmp(cmd, "get-attr")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 			const char *name, *value;
 
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_IGNORE_MISSING, &group))
@@ -289,13 +289,13 @@ do_config(int argc, char **argv)
 			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
-			value = susetest_config_get_attr(group, name);
+			value = curly_node_get_attr(group, name);
 			if (value)
 				printf("%s\n", value);
 			opt_pathname = NULL; /* No need to rewrite config file */
 		} else
 		if (!strcmp(cmd, "get-attr-list")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 			const char * const *values;
 			const char *name;
 
@@ -304,13 +304,13 @@ do_config(int argc, char **argv)
 			if (!arg_get_attr_name(cmd, argc, argv, &name))
 				return 1;
 
-			values = susetest_config_get_attr_list(group, name);
+			values = curly_node_get_attr_list(group, name);
 			while (values && *values)
 				printf("%s\n", *values++);
 			opt_pathname = NULL; /* No need to rewrite config file */
 		} else
 		if (!strcmp(cmd, "get-children")) {
-			susetest_config_t *group = cfg;
+			curly_node_t *group = cfg;
 			const char *type;
 			const char **names;
 			int n;
@@ -320,14 +320,14 @@ do_config(int argc, char **argv)
 			if (!arg_get_type(cmd, argc, argv, &type))
 				return 1;
 
-			names = susetest_config_get_children(group, type);
+			names = curly_node_get_children(group, type);
 			for (n = 0; names[n]; ++n)
 				printf("%s\n", names[n]);
 			free(names);
 		} else
 		if (!strcmp(cmd, "copy-group")) {
-			susetest_config_t *group = cfg;
-			susetest_config_t *src_group;
+			curly_node_t *group = cfg;
+			curly_node_t *src_group;
 			char *src_file = NULL, *src_group_name;
 
 			if (opt_groupname == NULL) {
@@ -352,7 +352,7 @@ do_config(int argc, char **argv)
 			if (!resolve_group(cmd, opt_groupname, RESOLVE_GROUP_CREATE, &group))
 				return 1;
 
-			src_group = susetest_config_read(src_file);
+			src_group = curly_node_read(src_file);
 			if (src_group == NULL) {
 				fprintf(stderr, "susetest config %s: unable to read config file \"%s\"\n", cmd, src_file);
 				return 1;
@@ -360,14 +360,14 @@ do_config(int argc, char **argv)
 			if (!resolve_group(cmd, src_group_name, RESOLVE_GROUP_IGNORE_MISSING, &src_group))
 				return 0;
 
-			susetest_config_copy(group, src_group);
+			curly_node_copy(group, src_group);
 		} else {
 			fprintf(stderr, "susetest config: unsupported subcommand \"%s\"\n", cmd);
 			return 1;
 		}
 	}
 
-	if (opt_pathname && susetest_config_write(cfg_root, opt_pathname) < 0) {
+	if (opt_pathname && curly_node_write(cfg_root, opt_pathname) < 0) {
 		fprintf(stderr, "susetest config %s: unable to rewrite config file\n", cmd);
 		return 1;
 	}
@@ -424,16 +424,16 @@ arg_get_type(const char *cmd, int argc, char **argv, const char **type_ret)
  *  }
  */
 static void
-apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const char *type)
+apply_defaults(curly_node_t *group, const curly_node_t *cfg, const char *type)
 {
-	susetest_config_t *defaults;
+	curly_node_t *defaults;
 	const char **attr_names;
 
-	defaults = susetest_config_get_child(cfg, "defaults", type);
+	defaults = curly_node_get_child(cfg, "defaults", type);
 	if (defaults == NULL)
 		return;
 
-	attr_names = susetest_config_get_attr_names(defaults);
+	attr_names = curly_node_get_attr_names(defaults);
 	if (attr_names) {
 		unsigned int i;
 
@@ -441,11 +441,11 @@ apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const cha
 			const char *name = attr_names[i];
 			const char * const *values;
 
-			values = susetest_config_get_attr_list(defaults, name);
+			values = curly_node_get_attr_list(defaults, name);
 			if (!values)
 				continue;
 
-			susetest_config_set_attr_list(group, name, values);
+			curly_node_set_attr_list(group, name, values);
 		}
 		free(attr_names);
 	}
@@ -456,7 +456,7 @@ apply_defaults(susetest_config_t *group, const susetest_config_t *cfg, const cha
  *  /node=client/interface=eth0
  */
 static bool
-resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **cfg_p)
+resolve_group(const char *cmd, char *groupname, int flags, curly_node_t **cfg_p)
 {
 	char *next = NULL;
 
@@ -464,7 +464,7 @@ resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **c
 		return true;
 
 	for (; groupname != NULL; groupname = next) {
-		susetest_config_t *child;
+		curly_node_t *child;
 		char *type, *name;
 
 		while (*groupname == '/')
@@ -479,10 +479,10 @@ resolve_group(const char *cmd, char *groupname, int flags, susetest_config_t **c
 			fprintf(stderr, "susetest config %s --group: bad argument, should be type=name\n", cmd);
 			return false;
 		}
-		child = susetest_config_get_child(*cfg_p, type, name);
+		child = curly_node_get_child(*cfg_p, type, name);
 		if (child == NULL) {
 			if (flags & RESOLVE_GROUP_CREATE) {
-				child = susetest_config_add_child(*cfg_p, type, name);
+				child = curly_node_add_child(*cfg_p, type, name);
 			} else {
 				if (!(flags & RESOLVE_GROUP_IGNORE_MISSING))
 					fprintf(stderr, "susetest config %s: unable to look up subgroup %s=\"%s\"\n", cmd, type, name);

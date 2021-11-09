@@ -1,6 +1,6 @@
 include ../Make.defs
 
-SUBDIRS	= library shell python tests
+SUBDIRS	= shell python
 
 HELPERS	= twopence-install twopence-run build-config
 

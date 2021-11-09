@@ -14,7 +14,7 @@ nodesfile=$2
 runscript=$3
 instroot=$4
 
-ctrldir=/var/lib/slenkins/twopence-$name
+ctrldir=/usr/lib/susetest/twopence-$name
 testdir=/usr/lib/twopence/$name
 
 function do_mkdir {
