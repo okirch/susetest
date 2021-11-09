@@ -5,307 +5,63 @@
 # NOT based on autoconf but written by hand instead.
 # Copyright (C) 2021 Olaf Kirch <okir@suse.de>
 
-PROGNAME=${0#**/}
+# microconf:begin
+# require pkg-config
+# require shlib
+# microconf:end
 
-long_options=prefix:
-
-function add_option_path {
-	long_options+=",$1:"
-}
-
-function add_option_with {
-	long_options+=",with-$1::"
-}
-
-function add_option_enable {
-	long_options+=",enable-$1,disable-$1"
-}
-
-for o in libdir arch-libdir libexecdir etcdir bindir mandir; do
-	add_option_path $o
-done
-add_option_with platform
-add_option_with os-vendor
-add_option_with python
-add_option_with ruby
-add_option_enable manpages
-long_options+=",always-use-prefix"
-
-eval set -- $(getopt -n $PROGNAME -l "$long_options" -o "v" -- "$@")
-
-while [ $# -gt 0 ]; do
-	opt=$1; shift
-
-	case $opt in
-	--prefix|--libdir|--arch-libdir|--etcdir|--bindir|--mandir)
-		varname=$(expr "$opt" : '^--\(.*\)' | tr - _)
-		export ac_$varname="$1"
-		shift;;
-	--with-*)
-		varname=$(expr "$opt" : "--\(.*\)" | tr - _)
-		export ac_$varname="${1:-detect}"
-		shift;;
-	--without-*)
-		varname=$(expr "$opt" : "--without-\(.*\)" | tr - _)
-		export ac_with_$varname="none";;
-	--enable-manpages)
-		ac_enable_manpages=true;;
-	--disable-manpages)
-		ac_enable_manpages=false;;
-	--)
-		break;;
-	*)
-		echo "$PROGNAME: Unknown option $opt" >&2
-		exit 2
-	esac
-done
+. microconf/prepare
 
 ##################################################################
-# Detect cpu word size
+# The Makefiles we used to ship had a bunch of special cases for MacOS.
+# Try to define them here.
 ##################################################################
-case $(arch) in
-x86_64|aarch64|pp64*|s390x)
-	_arch_lib=lib64;;
-*)
-	_arch_lib=lib;;
-esac
+function twopence_platform_hook {
 
-##################################################################
-# Detect platform
-##################################################################
-if [ "$ac_with_platform" ]; then
-	ac_platform="$ac_with_platform"
-else
-	echo -n "Detecting OS platform... "
-	ac_platform=""
-	if [ -z "$ac_platform" ]; then
-		case "$OSTYPE" in
-		"linux-gnu"*|linux*)
-		    ac_platform="linux";;
-		"darwin"*)
-		    ac_platform="macos";;
-		"freebsd"*)
-		    ac_platform="freebsd";;
-		esac
-	fi
+	if [ "$uc_platform" = "macos" ]; then
+		# Is this really what we want?
+		__uc_arch_lib=lib
 
-	if [ -z "$ac_platform" ]; then
-		case $(uname -a) in
-		Linux*)
-		    ac_platform=linux;;
-		Darwin*)
-		    ac_platform=macos;;
-		FreeBSD*)
-		    ac_platform=freebsd;;
-		esac
-	fi
-
-	if [ -z "$ac_platform" ]; then
-		ac_platform=unknown
-	fi
-	echo $ac_platform
-fi
-
-# Not sure if this is needed
-if [ "$ac_with_os_vendor" ]; then
-	ac_os_vendor="$ac_with_os_vendor"
-else
-	echo -n "Detecting OS vendor... "
-	ac_os_vendor=
-
-	case "$MACHTYPE" in
-	*-suse-*)
-		ac_os_vendor=suse;;
-	*-redhat*-)
-		ac_os_vendor=fedora;;
-	esac
-
-	if [ -n "$ac_os_vendor" ]; then
-		# we're good
-		:
-	elif [ -f "/etc/os-release" ]; then
-		case $(cat /etc/os-release) in
-		*Debian*)
-			ac_os_vendor=debian;;
-		*Fedora*)
-			ac_os_vendor=fedora;;
-		*SUSE*)
-			ac_os_vendor=suse;;
-		*Ubuntu*)
-			ac_os_vendor=ubuntu;;
-		esac
-	else
-		sw_vers_path=$(type -p sw_vers)
-		if [ -n "$sw_vers_path" -a -x "$sw_vers_path" ]; then
-			case $(sw_vers) in
-			*macOS*)
-				ac_os_vendor=apple;;
-			esac
+		if [ -z "$uc_enable_manpages" ]; then
+			uc_enable_manpages=false
 		fi
 	fi
 
-	if [ -z "$ac_os_vendor" ]; then
-		echo "no"
-		echo "Unable to detect platform OS. Build may or may not work" >&2
-		exit 1
+	if [ "$uc_os_vendor" = "ubuntu" ]; then
+		if [ -z "$uc_arch_libdir" ]; then
+			uc_arch_libdir="$uc_prefix/lib/$(arch)-linux-gnu"
+		fi
 	fi
-
-	echo "$ac_os_vendor"
-fi
-
-# The Makefiles we used to ship had a bunch of special cases for MacOS.
-# Try to define them here.
-if [ "$ac_platform" = "macos" ]; then
-	# Is this really what we want?
-	_arch_lib=lib
-
-	if [ -z "$ac_enable_manpages" ]; then
-		ac_enable_manpages=false
-	fi
-fi
-
-if [ "$ac_os_vendor" = "ubuntu" ]; then
-	if [ -z "$ac_arch_libdir" ]; then
-		ac_arch_libdir="$ac_prefix/lib/$(arch)-linux-gnu"
-	fi
-fi
-
-##################################################################
-# Set defaults
-##################################################################
-test -z "$ac_prefix" && ac_prefix="/usr/local"
-test -z "$ac_bindir" && ac_bindir="$ac_prefix/bin"
-test -z "$ac_libdir" && ac_libdir="$ac_prefix/lib"
-test -z "$ac_includedir" && ac_includedir="$ac_prefix/include"
-test -z "$ac_etcdir" && ac_etcdir="$ac_prefix/etc"
-test -z "$ac_mandir" && ac_mandir="$ac_prefix/share/man"
-test -z "$ac_arch_libdir" && ac_arch_libdir="$ac_prefix/$_arch_lib"
-
-test -z "$ac_enable_manpages" && ac_enable_manpages=true
-
-##################################################################
-# Detect pkg-config
-##################################################################
-echo -n "Check whether pkg-config is installed... "
-path=$(type -p pkg-config)
-if [ -z "$path" ]; then
-	ac_with_pkg_config=no
-	echo "no"
-	echo "Aborting." >&2
-	exit 11
-else
-	ac_with_pkg_config=yes
-	echo "$path"
-fi
-
-if [ "$ac_with_pkg_config" = "yes" ]; then
-	echo -n "Detecting where to install pkg-config files... "
-	ac_pkg_config_file_path=""
-	for dir in $(pkg-config --variable pc_path pkg-config|tr ':' ' '); do
-		case $dir in
-		"$ac_prefix"/lib*|"$ac_prefix"/share*)
-			: ;;
-		/usr/local/*|/opt/*)
-			continue;;
-		/*)
-			: ;;
-		esac
-
-		ac_pkg_config_file_path=$dir
-		break
-	done
-
-	if [ -z "$ac_pkg_config_file_path" ]; then
-		echo "not found"
-	else
-		echo "$ac_pkg_config_file_path"
-	fi
-fi
-
-function pkg_config_find_highest_version {
-
-	name=$1
-	pkg-config --list-all | grep "^$name" | while read name blah; do
-		echo "$(pkg-config --modversion $name)/$name"
-	done | tr . ' ' | sort -k1n -k2n -k3n | tr ' /' '. ' | tail -1
 }
 
-
-
-for var_name in python_cflags python_libs python_instdir; do
-	export ac_$var_name="$(pkg-config --variable $var_name twopence)"
-done
-
-for name in cflags libs; do
-	export ac_twopence_$name="$(pkg-config --$name twopence)"
-done
-
-##################################################################
-# How to build shared libraries
-##################################################################
-echo -n "Detecting shared library extension... "
-case $ac_platform in
-macos)
-	ac_shlib_extension=dylib;;
-linux)
-	ac_shlib_extension=so;;
-*)	echo "unknown"
-	echo "Aborting." >&2
-	exit 2;;
-esac
-
-echo "$ac_shlib_extension"
+uc_define_post_hook platform twopence_platform_hook
 
 ##################################################################
 # Get version from RELEASE file
 ##################################################################
-. RELEASE
-ac_susetest_version="$VERSION"
+uc_define_version susetest_version
 
 ##################################################################
-# substitute
+# Now run all the checks we've lined up
 ##################################################################
-function build_sed_script {
-	__sed_script=$1
+. microconf/check
 
-	cp /dev/null $__sed_script
-	for varname in $(set | sed '/^ac_/!d;s///;s/=.*//'); do
-		VARNAME=$(echo $varname | tr a-z A-Z)
-		echo "s|@$VARNAME@|$(eval echo \$ac_$varname)|" >>$__sed_script
-	done
+if [ "$uc_with_pkg_config" != "yes" ]; then
+	uc_fatal "pkg-config not found, unable to proceed"
+fi
 
-	trap "rm -f $__sed_script" 0 1 15
-}
+for var_name in python_cflags python_libs python_instdir; do
+	export uc_$var_name="$(pkg-config --variable $var_name twopence)"
+done
 
-function subst {
-	sedfile=$1; shift
+for name in cflags libs; do
+	export uc_twopence_$name="$(pkg-config --$name twopence)"
+done
 
-	for output; do
-		input="$output.in"
 
-		if [ ! -f "$input" ]; then
-			echo "Cannot find input file $input" >&2
-			exit 2
-		fi
+##################################################################
+# Perform substitution steps
+##################################################################
+. microconf/subst
 
-		echo -n "Generating $output... "
-
-		sed -f $sedfile <$input >$output.tmp
-		if test -f $output && cmp -s $output $output.tmp; then
-			echo "unchanged"
-			rm -f $output.tmp
-		else
-			mv $output.tmp $output
-			echo "done"
-		fi
-	done
-}
-
-subst_script=sedscript
-build_sed_script $subst_script
-subst $subst_script Make.defs
-# subst $subst_script library/version.h
-# subst $subst_script ruby/twopence.gemspec
-# subst $subst_script examples/example.py
-# subst $subst_script examples/example.rb
-# subst $subst_script twopence.pc
+uc_subst Make.defs

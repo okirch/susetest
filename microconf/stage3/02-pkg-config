@@ -1,0 +1,47 @@
+##################################################################
+# Detect pkg-config
+##################################################################
+echo -n "Check whether pkg-config is installed... "
+path=$(type -p pkg-config)
+if [ -z "$path" ]; then
+	uc_with_pkg_config=no
+	echo "no"
+else
+	uc_with_pkg_config=yes
+	echo "$path"
+fi
+
+if [ "$uc_with_pkg_config" = "yes" ]; then
+	echo -n "Detecting where to install pkg-config files... "
+	uc_pkg_config_file_path=""
+	for dir in $(pkg-config --variable pc_path pkg-config|tr ':' ' '); do
+		case $dir in
+		"$uc_prefix"/lib*|"$uc_prefix"/share*)
+			: ;;
+		# Skip these directories unless specified by --prefix
+		/usr/local/*|/opt/*)
+			continue;;
+		/*)
+			: ;;
+		esac
+
+		uc_pkg_config_file_path=$dir
+		break
+	done
+
+	if [ -z "$uc_pkg_config_file_path" ]; then
+		echo "not found"
+	else
+		echo "$uc_pkg_config_file_path"
+	fi
+fi
+
+function uc_pkg_config_find_highest_version {
+
+	name=$1
+	pkg-config --list-all | grep "^$name" | while read name blah; do
+		echo "$(pkg-config --modversion $name)/$name"
+	done | tr . ' ' | sort -k1n -k2n -k3n | tr ' /' '. ' | tail -1
+}
+
+

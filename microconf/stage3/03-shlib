@@ -1,0 +1,17 @@
+##################################################################
+# How to build shared libraries
+##################################################################
+echo -n "Detecting shared library extension... "
+case $uc_platform in
+macos)
+	uc_shlib_extension=dylib;;
+linux)
+	uc_shlib_extension=so;;
+*)	echo "unknown"
+	echo "Aborting." >&2
+	exit 2;;
+esac
+
+echo "$uc_shlib_extension"
+
+
