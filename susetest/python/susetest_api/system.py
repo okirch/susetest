@@ -3,7 +3,7 @@ import susetest
 import suselog
 # needed by install_pkg
 from pipes import quote
-from susetest_api.assertions import run_cmd
+from .assertions import run_cmd
 # needed by versioncmp
 import re
 # needed by reboot_and_wait
