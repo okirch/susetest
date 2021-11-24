@@ -1,14 +1,19 @@
 include ../../Make.defs
 
-all:	susetest.py
+SUSETEST_PYTHON_DIR = $(PYTHON_INSTDIR)/susetest
+SUSETEST_API_PYTHON_DIR = $(PYTHON_INSTDIR)/susetest_api
+
+all: ;
 
 distclean clean::
 	rm -f *.o *.so
+	rm -rf */__pycache__
 
 distclean::
 	;
 
-install: susetest.py
-	mkdir -p $(DESTDIR)$(PYTHON_INSTDIR)/susetest_api
-	install -m444 susetest.py $(DESTDIR)$(PYTHON_INSTDIR)
-	install -m444 susetest_api/*.py $(DESTDIR)$(PYTHON_INSTDIR)/susetest_api
+install:
+	mkdir -p $(DESTDIR)$(SUSETEST_PYTHON_DIR)
+	install -m444 susetest/*.py $(DESTDIR)$(SUSETEST_PYTHON_DIR)
+	mkdir -p $(DESTDIR)$(SUSETEST_API_PYTHON_DIR)
+	install -m444 susetest_api/*.py $(DESTDIR)$(SUSETEST_API_PYTHON_DIR)
