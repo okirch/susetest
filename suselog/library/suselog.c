@@ -943,6 +943,7 @@ __suselog_junit_test_system_out(suselog_test_t *test, xml_node_t *node)
 		xml_cdata_new(out, string);
 	}
 
+	suselog_message_collector_destroy(&collector);
 	return out;
 }
 
@@ -1002,6 +1003,8 @@ __suselog_junit_pre_string(xml_node_t *parent, const char *name, const char *typ
 			xml_node_add_attr(node, "message", msg);
 		xml_cdata_new(node, string);
 	}
+
+	suselog_message_collector_destroy(&collector);
 	return node;
 }
 
