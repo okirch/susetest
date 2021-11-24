@@ -3,16 +3,43 @@
 # Set up the control directory for a susetest based twopence
 # script
 
-if [ $# -lt 3 ]; then
-	echo "Missing argument(s)" >&2
-	echo "Usage: $0 <name> <nodesfile> <runcsript> [<instroot>]" >&2
-	exit 1
+opt_newstyle=false
+if [ "$1" == "--new-style" ]; then
+	opt_newstyle=true
+	shift 1
 fi
 
-name=$1
-nodesfile=$2
-runscript=$3
-instroot=$4
+if $opt_newstyle; then
+	if [ $# -lt 2 ]; then
+		echo "Missing argument(s)" >&2
+		echo "Usage: $0 <name> <directory> [<instroot>]" >&2
+		exit 1
+	fi
+
+	name=$1
+	dir=$2
+	instroot=$3
+
+	nodesfile=
+	testcase_conf=
+	runscript=
+
+	test -f "$dir/run" && runscript="$dir/run"
+	test -f "$dir/nodes" && nodesfile="$dir/nodes"
+	test -f "$dir/testcase.conf" && testcase_conf="$dir/testcase.conf"
+else
+	if [ $# -lt 3 ]; then
+		echo "Missing argument(s)" >&2
+		echo "Usage: $0 <name> <nodesfile> <runcsript> [<instroot>]" >&2
+		exit 1
+	fi
+
+	name=$1
+	nodesfile=$2
+	testcase_conf=
+	runscript=$3
+	instroot=$4
+fi
 
 ctrldir=/usr/lib/susetest/twopence-$name
 testdir=/usr/lib/twopence/$name
@@ -103,8 +130,13 @@ function do_symlink {
 
 do_mkdir $testdir
 do_install -m 555 $runscript $testdir
+if [ -n "$testcase_conf" ]; then
+	do_install -m 444 "$testcase_conf" $testdir
+fi
 do_symlink /usr/lib/susetest/twopence-run $testdir/control
 
 do_mkdir $ctrldir/control/bin
-do_install -m 444 "$nodesfile" $ctrldir/control
+if [ -n "$nodesfile" ]; then
+	do_install -m 444 "$nodesfile" $ctrldir/control
+fi
 do_install -m 555 $runscript $ctrldir/control/bin/01_run.sh

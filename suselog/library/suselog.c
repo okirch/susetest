@@ -33,6 +33,8 @@
 #include <wctype.h>
 #include <term.h>
 
+#include <ncursesw/curses.h>
+
 #include "suselog_p.h"
 #include "xml.h"
 #include "util.h"
@@ -614,11 +616,8 @@ suselog_test_finish(suselog_journal_t *journal, suselog_status_t status)
 	suselog_test_t *test;
 
 	if ((test = journal->current.test) != NULL) {
-		if (test->status != SUSELOG_STATUS_RUNNING
-		 && test->status != status) {
-			suselog_warning(journal, "conflicting test stati - %u vs %u",
-					test->status, status);
-		} else {
+		if (test->status == SUSELOG_STATUS_RUNNING
+		 || test->status == status) {
 			suselog_group_t *group = suselog_current_group(journal);
 
 			suselog_common_update_duration(&test->common);
@@ -629,6 +628,13 @@ suselog_test_finish(suselog_journal_t *journal, suselog_status_t status)
 
 			/* Write to stdout */
 			suselog_writer_end_test(journal, test);
+		} else
+		if (test->status == SUSELOG_STATUS_ERROR && status == SUSELOG_STATUS_FAILURE) {
+			/* Something flagged an error earlier, and down the road something
+			 * else wants to flag a failure. Silently ignore this case. */
+		} else {
+			suselog_warning(journal, "conflicting test stati - %u vs %u",
+					test->status, status);
 		}
 	}
 }

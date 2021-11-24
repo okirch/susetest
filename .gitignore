@@ -13,3 +13,4 @@ susetest/shell/susetest
 suselog/shell/suselog
 twopence-ctcs2/junit-results.xml
 Make.defs
+__pycache__

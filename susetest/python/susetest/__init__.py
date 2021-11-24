@@ -2,7 +2,7 @@
 #
 # Python classes for susetest
 #
-# These classes refer back to some C code in susetestimpl
+# Copyright (C) 2014-2021 SUSE Linux GmbH
 #
 ##################################################################
 
@@ -165,37 +165,73 @@ class NodesFile:
 			raise self.parseError("unknown statement %s" % key)
 
 class Target(twopence.Target):
-	def __init__(self, name, config):
-		super(Target, self).__init__(config.target_spec(name), None, name)
+	def __init__(self, name, node_config, journal = None):
+		spec = node_config.get_value("target")
+		if spec is None:
+			raise ValueError("Cannot connect to node %s: config doesn't specify a target" % name)
 
-		self.config = config
-		self.journal = config.journal
+		super(Target, self).__init__(spec, None, name)
+
+		self.node_config = node_config
+		self.journal = journal
+
+		# backward compat cruft
+		if self.journal is None:
+			self.journal = config.journal
 
 		self.defaultUser = None
 
 		# Initialize some commonly used attributes
 		self.name = name
 
-		self.ipv4_addr = config.ipv4_address(self.name)
-		self.ipv6_addr = config.ipv6_address(self.name)
-		# N/A when ipv6 is not available.
-		if (self.ipv6_addr == "N/A"):
-			self.ipv6_addr = None
+		self.ipv4_addr = node_config.get_value("ipv4_address")
+		self.ipv6_addr = node_config.get_value("ipv6_address")
+		self.features = node_config.get_values("features")
+		self.test_user = node_config.get_value("user_user")
 
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
 		self.ip6addr = self.ipv6_addr
+
 		# external ip for cloud
-		self.ipaddr_ext = config.ipv4_ext(self.name)
-		# *** os attributes ***
-		# family 42.1 , 12.2 etc 
-		self.family = self.get_family()
-		# boolean var, true if gnome,kde are used, else false 
-		self.desktop = self.get_graphical()
-		# this is from cat /etc/YaST2/build
-		self.build =  self.get_build()
-		# hostname (not fully qualified)
-		self.hostname = self.get_hostname()
+		self.ipaddr_ext = node_config.get_value("ipv4_address_external")
+
+		self._resources = {}
+		self._enabled_features = []
+
+		# OS attributes; will be populated on demand by querying the SUT
+		self._family = None
+		self._desktop = None
+		self._build = None
+		self._hostname = None
+
+	# family 42.1 , 12.2 etc
+	@property
+	def family(self):
+		if self._family is None:
+			self._family = self.get_family()
+		return self._family
+
+	# boolean var, true if gnome,kde are used, else false
+	@property
+	def desktop(self):
+		if self._desktop is None:
+			self._desktop = self.get_graphical()
+		return self._desktop
+
+	# this is from cat /etc/YaST2/build
+	@property
+	def build(self):
+		if self._build is None:
+			self._build = self.get_build()
+		return self._build
+
+	# hostname (not fully qualified)
+	@property
+	def hostname(self):
+		if self._hostname is None:
+			self._hostname = self.get_hostname()
+		return self._hostname
 
 	def get_hostname(self):
 		''' get hostname of the sut '''
@@ -244,8 +280,31 @@ class Target(twopence.Target):
 
 		self.__syslogSize = -1
 
+	def addResource(self, resource):
+		self._resources[resource.name] = resource
 
+	@property
+	def resources(self):
+		return self._resources.values()
 
+	def getResource(self, name):
+		return self._resources.get(name)
+
+	def getActiveResource(self, name):
+		resource = self._resources.get(name)
+		if resource and not resource.is_active:
+			resource = None
+		return resource
+
+	def testFeature(self, name):
+		return name in self._enabled_features
+
+	def enabledFeature(self, name):
+		self._enabled_features.append(name)
+
+	@property
+	def is_systemd(self):
+		return True
 
 	def logInfo(self, message):
 		self.journal.info(self.name + ": " + message)
@@ -338,8 +397,24 @@ class Target(twopence.Target):
 			path = path + "/" + relativeName
 		return path
 
-	def __run(self, cmd, **kwargs):
-		return super(Target, self).run(cmd, **kwargs)
+	# Call twopence.Target.run() to execute the
+	# command for real.
+	# If there's an exception, catch it and log an error.
+	def _run(self, cmd, **kwargs):
+		t0 = time.time()
+		try:
+			status = super().run(cmd, **kwargs)
+		except Exception as e:
+			self.logError("command execution failed with exception")
+			self.logError("%s(%s)" % (e.__class__.__name__, e))
+			self.journal.info(self.describeException())
+
+			t1 = time.time()
+			self.journal.info("Command ran for %u seconds" % (t1 - t0))
+
+			status = twopence.Status(256, bytearray(), bytearray())
+
+		return status
 
 	def run(self, cmd, **kwargs):
 		fail_on_error = 0
@@ -355,7 +430,7 @@ class Target(twopence.Target):
 		if not isinstance(cmd, twopence.Command):
 			cmd = twopence.Command(cmd, **kwargs)
 		elif kwargs is not None:
-			for key, value in kwargs.iteritems():
+			for key, value in kwargs.items():
 				if key == "suppressOutput" and value:
 					# argh, crappy interface - we need to fix this pronto
 					cmd.suppressOutput()
@@ -365,26 +440,26 @@ class Target(twopence.Target):
 		if not(cmd.user) and self.defaultUser:
 			cmd.user = self.defaultUser
 
-		self.journal.info(self.name + ": " + cmd.commandline)
+		info = []
+		if cmd.user:
+			info.append("user=%s" % cmd.user)
+		if cmd.timeout:
+			info.append("timeout=%d" % cmd.timeout)
+		if cmd.background:
+			info.append("background")
+
+		if info:
+			info = "; " + ", ".join(info)
+		else:
+			info = ""
+
+		self.journal.info(self.name + ": " + cmd.commandline + info)
 
 		# FIXME: we should catch commands that have the background
 		# flag set. Right now, we can't because the attribute
 		# isn't implemented in the python twopence extension yet.
 
-		# Call twopence.Target.run() to execute the
-		# command for real.
-		# If there's an exception, catch it and log an error.
-		t0 = time.time()
-		try:
-			status = super(Target, self).run(cmd)
-		except:
-			self.logError("command execution failed with exception")
-			self.journal.info(self.describeException())
-
-			t1 = time.time()
-			self.journal.info("Command ran for %u seconds" % (t1 - t0))
-
-			status = twopence.Status(256, bytearray(), bytearray())
+		status = self._run(cmd)
 
 		if status == None or isinstance(status, bool):
 			# The command was backgrounded, and there is no status
@@ -541,7 +616,7 @@ class Target(twopence.Target):
 	def syslogCapture(self):
 		self.__syslogSize = -1
 		try:
-			status = server.__run("/bin/stat -c %s /var/log/messages", quiet = True)
+			status = server._run("/bin/stat -c %s /var/log/messages", quiet = True)
 			self.__syslogSize = int(status.stdout)
 		except:
 			pass
@@ -551,7 +626,7 @@ class Target(twopence.Target):
 			return
 
 		try:
-			status = server.__run("dd bs=1 skip=%u if=/var/log/messages" % self.__syslogSize, quiet = True)
+			status = server._run("dd bs=1 skip=%u if=/var/log/messages" % self.__syslogSize, quiet = True)
 			if status and len(status.stdout):
 				journal.info("--- begin %s log messages ---" % self.name)
 				journal.recordStdout(status.stdout);

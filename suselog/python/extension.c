@@ -50,6 +50,7 @@ static PyObject *	Journal_num_tests(PyObject *self, PyObject *args, PyObject *kw
 static PyObject *	Journal_num_succeeded(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_num_failed(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_num_errors(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_set_color(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_mergeReport(PyObject *self, PyObject *args, PyObject *kwds);
 
 /*
@@ -122,6 +123,9 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       { "num_errors", (PyCFunction) Journal_num_errors, METH_VARARGS | METH_KEYWORDS,
 	"Return the number of tests with errors"
+      },
+      { "set_color", (PyCFunction) Journal_set_color, METH_VARARGS | METH_KEYWORDS,
+	"Enable/disable ANSI color codes in output"
       },
 
       {	NULL }
@@ -212,7 +216,6 @@ Journal_init(suselog_Journal *self, PyObject *args, PyObject *kwds)
 
 	if (pathname)
 		suselog_journal_set_pathname(self->journal, pathname);
-	suselog_journal_set_color(self->journal, 1);
 
 	return 0;
 }
@@ -677,6 +680,23 @@ Journal_num_errors(PyObject *self, PyObject *args, PyObject *kwds)
 	return PyLong_FromLong(stats->num_errors);
 }
 
+static PyObject *
+Journal_set_color(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = { "flag", NULL };
+	suselog_journal_t *journal;
+	int onoff = 0;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "p", kwlist, &onoff))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	suselog_journal_set_color(journal, onoff);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
 
 static void
 registerType(PyObject *m, const char *name, PyTypeObject *type)
