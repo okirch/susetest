@@ -74,11 +74,17 @@
 #	exist, it will try to create the login (along with its
 #	home directory).
 #
+#	If the class has an password attribute, the newly created
+#	account's password will be set to this.
+#
 #	In addition, the resource class provides these properties:
-#	 uid, gid
+#	 uid, gid, home
 #		string value
 #	 groups
 #		list of strings
+#	 password
+#		the clear-text password (if defined by the class)
+#
 #	If the account does not exist, these properties return
 #	None
 #
@@ -136,6 +142,9 @@ class ResourceAddressIPv6(StringValuedResource):
 		self.value = self.target.ipv6_addr
 
 class UserResource(Resource):
+	password = None
+	encrypted_password = None
+
 	def __init__(self, *args, **kwargs):
 		assert(self.is_valid_user_class())
 
@@ -144,6 +153,7 @@ class UserResource(Resource):
 		self._uid = None
 		self._gid = None
 		self._groups = None
+		self._home = None
 
 	@classmethod
 	def is_valid_user_class(klass):
@@ -158,7 +168,8 @@ class UserResource(Resource):
 			self.target.logInfo("found user %s; uid=%s" % (self.login, self.uid))
 			return True
 
-		if not self.target.runOrFail("useradd -m %s" % self.login, user = "root"):
+		cmd = self._build_useradd()
+		if not self.target.runOrFail(cmd, user = "root"):
 			self.target.logFailure("useradd %s failed" % self.login)
 			return False
 
@@ -188,6 +199,25 @@ class UserResource(Resource):
 				self._groups = res.split()
 		return self._groups
 
+	@property
+	def home(self):
+		if self._home is None:
+			self._home = self._run_and_capture("echo $HOME")
+		return self._home
+
+	def _build_useradd(self):
+		useradd = ["useradd", "--create-home"]
+		if not self.encrypted_password and self.password is not None:
+			import crypt
+
+			self.encrypted_password = crypt.crypt(self.password, crypt.METHOD_SHA256)
+		if self.encrypted_password:
+			useradd.append("--password")
+			useradd.append("'%s'" % self.encrypted_password)
+		useradd.append(self.login)
+
+		return " ".join(useradd)
+
 	def _run_and_capture(self, cmd):
 		status = self.target.run(cmd, quiet = True, user = self.login, stdout = bytearray())
 		print("%s: status=%s (%s)" % (cmd, status, bool(status)))
@@ -204,6 +234,8 @@ class UserResource(Resource):
 class TestUserResource(UserResource):
 	name = "test-user"
 	login = "testuser"
+	password  = "test"
+	# encrypted_password = "$5$yWwV1dmWR7IqeEqm$sjrbgv7HiNp/19Nzlac5L5dxySAqLW9iqgZQDjpc8V7"
 
 	def acquire(self, driver):
 		node = self.target
