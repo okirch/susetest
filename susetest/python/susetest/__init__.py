@@ -416,26 +416,13 @@ class Target(twopence.Target):
 
 		return status
 
-	def run(self, cmd, **kwargs):
-		fail_on_error = 0
-		if 'fail_on_error' in kwargs:
-			fail_on_error = kwargs['fail_on_error']
-			del kwargs['fail_on_error']
-
-		# Workaround for a twopence problem
-		if 'timeout' in kwargs:
-			if kwargs['timeout'] < 0:
-				del kwargs['timeout']
-
+	# Build/update twopence.Command instance using the kwargs dict provided
+	def _buildCommand(self, cmd, **kwargs):
 		if not isinstance(cmd, twopence.Command):
 			cmd = twopence.Command(cmd, **kwargs)
 		elif kwargs is not None:
 			for key, value in kwargs.items():
-				if key == "suppressOutput" and value:
-					# argh, crappy interface - we need to fix this pronto
-					cmd.suppressOutput()
-				else:
-					setattr(cmd, key, value)
+				setattr(cmd, key, value)
 
 		if not(cmd.user) and self.defaultUser:
 			cmd.user = self.defaultUser
@@ -455,9 +442,18 @@ class Target(twopence.Target):
 
 		self.journal.info(self.name + ": " + cmd.commandline + info)
 
-		# FIXME: we should catch commands that have the background
-		# flag set. Right now, we can't because the attribute
-		# isn't implemented in the python twopence extension yet.
+		return cmd
+
+
+	def run(self, cmd, fail_on_error = False, **kwargs):
+		# I don't remember what this was for. Probably no longer valid
+		if False:
+			# Workaround for a twopence problem
+			if 'timeout' in kwargs:
+				if kwargs['timeout'] < 0:
+					del kwargs['timeout']
+
+		cmd = self._buildCommand(cmd, **kwargs)
 
 		status = self._run(cmd)
 
@@ -483,8 +479,11 @@ class Target(twopence.Target):
 		return status
 
 	def runOrFail(self, cmd, **kwargs):
-		kwargs['fail_on_error'] = 1;
-		return self.run(cmd, **kwargs)
+		return self.run(cmd, fail_on_error = True, **kwargs)
+
+	def chat(self, cmd, **kwargs):
+		cmd = self._buildCommand(cmd, **kwargs)
+		return super().chat(cmd)
 
 	def runBackground(self, cmd, **kwargs):
 		kwargs['background'] = 1;
