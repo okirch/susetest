@@ -48,7 +48,7 @@ class SELinuxMessageFilter(MessageFilter):
 	def _match(self, m, target):
 		violation = self.parseViolation(m.message)
 
-		if violation and violation.tclass not in ('dir', 'file', 'udp_socket'):
+		if violation and violation.tclass not in ('dir', 'file', 'chr_file', 'udp_socket'):
 			target.logInfo("parsed unknown SELinux violation tclass=%s (%s)" % (
 					violation.tclass, dir(violation)))
 			violation = None
@@ -63,7 +63,8 @@ class SELinuxMessageFilter(MessageFilter):
 			target.logInfo("SELinux policy violation by %s (pid=%s; context=%s)" % (
 						violation.comm, violation.pid, violation.scontext))
 
-		if violation.tclass in ('dir', 'file'):
+		# ioctls will also have ioctlcmd=0xNNNN
+		if violation.tclass in ('dir', 'file', 'chr_file'):
 			target.logInfo("    %s access to %s %s (dev=%s; ino=%s; context=%s)" % (
 						violation.op,
 						violation.tclass,

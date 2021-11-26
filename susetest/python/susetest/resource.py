@@ -220,7 +220,6 @@ class UserResource(Resource):
 
 	def _run_and_capture(self, cmd):
 		status = self.target.run(cmd, quiet = True, user = self.login, stdout = bytearray())
-		print("%s: status=%s (%s)" % (cmd, status, bool(status)))
 		if not status:
 			return None
 
