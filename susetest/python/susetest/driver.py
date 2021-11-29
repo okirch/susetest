@@ -36,8 +36,6 @@ class Group:
 			self._active = False
 
 class Driver:
-	_RESOURCE_TYPES = None
-
 	def __init__(self, name = None, config_path = None):
 		self.name = name
 		self.config_path = config_path
@@ -45,7 +43,7 @@ class Driver:
 		self._config = None
 		self._caller_frame = inspect.stack()[-1]
 
-		self._global_resources = ResourceGroup()
+		self._resource_inventory = ResourceInventory()
 		self._resource_assertions = []
 		self._resource_cleanups = []
 
@@ -75,10 +73,6 @@ class Driver:
 		susetest.say("=== Created TestDriver(%s) ===" % self.name)
 
 		self._context = self._caller_frame.frame.f_globals
-		if self._RESOURCE_TYPES is None:
-			self._RESOURCE_TYPES = {}
-			self._define_resources(susetest.resource.__dict__)
-			self._define_resources(self._context, verbose = True)
 
 	def __del__(self):
 		self._close_journal()
@@ -86,27 +80,6 @@ class Driver:
 	def say(self, msg):
 		print(msg)
 		sys.stdout.flush()
-
-	def _define_resources(self, ctx, verbose = False):
-		for klass in self._find_classes(ctx, Resource, "name"):
-			if verbose:
-				susetest.say("Define resource %s = %s" % (klass.name, klass.__name__))
-			self._RESOURCE_TYPES[klass.name] = klass
-
-	@classmethod
-	def _find_classes(selfKlass, ctx, baseKlass, required_attr = None):
-		class_type = type(Driver)
-
-		result = []
-		for thing in ctx.values():
-			if type(thing) is not class_type or not issubclass(thing, baseKlass):
-				continue
-
-			if required_attr and not hasattr(thing, required_attr):
-				continue
-
-			result.append(thing)
-		return result
 
 	@property
 	def config(self):
@@ -174,19 +147,9 @@ class Driver:
 
 	def _requireResourceForNodes(self, type_name, node_list, state = Resource.STATE_ACTIVE,
 				mandatory = False, temporary = False):
-		resourceKlass = self._RESOURCE_TYPES.get(type_name)
-		if resourceKlass is None:
-			raise KeyError("Unknown resource type \"%s\"" % type_name)
-
 		result = []
 		for node in node_list:
-			res = self._global_resources.get(node, type_name)
-			if res is None:
-				res = resourceKlass(node)
-				self._global_resources.add(res)
-				susetest.say("%s: created a %s resource" % (node.name, type_name))
-
-				node.addResource(res)
+			res = self._resource_inventory.get(node, type_name, create = True)
 
 			ares = ResourceAssertion(res, state, mandatory)
 			self._resource_assertions.append(ares)

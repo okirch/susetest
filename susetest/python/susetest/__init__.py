@@ -56,11 +56,15 @@ def group_resource(f):
 	return wrapper
 
 def requireResource(*args, **kwargs):
-# resourceName, nodeName = None):
 	TestDefinition.requireResource(*args, **kwargs)
 
 def optionalResource(*args, **kwargs):
 	TestDefinition.optionalResource(*args, **kwargs)
+
+# susetest.resource decorator
+def resource(klass):
+	TestDefinition.defineResource(klass)
+	return klass
 
 # susetest.setup decorator
 def setup(f):

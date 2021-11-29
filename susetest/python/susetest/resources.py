@@ -469,14 +469,13 @@ class JournalResource(Resource):
 
 		return bool(st)
 
-class ResourceGroup:
-	def __init__(self, parent = None):
+##################################################################
+# Global resource inventory
+##################################################################
+class ResourceInventory:
+	def __init__(self):
+		self.registry = resourceRegistry()
 		self.resources = []
-
-		self.inherited = {}
-		if parent:
-			self.inherited.update(parent.inherited)
-			self.inherited.update(parent.resources)
 
 	def __contains__(self, res):
 		for rover in self.resources:
@@ -484,12 +483,25 @@ class ResourceGroup:
 				return True
 		return False
 
-	def get(self, node, res_name):
+	def get(self, node, type_name, create = False):
 		for res in self.resources:
-			if res.target == node and res.name == res_name:
+			if res.target == node and res.name == type_name:
 				return res
 
-		return None
+		if not create:
+			return None
+
+		resourceKlass = self.registry.get(type_name)
+		if resourceKlass is None:
+			raise KeyError("Unknown resource type \"%s\"" % type_name)
+
+		res = resourceKlass(node)
+
+		self.resources.append(res)
+		node.addResource(res)
+
+		susetest.say("%s: created a %s resource" % (node.name, type_name))
+		return res
 
 	def add(self, res):
 		if res in self:
@@ -505,3 +517,47 @@ class ResourceAssertion:
 		self.mandatory = mandatory
 		self.temporary = temporary
 
+##################################################################
+# Global registry of resource types
+##################################################################
+class ResourceRegistrySingleton:
+	_instance = None
+
+	def __init__(self):
+		self._types = {}
+
+		# Find all Resource classes defined in this module
+		self.findResources(globals())
+
+		# self.findResources(susetest.othermodule.__dict__)
+
+	def get(self, name):
+		return self._types.get(name)
+
+	def defineResource(self, klass, verbose = False):
+		if verbose:
+			susetest.say("Define resource %s = %s" % (klass.name, klass.__name__))
+		self._types[klass.name] = klass
+
+	def findResources(self, ctx, verbose = False):
+		for klass in self._find_classes(ctx, Resource, "name"):
+			self.defineResource(klass, verbose)
+
+	def _find_classes(self, ctx, baseKlass, required_attr = None):
+		class_type = type(self.__class__)
+
+		result = []
+		for thing in ctx.values():
+			if type(thing) is not class_type or not issubclass(thing, baseKlass):
+				continue
+
+			if required_attr and not hasattr(thing, required_attr):
+				continue
+
+			result.append(thing)
+		return result
+
+def resourceRegistry():
+	if ResourceRegistrySingleton._instance is None:
+		ResourceRegistrySingleton._instance = ResourceRegistrySingleton()
+	return ResourceRegistrySingleton._instance
