@@ -450,7 +450,7 @@ class JournalResource(Resource):
 		# We should really make this a systemd unit
 		import twopence
 
-		self.target.logInfo("%s: starting journal processor" % self.target.name)
+		self.target.logInfo("starting journal processor")
 		self.target._run("twopence_journal --mode server --background", quiet = True)
 
 		driver.addPostTestHook(self.processMessages)
@@ -463,7 +463,7 @@ class JournalResource(Resource):
 	def processMessages(self, quiet = False):
 		import twopence
 
-		self.target.logInfo("%s: querying journal processor" % self.target.name)
+		self.target.logInfo("querying journal processor")
 		cmd = twopence.Command("twopence_journal", stdout = bytearray(), quiet = True)
 		st = self.target._run(cmd)
 
@@ -524,19 +524,50 @@ class ResourceInventory:
 		susetest.say("%s: created a %s resource" % (node.name, type_name))
 		return res
 
-	def add(self, res):
-		if res in self:
-			print("%s: ignoring duplicate definition of resources %s" % (res.target.name, res.name))
-			return
-
-		self.resources.append(res)
-
 class ResourceAssertion:
 	def __init__(self, res, state, mandatory, temporary = False):
 		self.resource = res
 		self.state = state
 		self.mandatory = mandatory
 		self.temporary = temporary
+
+		if state == Resource.STATE_ACTIVE:
+			self.verb = "activate"
+			self.fn = res.acquire
+		elif state == Resource.STATE_INACTIVE:
+			self.verb = "deactivate"
+			self.fn = res.release
+		else:
+			raise ValueError("%s: unexpected state %d in assertion for resource %s" % (
+					res.target.name, state, res.name))
+
+	def __str__(self):
+		return "%s(%s %s)" % (self.__class__.__name__, self.verb, self.resource)
+
+	def perform(self, driver):
+		res = self.resource
+		node = res.target
+
+		if not res.is_present:
+			if self.mandatory:
+				node.logError("mandatory resource %s not present" % res.name)
+				return False
+
+			node.logInfo("optional resource %s not present" % res.name)
+			return True
+
+		if res.state == self.state:
+			return True
+
+		susetest.say("about to %s resource %s" % (self.verb, res))
+		ok = self.fn(driver)
+
+		if ok:
+			res.state = self.state
+		else:
+			node.logError("unable to %s resource %s" % verb, res.name)
+
+		return ok
 
 ##################################################################
 # Global registry of resource types
@@ -582,3 +613,106 @@ def resourceRegistry():
 	if ResourceRegistrySingleton._instance is None:
 		ResourceRegistrySingleton._instance = ResourceRegistrySingleton()
 	return ResourceRegistrySingleton._instance
+
+##################################################################
+# Keep track of desired state of resources
+##################################################################
+class ResourceManager:
+	def __init__(self, driver):
+		self.driver = driver
+
+		self.inventory = ResourceInventory()
+
+		self._assertions = []
+		self._cleanups = {}
+
+		self._plugged = True
+
+	def getResource(self, *args, **kwargs):
+		return self.inventory.get(*args, **kwargs)
+
+	@property
+	def pending(self):
+		return bool(self._assertions)
+
+	@property
+	def pendingCleanups(self):
+		return bool(self._cleanups)
+
+	def acquire(self, res, mandatory, **kwargs):
+		self.requestState(res, Resource.STATE_ACTIVE, mandatory, **kwargs)
+
+	def release(self, res, mandatory, **kwargs):
+		self.requestState(res, Resource.STATE_INACTIVE, mandatory, **kwargs)
+
+	def requestState(self, res, state, mandatory, defer = False):
+		assertion = ResourceAssertion(res, state, mandatory)
+
+		# If we're outside a test group, we do not evaluate the assertion right away
+		# but defer it until we do the beginGroup().
+		#
+		# Else evaluate them right away.
+		if self._plugged or defer:
+			self._assertions.append(assertion)
+		else:
+			assertion.perform(self.driver)
+
+	def plug(self):
+		self._plugged = True
+
+	def unplug(self):
+		self._plugged = False
+		if self._assertions:
+			self.performDeferredChanges()
+
+	def performDeferredChanges(self):
+		if self._plugged:
+			susetest.say("%s: refusing to perform deferred resource changes while plugged" % self.__class__.__name__)
+			return True
+
+		cool = True
+
+		while cool and self._assertions:
+			deferred = self._assertions
+			self._assertions = []
+
+			if False:
+				if deferred:
+					susetest.say("performing %d deferred resource changes" % len(deferred))
+					for assertion in deferred:
+						susetest.say("  %s" % assertion)
+
+			self._plugged = True
+
+			for assertion in deferred:
+				if assertion.temporary:
+					self.requestCleanup(res)
+
+				if not assertion.perform(self.driver):
+					cool = False
+
+			self._plugged = False
+
+		return cool
+
+	def requestCleanup(self, res):
+		if res in self._cleanups:
+			return
+
+		assertion = ResourceAssertion(res, res.state, mandatory = False)
+		self._cleanups[res] = assertion
+
+	def cleanup(self):
+		cleanups = self._cleanups.values()
+		self.zapCleanups()
+
+		for assertion in cleanups:
+			# self._perform_resource_assertion(assertion)
+			susetest.say("Ignoring cleanup of %s" % assertion)
+
+	def zapPending(self):
+		susetest.say("zapping pending assertions")
+		self._assertions = []
+
+	def zapCleanups(self):
+		self._cleanups = {}

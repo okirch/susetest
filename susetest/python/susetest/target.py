@@ -20,7 +20,7 @@ IPADDR="@IPADDR@"
 '''
 
 class Target(twopence.Target):
-	def __init__(self, name, node_config, journal = None):
+	def __init__(self, name, node_config, journal = None, resource_manager = None):
 		spec = node_config.get_value("target")
 		if spec is None:
 			raise ValueError("Cannot connect to node %s: config doesn't specify a target" % name)
@@ -29,6 +29,7 @@ class Target(twopence.Target):
 
 		self.node_config = node_config
 		self.journal = journal
+		self.resourceManager = resource_manager
 
 		# backward compat cruft
 		if self.journal is None:
@@ -137,6 +138,26 @@ class Target(twopence.Target):
 
 	def addResource(self, resource):
 		self._resources[resource.name] = resource
+
+	def requireResource(self, resourceName, **stateArgs):
+		return self._requestResource(resourceName, mandatory = True, **stateArgs)
+
+	def optionalResource(self, resourceName, **stateArgs):
+		return self._requestResource(resourceName, mandatory = False, **stateArgs)
+
+	def _requestResource(self, resourceName, **stateArgs):
+		if not self.resourceManager:
+			return None
+
+		if 'mandatory' not in stateArgs:
+			stateArgs['mandatory'] = False
+
+		res = self.resourceManager.getResource(self, resourceName, create = True)
+		self.resourceManager.acquire(res, **stateArgs)
+
+		self.addResource(res)
+
+		return res
 
 	@property
 	def resources(self):

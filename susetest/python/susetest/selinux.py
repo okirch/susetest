@@ -14,6 +14,7 @@
 #
 ##################################################################
 from susetest.resources import MessageFilter
+import susetest
 
 # Typical SELinux message:
 # audit: type=1400 audit(1637744082.879:4): \
@@ -118,5 +119,9 @@ class SELinuxMessageFilter(MessageFilter):
 # Acquire the journal monitoring resource, and install a
 # message filter that checks for SELinux related kernel messages
 def enableFeature(driver, node):
-	for resource in driver._requireResourceForNodes("journal", [node]):
-		resource.addFilter(SELinuxMessageFilter())
+	resource = node.requireResource("journal", defer = True)
+
+	resource.addFilter(SELinuxMessageFilter())
+	susetest.say("%s: installed SELinux filter" % resource)
+
+	driver.performDeferredResourceChanges()

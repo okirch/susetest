@@ -39,7 +39,9 @@ class Name:
 		if any(not Name._re.match(_) for _ in words):
 			return None
 
-		return Name(*words)
+		if len(words) == 2:
+			return Name(*words)
+		return Name(case = words[0])
 
 	def __str__(self):
 		return "Name(group = %s, case = %s)" % (self.group, self.case)
@@ -69,6 +71,7 @@ class TestCaseDefinition(TestCase):
 		if m is not None:
 			n = Name.parse(m.group(1))
 			if n:
+				# susetest.say("found name %s" % n)
 				self.group = n.group
 				self.name = n.case
 				self.description = m.group(2)
@@ -355,8 +358,20 @@ class TestDefinition:
 
 			driver.beginGroup(group.name)
 
+			# Note: there is one significant difference in the way
+			# setup works at the driver level (above) vs at the test group
+			# level. At the driver level, we queue up the list of required
+			# resources, and then perform the resource changes in one go.
+			#
+			# When calling user-defined functions, this is probably a bit
+			# counter-intuitive, which is why in this case, we execute
+			# these changes as they are issued by the user.
 			if group.setup:
+				driver.beginTest("setup-resources", group.setup.__doc__)
 				group.setup(driver)
+				driver.endTest()
+
+				# FIXME: error out when setup fails
 
 			for test in group.tests:
 				if test.skip:

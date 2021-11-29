@@ -11,7 +11,7 @@ import os
 import curly
 import sys
 
-from .resources import Resource, ResourceAssertion, ResourceInventory
+from .resources import Resource, ResourceManager
 import susetest
 
 class Group:
@@ -43,9 +43,7 @@ class Driver:
 		self._config = None
 		self._caller_frame = inspect.stack()[-1]
 
-		self._resource_inventory = ResourceInventory()
-		self._resource_assertions = []
-		self._resource_cleanups = []
+		self.resourceManager = ResourceManager(self)
 
 		self._current_group = None
 		self._setup_complete = False
@@ -113,70 +111,33 @@ class Driver:
 	#	If not specified, the resource is created for all nodes
 	#  temporary (bool): if set to true, the resource is released
 	#	when the test group completes
-	def requireResource(self, type_name, node_name = None, **kwargs):
-		return self._requireResource(type_name, node_name, mandatory = True, **kwargs)
+	#  defer (bool): do not make the requested resource change
+	#	right away, even if we're in the middle of executing a
+	#	test. Instead, defer the change until the user calls
+	#	performDeferredResourceChanges()
+	def requireResource(self, type_name, node_name = None, **stateArgs):
+		return self._requireResource(type_name, node_name, mandatory = True, **stateArgs)
 
-	def optionalResource(self, type_name, node_name = None, **kwargs):
-		return self._requireResource(type_name, node_name, mandatory = False, **kwargs)
+	def optionalResource(self, type_name, node_name = None, **stateArgs):
+		return self._requireResource(type_name, node_name, mandatory = False, **stateArgs)
 
-	def _requireResource(self, type_name, node_name = None,
-				state = Resource.STATE_ACTIVE,
-				**kwargs):
-		node_list = []
+	def _requireResource(self, type_name, node_name = None, **stateArgs):
 		if node_name is None:
-			# require this for all nodes
-			node_list = self.targets
+			result = []
+			for node in self.targets:
+				res = node._requestResource(type_name, **stateArgs)
+				result.append(res)
+			return result
 		else:
 			node = self._targets.get(node_name)
 			if node is None:
 				raise KeyError("Unknown node \"%s\"" % node_name)
-			node_list = [node]
+			result = node._requestResource(type_name, **stateArgs)
 
-		res_list = self._requireResourceForNodes(type_name, node_list, state, **kwargs)
-
-		# If we're outside a test group, do not evaluate the assertion right away
-		# but defer it until we do the beginGroup().
-		# Else evaluate them right away.
-		if self._current_group:
-			self._perform_deferred_resource_assertions()
-
-		if node_name:
-			return res_list[0]
-
-		return res_list
-
-	def _requireResourceForNodes(self, type_name, node_list, state = Resource.STATE_ACTIVE,
-				mandatory = False, temporary = False):
-		result = []
-		for node in node_list:
-			res = self._resource_inventory.get(node, type_name, create = True)
-
-			ares = ResourceAssertion(res, state, mandatory)
-			self._resource_assertions.append(ares)
-
-			result.append(res)
-
-		# Return the list of resources
 		return result
 
-	def _perform_deferred_resource_assertions(self):
-		deferred = self._resource_assertions
-		self._resource_assertions = []
-
-		cool = True
-		for assertion in deferred:
-			if not self._perform_resource_assertion(assertion):
-				cool = False
-
-		return cool
-
-	def _perform_resource_cleanups(self):
-		cleanups = self._resource_cleanups
-		self._resource_cleanups = []
-
-		for assertion in cleanups:
-			# self._perform_resource_assertion(assertion)
-			susetest.say("Ignoring cleanup of %s" % assertion)
+	def performDeferredResourceChanges(self):
+		return self.resourceManager.performDeferredChanges()
 
 	def enableFeature(self, node, feature):
 		# ignore duplicates
@@ -187,14 +148,11 @@ class Driver:
 			import susetest.selinux
 
 			susetest.selinux.enableFeature(self, node)
-
-			if self._current_group:
-				self._perform_deferred_resource_assertions()
 		else:
 			susetest.say("WARNING: test run requests unsupported feature %s" % feature)
 			return
 
-		node.logInfo("enabled feature %s" % feature)
+		susetest.say("%s: enabled feature %s" % (node.name, feature))
 		node.enabledFeature(feature)
 
 	@property
@@ -217,18 +175,20 @@ class Driver:
 		# Any resources that were brought up at this stage
 		# shall not be cleaned up automatically when done with this
 		# group (which is the default otherwise)
-		self._resource_cleanups = []
+		self.resourceManager.zapCleanups()
 
 		self.info("Setup complete")
+		self.info("")
+
 		self.endGroup()
 
 		self._setup_complete = True
 
 	def beginGroup(self, name):
 		if not self._beginGroup(name):
-			if self._resource_cleanups:
+			if self.resourceManager.pendingCleanups:
 				susetest.say("resource setup failed; cleaning up")
-				self._perform_resource_cleanups()
+				self.resourceManager.cleanup()
 
 			susetest.say("Skipping group %s" % name)
 			return False
@@ -242,10 +202,16 @@ class Driver:
 		self._current_group = Group(name, self.journal)
 		self._current_group.begin()
 
-		if self._resource_assertions:
+		# If we have pending resource activations, start
+		# a test cases for these specifically. Without an
+		# active test case, most of the logging would otherwise
+		# go to the bit bucket.
+		if self.resourceManager.pending:
 			self.journal.beginTest("setup-resources")
-			if not self._perform_deferred_resource_assertions():
-				return False
+
+		# Perform any postponed resource changes,
+		# allow future resource changes to be executed right away
+		self.resourceManager.unplug()
 
 		return True
 
@@ -255,15 +221,16 @@ class Driver:
 		if self._current_group is not None:
 			if not self._setup_complete:
 				# We're done executing the setup stage
-				self._resource_cleanups = []
+				self.resourceManager.zapCleanups()
 				self._setup_complete = True
 
-			self._perform_resource_cleanups()
+			self.resourceManager.cleanup()
 
 			self._current_group.end()
 			self._current_group = None
 
-			self._resource_assertions = []
+			self.resourceManager.plug()
+			# self.resourceManager.zapPending()
 
 	def beginTest(self, *args, **kwargs):
 		self.endTest()
@@ -278,40 +245,6 @@ class Driver:
 			# not do anything.
 			self.journal.success()
 			self._in_test_case = False
-
-	def _perform_resource_assertion(self, assertion):
-		res = assertion.resource
-		node = res.target
-
-		if not res.is_present:
-			if assertion.mandatory:
-				self.testFailure("%s: mandatory resource %s not present" % (node.name, res.name))
-				return False
-
-			self.info("%s: optional resource %s not present" % (node.name, res.name))
-			return True
-
-		if res.state == assertion.state:
-			return True
-
-		if assertion.temporary:
-			self._resource_cleanups.append(ResourceAssertion(res, res.state, mandatory = False))
-
-		if assertion.state == Resource.STATE_ACTIVE:
-			verb = "activate"
-			ok = res.acquire(self)
-		elif assertion.state == Resource.STATE_INACTIVE:
-			verb = "deactivate"
-			ok = res.release(self)
-		else:
-			raise ValueError("%s: unexpected state %d in assertion for resource %s" % (node.name,
-					assertion.state, res.name))
-
-		if ok:
-			res.state = assertion.state
-		else:
-			self.testFailure("%s: unable to %s resource %s" % (node.name, verb, res.name))
-		return ok
 
 	def load_config(self):
 		if self._config is not None:
@@ -346,9 +279,13 @@ class Driver:
 
 		for name in tree.get_children("node"):
 			target_config = tree.get_child("node", name)
-			target = susetest.Target(name, target_config, self.journal)
+			target = susetest.Target(name, target_config,
+						journal = self.journal,
+						resource_manager = self.resourceManager)
 			self._targets[name] = target
 			setattr(self, name, target)
+
+			# FIXME: target wants a pointer to the resource manager, too
 
 		# Require test-user resource for all nodes
 		self.requireResource("test-user")
