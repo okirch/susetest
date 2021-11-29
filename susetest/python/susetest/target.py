@@ -340,6 +340,35 @@ class Target(twopence.Target):
 		cmd = self._buildCommand(cmd, **kwargs)
 		return super().chat(cmd)
 
+	def runChatScript(self, cmd, chat_script, **kwargs):
+		chat = self.chat(cmd, **kwargs)
+
+		for expect, send in chat_script:
+			susetest.say("Waiting for \"%s\"" % expect)
+			if not chat.expect(expect):
+				self.logFailure("Timed out waiting for prompt")
+				self.logInfo("consumed: %s" % chat.consumed)
+				st = chat.wait()
+				print(st)
+				print(st.stdout)
+				return
+
+			self.logInfo("consumed: %s" % chat.consumed)
+			self.logInfo("found prompt: \"%s\"" % chat.found)
+
+			if True:
+				import time
+
+				time.sleep(1)
+
+			self.logInfo("Sending response \"%s\"" % send)
+			chat.send(send + "\r")
+
+		susetest.say("Done with chat script, collecting command status")
+		st = chat.wait()
+
+		return st
+
 	def runBackground(self, cmd, **kwargs):
 		kwargs['background'] = 1;
 		return self.run(cmd, **kwargs)
