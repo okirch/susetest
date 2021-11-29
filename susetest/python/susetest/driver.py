@@ -43,7 +43,7 @@ class Driver:
 		self.config_path = config_path
 
 		self._config = None
-		self._caller_frame = inspect.stack()[1]
+		self._caller_frame = inspect.stack()[-1]
 
 		self._global_resources = ResourceGroup()
 		self._resource_assertions = []
@@ -74,8 +74,7 @@ class Driver:
 
 		susetest.say("=== Created TestDriver(%s) ===" % self.name)
 
-		self._context = inspect.stack()[1][0].f_globals
-
+		self._context = self._caller_frame.frame.f_globals
 		if self._RESOURCE_TYPES is None:
 			self._RESOURCE_TYPES = {}
 			self._define_resources(susetest.resource.__dict__)
