@@ -571,7 +571,7 @@ class ResourceAssertion:
 		if ok:
 			res.state = self.state
 		else:
-			node.logError("unable to %s resource %s" % verb, res.name)
+			node.logError("unable to %s resource %s" % (self.verb, res.name))
 
 		return ok
 

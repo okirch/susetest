@@ -238,12 +238,23 @@ class Driver:
 		self.journal.beginTest(*args, **kwargs)
 		self._in_test_case = True
 
+
+	def skipTest(self, *args, **kwargs):
+		self.beginTest(*args, **kwargs)
+
+		# mark the test as being skipped
+		self.journal.skipped()
+
+		self._in_test_case = False
+
 	def endTest(self):
 		if self._in_test_case:
 			self.runPostTestHooks()
+
 			# If the test failed or errored, the following call to success() will
 			# not do anything.
-			self.journal.success()
+			if self.journal.status == "running":
+				self.journal.success()
 			self._in_test_case = False
 
 	def load_config(self):

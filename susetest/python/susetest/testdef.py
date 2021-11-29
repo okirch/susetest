@@ -186,7 +186,7 @@ class TestsuiteInfo:
 
 		tc = TestCaseDefinition(f)
 
-		print("Defined test case %s" % tc)
+		# print("Defined test case %s" % tc)
 		self.createGroup(tc.group).add(tc)
 
 	class Found:
@@ -352,11 +352,11 @@ class TestDefinition:
 			driver.setup()
 
 		for group in suite.groups:
-			if group.skip:
-				susetest.say("Skipping group %s" % group.name)
-				continue
+			skipping = group.skip
 
 			driver.beginGroup(group.name)
+			if skipping:
+				susetest.say("\nSkipping group %s" % group.name)
 
 			# Note: there is one significant difference in the way
 			# setup works at the driver level (above) vs at the test group
@@ -367,6 +367,10 @@ class TestDefinition:
 			# counter-intuitive, which is why in this case, we execute
 			# these changes as they are issued by the user.
 			if group.setup:
+				if skipping:
+					driver.skipTest("setup-resources", group.setup.__doc__)
+					continue
+
 				driver.beginTest("setup-resources", group.setup.__doc__)
 				group.setup(driver)
 				driver.endTest()
@@ -374,8 +378,8 @@ class TestDefinition:
 				# FIXME: error out when setup fails
 
 			for test in group.tests:
-				if test.skip:
-					susetest.say("Skipping test %s" % test.name)
+				if skipping or test.skip:
+					driver.skipTest(test.name, test.description)
 					continue
 
 				driver.beginTest(test.name, test.description)
