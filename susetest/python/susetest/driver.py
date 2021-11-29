@@ -11,7 +11,7 @@ import os
 import curly
 import sys
 
-from .resource import Resource, ResourceGroup, ResourceAssertion
+from .resources import Resource, ResourceAssertion, ResourceInventory
 import susetest
 
 class Group:

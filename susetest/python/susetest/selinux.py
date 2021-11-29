@@ -13,7 +13,7 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from susetest.resource import MessageFilter
+from susetest.resources import MessageFilter
 
 # Typical SELinux message:
 # audit: type=1400 audit(1637744082.879:4): \
