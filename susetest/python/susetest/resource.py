@@ -289,7 +289,15 @@ class ExecutableResource(Resource):
 	def run(self, *args, **kwargs):
 		assert(self.path)
 
-		if self._default_user:
+		if self._default_user and 'user' not in kwargs:
+			kwargs['user'] = self._default_user
+
+		return self.target.run("%s %s" % (self.path, " ".join(args)), **kwargs)
+
+	def runOrFail(self, *args, **kwargs):
+		assert(self.path)
+
+		if self._default_user and 'user' not in kwargs:
 			kwargs['user'] = self._default_user
 
 		return self.target.runOrFail("%s %s" % (self.path, " ".join(args)), **kwargs)
