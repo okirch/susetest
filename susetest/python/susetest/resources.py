@@ -283,14 +283,13 @@ class ExecutableResource(Resource):
 		return "executable(%s)" % self.name
 
 	def acquire(self, driver):
+		executable = self.executable or self.name
 		node = self.target
 
-		executable = self.executable or self.name
-		for bindir in self.PATH.split(':'):
-			if not bindir:
-				continue
-			path = os.path.join(bindir, executable)
-			if node.run("/usr/bin/test -f %s" % path):
+		st = node.run("type -p %s" % executable, environ = { "PATH": self.PATH }, stdout = bytearray())
+		if st and st.stdout:
+			path = st.stdoutString.strip()
+			if path:
 				node.logInfo("Located executable %s at %s" % (executable, path))
 				self.path = path
 				return True
