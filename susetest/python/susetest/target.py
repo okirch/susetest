@@ -293,7 +293,7 @@ class Target(twopence.Target):
 		return status
 
 	# Build/update twopence.Command instance using the kwargs dict provided
-	def _buildCommand(self, cmd, **kwargs):
+	def _buildCommand(self, cmd, environ = None, **kwargs):
 		if not isinstance(cmd, twopence.Command):
 			cmd = twopence.Command(cmd, **kwargs)
 		elif kwargs is not None:
@@ -303,13 +303,21 @@ class Target(twopence.Target):
 		if not(cmd.user) and self.defaultUser:
 			cmd.user = self.defaultUser
 
+		if environ:
+			for name, value in environ.items():
+				cmd.setenv(name, value)
+
 		info = []
 		if cmd.user:
 			info.append("user=%s" % cmd.user)
-		if cmd.timeout:
+		if cmd.timeout != 60:
 			info.append("timeout=%d" % cmd.timeout)
 		if cmd.background:
 			info.append("background")
+
+		env = cmd.environ
+		if env:
+			info += [("%s=\"%s\"" % kv) for kv in env]
 
 		if info:
 			info = "; " + ", ".join(info)
