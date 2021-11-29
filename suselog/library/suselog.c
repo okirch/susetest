@@ -47,6 +47,8 @@ static int		__suselog_test_running(const suselog_journal_t *journal);
 static void		__suselog_test_log_extra(suselog_test_t *, suselog_severity_t, const char *);
 static void		__suselog_test_log_output(suselog_test_t *, suselog_severity_t, const char *, size_t len);
 static const char *	__suselog_test_fullname(const suselog_journal_t *, const suselog_group_t *, const suselog_test_t *);
+static void		__suselog_test_flush(suselog_journal_t *journal);
+static bool		__suselog_test_result_transition_okay(unsigned int from, unsigned int to);
 static void		suselog_common_init(suselog_common_t *, const char *, const char *);
 static void		suselog_common_destroy(suselog_common_t *);
 static void		suselog_common_update_duration(suselog_common_t *);
@@ -473,6 +475,10 @@ suselog_group_finish(suselog_journal_t *journal)
 
 	if (__suselog_test_running(journal))
 		suselog_test_finish(journal, SUSELOG_STATUS_SUCCESS);
+
+	/* Flush out status of previous test, if any */
+	__suselog_test_flush(journal);
+
 	if ((group = journal->current.group) != NULL) {
 		suselog_stats_aggregate(&journal->stats, &group->stats);
 		suselog_common_update_duration(&group->common);
@@ -507,6 +513,9 @@ suselog_test_begin(suselog_journal_t *journal, const char *name, const char *des
 	suselog_group_t *group;
 	suselog_test_t *test;
 	char longname[256];
+
+	/* Flush out status of previous test, if any */
+	__suselog_test_flush(journal);
 
 	if ((group = journal->current.group) == NULL)
 		group = suselog_group_begin(journal, NULL, NULL);
@@ -610,32 +619,72 @@ __suselog_test_fullname(const suselog_journal_t *journal, const suselog_group_t 
 	return namebuf;
 }
 
+/*
+ * Calling this function suselog_test_finish() is a bit of a misnomer.
+ * It happens time and again that we call this function more than one,
+ * for good or bad reasons.
+ * In this case, we should do something that's kind of sane.
+ */
 void
 suselog_test_finish(suselog_journal_t *journal, suselog_status_t status)
 {
 	suselog_test_t *test;
 
 	if ((test = journal->current.test) != NULL) {
-		if (test->status == SUSELOG_STATUS_RUNNING
-		 || test->status == status) {
-			suselog_group_t *group = suselog_current_group(journal);
-
-			suselog_common_update_duration(&test->common);
-
-			if (test->status == SUSELOG_STATUS_RUNNING)
-				suselog_stats_update(&group->stats, status);
+		if (__suselog_test_result_transition_okay(test->status, status)) {
 			test->status = status;
-
-			/* Write to stdout */
-			suselog_writer_end_test(journal, test);
-		} else
-		if (test->status == SUSELOG_STATUS_ERROR && status == SUSELOG_STATUS_FAILURE) {
-			/* Something flagged an error earlier, and down the road something
-			 * else wants to flag a failure. Silently ignore this case. */
 		} else {
 			suselog_warning(journal, "conflicting test stati - %u vs %u",
 					test->status, status);
 		}
+	}
+}
+
+/* Check whether a running test is allowed to change its status from on state
+ * to another.
+ *
+ * We're okay to turn SUCCESS into FAILURE, or FAILURE into ERROR,
+ * but never the other way round.
+ */
+static bool
+__suselog_test_result_transition_okay(unsigned int from, unsigned int to)
+{
+#define BIT(s)	(1 << (s))
+	static unsigned int	transition[__SUSELOG_STATUS_MAX] = {
+		[SUSELOG_STATUS_RUNNING] = ~0U,
+		[SUSELOG_STATUS_SUCCESS] = BIT(SUSELOG_STATUS_FAILURE) | BIT(SUSELOG_STATUS_ERROR),
+		[SUSELOG_STATUS_FAILURE] = BIT(SUSELOG_STATUS_ERROR),
+		[SUSELOG_STATUS_ERROR]   = 0,
+		[SUSELOG_STATUS_SKIPPED] = 0,
+	};
+
+	if (from >= __SUSELOG_STATUS_MAX)
+		return false;
+
+	if (from == to)
+		return true;
+
+	return !!(transition[from] % BIT(to));
+#undef BIT
+}
+
+static void
+__suselog_test_flush(suselog_journal_t *journal)
+{
+	suselog_test_t *test;
+
+	if ((test = journal->current.test) != NULL) {
+		suselog_group_t *group = suselog_current_group(journal);
+
+		suselog_common_update_duration(&test->common);
+
+		/* Aggregate the group stats */
+		suselog_stats_update(&group->stats, test->status);
+
+		/* Write to stdout */
+		suselog_writer_end_test(journal, test);
+
+		journal->current.test = NULL;
 	}
 }
 
@@ -1267,11 +1316,16 @@ __suselog_writer_normal_end_testsuite(const suselog_journal_t *journal)
 static void
 __suselog_writer_normal_begin_group(const suselog_group_t *group)
 {
-	if (group->common.description) {
-		fprintf(stderr, "=== %s ===\n", group->common.description);
-	} else {
-		fprintf(stderr, "=== %s ===\n", group->common.name);
-	}
+	const char *group_name;
+
+	group_name = group->common.description? : group->common.name;
+	fprintf(stderr, "\n=== GROUP: %s ===\n", group_name);
+}
+
+static void
+__suselog_writer_normal_end_group(const suselog_group_t *group)
+{
+	/* NOP */
 }
 
 #define TI_BLACK	0
@@ -1329,7 +1383,7 @@ __suselog_writer_print_colored(const suselog_test_t *test, int color, const char
 static void
 __suselog_writer_normal_begin_test(const suselog_test_t *test)
 {
-	fprintf(stderr, "\n---------------------------------\n\n---------------------------------\n");
+	fprintf(stderr, "\n---------------------------------\n");
 
 	__suselog_writer_print_colored(test, TI_BLUE, "TEST");
 	if (test->common.description) {
@@ -1372,6 +1426,8 @@ __suselog_writer_normal_end_test(const suselog_test_t *test)
 	if (msg)
 		fprintf(stderr, ": %s", msg);
 	fprintf(stderr, "\n");
+
+	fprintf(stderr, "\n---------------------------------\n");
 }
 
 static void
@@ -1401,6 +1457,7 @@ __suselog_writer_normal_message(const suselog_test_t *test, suselog_severity_t s
 const suselog_writer_t	__suselog_writer_normal = {
 	.end_testsuite	= __suselog_writer_normal_end_testsuite,
 	.begin_group	= __suselog_writer_normal_begin_group,
+	.end_group	= __suselog_writer_normal_end_group,
 	.begin_test	= __suselog_writer_normal_begin_test,
 	.end_test	= __suselog_writer_normal_end_test,
 	.message	= __suselog_writer_normal_message,

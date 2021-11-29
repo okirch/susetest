@@ -33,6 +33,8 @@ typedef enum {
 	SUSELOG_STATUS_FAILURE,
 	SUSELOG_STATUS_ERROR,
 	SUSELOG_STATUS_SKIPPED,
+
+	__SUSELOG_STATUS_MAX
 } suselog_status_t;
 
 typedef enum {
