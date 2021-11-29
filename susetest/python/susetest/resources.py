@@ -110,6 +110,12 @@ class Resource:
 	def is_active(self):
 		return self.state == Resource.STATE_ACTIVE
 
+	def __str__(self):
+		return "%s on %s" % (self.describe(), self.target.name)
+
+	def describe(self):
+		return self.name
+
 class StringValuedResource(Resource):
 	def __init__(self, value, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -118,6 +124,9 @@ class StringValuedResource(Resource):
 	@property
 	def is_present(self):
 		return self.value is not None
+
+	def describe(self):
+		return "%s=\"%s\"" % (self.name, self.value)
 
 	def acquire(self, driver):
 		self.target.logInfo("%s = %s" % (self.name, self.value))
@@ -162,6 +171,9 @@ class UserResource(Resource):
 	@property
 	def is_present(self):
 		return self.login is not None
+
+	def describe(self):
+		return "user(%s)" % self.login
 
 	def acquire(self, driver):
 		if self.uid is not None:
@@ -267,6 +279,9 @@ class ExecutableResource(Resource):
 	def is_present(self):
 		return True
 
+	def describe(self):
+		return "executable(%s)" % self.name
+
 	def acquire(self, driver):
 		node = self.target
 
@@ -329,6 +344,9 @@ class ServiceResource(Resource):
 	@property
 	def is_present(self):
 		return True
+
+	def describe(self):
+		return "service(%s)" % self.name
 
 	def acquire(self, driver):
 		node = self.target
@@ -412,6 +430,9 @@ class JournalResource(Resource):
 	@property
 	def is_present(self):
 		return True
+
+	def describe(self):
+		return "journal"
 
 	class Message:
 		def __init__(self, timestamp, transport, application, message):
