@@ -94,6 +94,7 @@ extern const char *	suselog_test_name(const suselog_test_t *);
 extern const char *	suselog_test_description(const suselog_test_t *);
 extern const char *	suselog_test_fullname(const suselog_test_t *);
 extern const char *	suselog_test_get_message(const suselog_test_t *, suselog_severity_t);
+extern suselog_status_t	suselog_test_get_status(const suselog_test_t *);
 extern void		suselog_test_finish(suselog_journal_t *, suselog_status_t);
 
 extern void		suselog_success(suselog_journal_t *);

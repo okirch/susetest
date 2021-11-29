@@ -581,6 +581,15 @@ suselog_test_get_message(const suselog_test_t *test, suselog_severity_t severity
 	return NULL;
 }
 
+suselog_status_t
+suselog_test_get_status(const suselog_test_t *test)
+{
+	if (test == NULL)
+		return -1;
+
+	return test->status;
+}
+
 int
 __suselog_test_running(const suselog_journal_t *journal)
 {

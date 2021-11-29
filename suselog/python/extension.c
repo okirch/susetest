@@ -32,6 +32,7 @@ typedef struct {
 static void		Journal_dealloc(suselog_Journal *self);
 static PyObject *	Journal_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 static int		Journal_init(suselog_Journal *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_getattro(PyObject *self, PyObject *nameo);
 static PyObject *	Journal_beginGroup(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_finishGroup(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_beginTest(PyObject *self, PyObject *args, PyObject *kwds);
@@ -143,6 +144,8 @@ static PyTypeObject suselog_JournalType = {
 	.tp_init	= (initproc) Journal_init,
 	.tp_new		= Journal_new,
 	.tp_dealloc	= (destructor) Journal_dealloc,
+
+	.tp_getattro	= (getattrofunc) Journal_getattro,
 };
 
 /*
@@ -239,6 +242,58 @@ static suselog_journal_t *
 Journal_handle(PyObject *self)
 {
 	return ((suselog_Journal *) self)->journal;
+}
+
+static const char *
+Journal_status_to_string(int status)
+{
+	static const char *	strings[__SUSELOG_STATUS_MAX] = {
+	[SUSELOG_STATUS_RUNNING] = "running",
+	[SUSELOG_STATUS_SUCCESS] = "success",
+	[SUSELOG_STATUS_FAILURE] = "failure",
+	[SUSELOG_STATUS_ERROR]   = "error",
+	[SUSELOG_STATUS_SKIPPED] = "skipped",
+	};
+
+	if (0 <= status && status < __SUSELOG_STATUS_MAX)
+		return strings[(unsigned int) status];
+	return NULL;
+}
+
+static PyObject *
+Journal_getattro(PyObject *self, PyObject *nameo)
+{
+	suselog_journal_t *journal;
+	suselog_test_t *test;
+        const char *name;
+
+        name = PyUnicode_AsUTF8(nameo);
+        if (name == NULL)
+                return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	test = suselog_current_test(journal);
+
+	if (!strcmp(name, "status")) {
+		const char *statusString = NULL;
+		int status = -1;
+
+
+		if (test)
+			status = suselog_test_get_status(test);
+
+		statusString = Journal_status_to_string(status);
+		if (statusString == NULL) {
+			Py_INCREF(Py_None);
+			return Py_None;
+		}
+
+		return PyUnicode_FromString(statusString);
+	}
+
+	return PyObject_GenericGetAttr(self, nameo);
 }
 
 /*
