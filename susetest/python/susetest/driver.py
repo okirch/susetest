@@ -66,8 +66,8 @@ class Driver:
 			# If we've been invoked as /usr/blah/NAME/run,
 			# extract NAME and use that.
 			if os.path.basename(path) == "run":
-				dir = os.path.dirname(path)
-				self.name = os.path.basename(dir)
+				orig_dir = os.path.dirname(path)
+				self.name = os.path.basename(orig_dir)
 
 		if self.name is None:
 			raise ValueError("Unable to determine name of test run")
