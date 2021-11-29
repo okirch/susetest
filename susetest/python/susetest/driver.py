@@ -5,14 +5,14 @@
 # Copyright (C) 2021 SUSE Linux GmbH
 #
 ##################################################################
-import susetest
 import suselog
 import inspect
 import os
 import curly
 import sys
 
-from susetest.resource import Resource, ResourceGroup, ResourceAssertion
+from .resource import Resource, ResourceGroup, ResourceAssertion
+import susetest
 
 class Group:
 	def __init__(self, name, journal, global_resources = None):
@@ -72,7 +72,7 @@ class Driver:
 		if self.name is None:
 			raise ValueError("Unable to determine name of test run")
 
-		self.say("=== Created TestDriver(%s) ===" % self.name)
+		susetest.say("=== Created TestDriver(%s) ===" % self.name)
 
 		self._context = inspect.stack()[1][0].f_globals
 
@@ -91,7 +91,7 @@ class Driver:
 	def _define_resources(self, ctx, verbose = False):
 		for klass in self._find_classes(ctx, Resource, "name"):
 			if verbose:
-				self.say("Define resource %s = %s" % (klass.name, klass.__name__))
+				susetest.say("Define resource %s = %s" % (klass.name, klass.__name__))
 			self._RESOURCE_TYPES[klass.name] = klass
 
 	@classmethod
@@ -120,7 +120,7 @@ class Driver:
 		return self._targets.values()
 
 	def fatal(self, msg):
-		self.say("FATAL " + msg)
+		susetest.say("FATAL " + msg)
 		self.journal.fatal(msg)
 
 	def info(self, msg):
@@ -185,7 +185,7 @@ class Driver:
 			if res is None:
 				res = resourceKlass(node)
 				self._global_resources.add(res)
-				self.say("%s: created a %s resource" % (node.name, type_name))
+				susetest.say("%s: created a %s resource" % (node.name, type_name))
 
 				node.addResource(res)
 
@@ -214,7 +214,7 @@ class Driver:
 
 		for assertion in cleanups:
 			# self._perform_resource_assertion(assertion)
-			self.say("Ignoring cleanup of %s" % assertion)
+			susetest.say("Ignoring cleanup of %s" % assertion)
 
 	def enableFeature(self, node, feature):
 		# ignore duplicates
@@ -229,11 +229,15 @@ class Driver:
 			if self._current_group:
 				self._perform_deferred_resource_assertions()
 		else:
-			self.say("WARNING: test run requests unsupported feature %s" % feature)
+			susetest.say("WARNING: test run requests unsupported feature %s" % feature)
 			return
 
 		node.logInfo("enabled feature %s" % feature)
 		node.enabledFeature(feature)
+
+	@property
+	def setupComplete(self):
+		return self._setup_complete
 
 	def setup(self):
 		if self._setup_complete:
@@ -261,10 +265,10 @@ class Driver:
 	def beginGroup(self, name):
 		if not self._beginGroup(name):
 			if self._resource_cleanups:
-				self.say("resource setup failed; cleaning up")
+				susetest.say("resource setup failed; cleaning up")
 				self._perform_resource_cleanups()
 
-			self.say("Skipping group %s" % name)
+			susetest.say("Skipping group %s" % name)
 			return False
 
 		return True
@@ -308,6 +312,9 @@ class Driver:
 	def endTest(self):
 		if self._in_test_case:
 			self.runPostTestHooks()
+			# If the test failed or errored, the following call to success() will
+			# not do anything.
+			self.journal.success()
 			self._in_test_case = False
 
 	def _perform_resource_assertion(self, assertion):
@@ -350,12 +357,12 @@ class Driver:
 
 		if not self.config_path:
 			config_path = os.path.join("/run/twopence", self.name, "status.conf")
-			self.say("Trying config path %s" % config_path)
+			susetest.say("Trying config path %s" % config_path)
 			if os.path.isfile(config_path):
 				self.config_path = config_path
 
 		if not self.config_path:
-			self.say("Trying environment variable TWOPENCE_CONFIG_PATH")
+			susetest.say("Trying environment variable TWOPENCE_CONFIG_PATH")
 			self.config_path = os.getenv("TWOPENCE_CONFIG_PATH")
 
 		if not self.config_path:
@@ -389,10 +396,10 @@ class Driver:
 		if self.workspace is None:
 			self.workspace = self._config.workspace()
 			if not self.workspace:
-				self.say("Oops, no workspace defined. Using default.")
+				susetest.say("Oops, no workspace defined. Using default.")
 				self.workspace = "."
 
-		self.say("Using workspace %s" % self.workspace)
+		susetest.say("Using workspace %s" % self.workspace)
 
 	# Set the journal
 	def _set_journal(self):
@@ -402,7 +409,7 @@ class Driver:
 		if not self.journal_path:
 			self.journal_path = os.path.join(self.workspace, "junit-results.xml")
 
-		self.say("Writing journal to %s" % self.journal_path)
+		susetest.say("Writing journal to %s" % self.journal_path)
 		self.journal = suselog.Journal(self.name, path = self.journal_path);
 
 	def _close_journal(self):

@@ -7,14 +7,20 @@
 ##################################################################
 
 import suselog
-import twopence
 import time
 import re
 import sys
 import os
+import functools
 
 from .target import Target
 from .config import Config
+from .driver import Driver
+from .testdef import TestDefinition
+
+def say(msg):
+	print(msg)
+	sys.stdout.flush()
 
 # This class is needed for break a whole testsuite, exit without run all tests. Wanted in some scenarios.
 # Otherwise we can use susetest.finish(journal) to continue after  failed tests, 
@@ -39,3 +45,46 @@ def finish(journal):
 	if (journal.num_failed() + journal.num_errors()):
 			sys.exit(1)
 	sys.exit(0)
+
+def group_resource(f):
+	@functools.wraps(f)
+	def wrapper(*args, **kwds):
+		print('Setting up group resource %s' % f)
+		return f(*args, **kwds)
+
+	print("Attaching group resource %s" % f)
+	return wrapper
+
+def requireResource(*args, **kwargs):
+# resourceName, nodeName = None):
+	TestDefinition.requireResource(*args, **kwargs)
+
+def optionalResource(*args, **kwargs):
+	TestDefinition.optionalResource(*args, **kwargs)
+
+# susetest.setup decorator
+def setup(f):
+	TestDefinition.defineSetup(f)
+	return f
+
+# susetest.group decorator
+def group(f):
+	print("Defining group function %s (%s)" % (f, f.__doc__))
+	TestDefinition.defineGroup(f)
+	return f
+
+# susetest.test decorator
+def test(f):
+	TestDefinition.defineTestcase(f)
+	return f
+
+# Called by the user at the end of a test script, like this
+#
+#  if __name == '__main__':
+#	susetest.perform()
+#
+# For this to work, the user needs to define one or more functions
+# as test cases, and decorate these using @susetest.test
+#
+def perform():
+	TestDefinition.perform()
