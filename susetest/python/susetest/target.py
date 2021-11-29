@@ -13,6 +13,8 @@ import time
 import re
 import sys
 
+from .resources import ConcreteExecutableResource
+
 ifcfg_template = '''
 BOOTPROTO="static"
 STARTMODE="auto"
@@ -145,14 +147,33 @@ class Target(twopence.Target):
 	def optionalResource(self, resourceName, **stateArgs):
 		return self._requestResource(resourceName, mandatory = False, **stateArgs)
 
+	def requireExecutable(self, name, **stateArgs):
+		if not self.resourceManager:
+			return None
+
+		res = self.getResource(name)
+		if res is None:
+			res = ConcreteExecutableResource(self, name)
+			self.addResource(res)
+
+		if 'mandatory' not in stateArgs:
+			stateArgs['mandatory'] = True
+
+		self.resourceManager.acquire(res, **stateArgs)
+
+		return res
+
 	def _requestResource(self, resourceName, **stateArgs):
 		if not self.resourceManager:
 			return None
 
+		res = self.getResource(resourceName)
+		if res is None:
+			res = self.resourceManager.getResource(self, resourceName, create = True)
+
 		if 'mandatory' not in stateArgs:
 			stateArgs['mandatory'] = False
 
-		res = self.resourceManager.getResource(self, resourceName, create = True)
 		self.resourceManager.acquire(res, **stateArgs)
 
 		self.addResource(res)

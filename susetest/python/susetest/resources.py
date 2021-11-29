@@ -316,6 +316,13 @@ class ExecutableResource(Resource):
 
 		return self.target.runOrFail("%s %s" % (self.path, " ".join(args)), **kwargs)
 
+class ConcreteExecutableResource(ExecutableResource):
+	def __init__(self, target, name, executable = None):
+		self.name = name
+		self.executable = executable
+
+		super().__init__(target)
+
 class ServiceResource(Resource):
 	systemctl_path = "/usr/bin/systemctl"
 
