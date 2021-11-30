@@ -94,6 +94,9 @@ class ResourceRequirement:
 		self.nodeName = nodeName
 		self.mandatory = mandatory
 
+	def request(self, driver):
+		return driver._requireResource(self.resourceName, self.nodeName, mandatory = self.mandatory)
+
 class TestCase:
 	pass
 
@@ -211,13 +214,10 @@ class TestsuiteInfo:
 		return group
 
 	def requireResource(self, resourceName, nodeName = None):
-		self.requireResource(ResourceRequirement(resourceName, nodeName = nodeName, mandatory = True))
+		self._resources.append(ResourceRequirement(resourceName, nodeName = nodeName, mandatory = True))
 
 	def optionalResource(self, resourceName, nodeName = None):
-		self.requireResource(ResourceRequirement(resourceName, nodeName = nodeName, mandatory = False))
-
-	def requireResource(self, req):
-		self._resources.append(req)
+		self._resources.append(ResourceRequirement(resourceName, nodeName = nodeName, mandatory = False))
 
 	def defineSetup(self, f):
 		name = f.__module__
@@ -231,6 +231,12 @@ class TestsuiteInfo:
 
 		# print("Defined test case %s" % tc)
 		self.createGroup(tc.group).add(tc)
+
+	def requestResources(self, driver):
+		susetest.say(self._resources)
+		for req in self._resources:
+			susetest.say(req)
+			req.request(driver)
 
 	class Found:
 		def __init__(self, testOrGroup, parent = None):
@@ -407,8 +413,14 @@ class TestDefinition:
 		driver.config_path = opts.config
 
 		driver.load_config()
+
+		# request all the resources that the user specified
+		# for this test suite
+		suite.requestResources(driver)
+
 		if suite.setup:
 			suite.setup(driver)
+
 		if not driver.setupComplete:
 			driver.setup()
 
