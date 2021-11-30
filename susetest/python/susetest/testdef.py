@@ -109,14 +109,15 @@ class TestCaseDefinition(TestCase):
 			raise ValueError("Don't know how to handle test defined by %s" % type(f))
 
 		doc = f.__doc__
-		m = re.match("([^:]*): *(.*)", doc)
-		if m is not None:
-			n = Name.parse(m.group(1))
-			if n:
-				# susetest.say("found name %s" % n)
-				self.group = n.group
-				self.name = n.case
-				self.description = m.group(2)
+		if doc:
+			m = re.match("([^:]*): *(.*)", doc)
+			if m is not None:
+				n = Name.parse(m.group(1))
+				if n:
+					# susetest.say("found name %s" % n)
+					self.group = n.group
+					self.name = n.case
+					self.description = m.group(2)
 
 		if not self.group:
 			self.group = f.__module__
