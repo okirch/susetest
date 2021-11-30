@@ -38,6 +38,7 @@ class SELinuxMessageFilter(MessageFilter):
 
 	def __init__(self):
 		self.previous = None
+		self._checks = []
 
 	def match(self, m, target):
 		if m.transport != "kernel" or not m.message.startswith("audit:") or " avc: " not in  m.message:
@@ -60,7 +61,11 @@ class SELinuxMessageFilter(MessageFilter):
 			return
 
 		if not self.previous or self.previous.pid != violation.pid:
-			target.logFailure("SELinux policy violation")
+			rating = self.rateViolation(violation)
+			if rating == "info":
+				target.logInfo("SELinux policy violation (ignored)")
+			else:
+				target.logFailure("SELinux policy violation")
 			target.logInfo("SELinux policy violation by %s (pid=%s; context=%s)" % (
 						violation.comm, violation.pid, violation.scontext))
 
@@ -82,6 +87,16 @@ class SELinuxMessageFilter(MessageFilter):
 
 		self.previous = violation
 		return True
+
+	def addCheck(self, fn):
+		self._checks.append(fn)
+
+	def rateViolation(self, violation):
+		for fn in self._checks:
+			r = fn(violation)
+			if r is not None:
+				return r
+		return None
 
 	def parseViolation(self, msg):
 		words = msg.split()
@@ -116,12 +131,20 @@ class SELinuxMessageFilter(MessageFilter):
 
 		return violation
 
+def pamTally2ConsideredHarmless(violation):
+	if violation.comm == "pam_tally2":
+		return "info"
+	return None
+
 # Acquire the journal monitoring resource, and install a
 # message filter that checks for SELinux related kernel messages
 def enableFeature(driver, node):
 	resource = node.requireResource("journal", defer = True)
 
-	resource.addFilter(SELinuxMessageFilter())
+	filter = SELinuxMessageFilter()
+	filter.addCheck(pamTally2ConsideredHarmless)
+
+	resource.addFilter(filter)
 	susetest.say("%s: installed SELinux filter" % resource)
 
 	driver.performDeferredResourceChanges()
