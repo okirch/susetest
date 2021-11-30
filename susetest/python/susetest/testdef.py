@@ -29,22 +29,64 @@ class Name:
 
 	@staticmethod
 	def parse(s):
-		words = s.split('.')
-
-		if len(words) > 2:
+		words = Name._split(s)
+		if words is None:
 			return None
-
-		if not Name._re:
-			Name._re = re.compile("[-a-z0-9_]+", re.IGNORECASE)
-		if any(not Name._re.match(_) for _ in words):
-			return None
-
 		if len(words) == 2:
 			return Name(*words)
 		return Name(case = words[0])
 
+	@staticmethod
+	def parseMatch(s):
+		words = Name._split(s, wildcardOkay = True)
+		if words is None:
+			return None
+		if len(words) == 1:
+			words.append('*')
+		return Name(*words)
+
+	@staticmethod
+	def _split(s, wildcardOkay = False):
+		if not s:
+			return None
+
+		words = s.split('.')
+		if len(words) > 2:
+			return None
+
+		if not Name._re:
+			Name._re = re.compile("[-a-z0-9_]+$", re.IGNORECASE)
+
+		if wildcardOkay:
+			check = lambda s: (s == "*" or Name._re.match(s))
+		else:
+			check = Name._re.match
+		if any(not check(_) for _ in words):
+			return None
+
+		return words
+
 	def __str__(self):
 		return "Name(group = %s, case = %s)" % (self.group, self.case)
+
+class NameMatcher:
+	def __init__(self, id, context):
+		self.name = Name.parseMatch(id)
+		if self.name is None:
+			raise ValueError("Cannot parse %s %s" % (context, id))
+
+	def matchGroup(self, name):
+		return self.name.group == "*" or self.name.group == name
+
+	def matchTestcase(self, name):
+		return self.name.case == "*" or self.name.case == name
+
+	@property
+	def matchAllTestcases(self):
+		return self.name.case == '*'
+
+	def __str__(self):
+		return "Matcher(%s)" % self.name
 
 class ResourceRequirement:
 	def __init__(self, resourceName, nodeName = None, mandatory = False):
@@ -225,24 +267,42 @@ class TestsuiteInfo:
 					tc.skip = True
 
 		for id in only:
-			found = self.findGroupOrTest(id)
-			if not found:
-				raise ValueError("Invalid test or group ID --only \"%s\"" % id)
+			matcher = NameMatcher(id, context = "--only")
 
-			found.thing.skip = False
-			if found.parent:
-				found.parent.skip = False
-			else:
-				for test in found.thing.tests:
-					test.skip = False
+			found = False
+			for group in self.groups:
+				if not matcher.matchGroup(group.name):
+					continue
+
+				group.skip = False
+
+				for test in group.tests:
+					if matcher.matchTestcase(test.name):
+						test.skip = False
+						found = True
+
+			if not found:
+				raise ValueError("Did not find any tests maching --only \"%s\"" % id)
 
 	def executeSkip(self, skip):
 		for id in skip:
-			found = self.findGroupOrTest(id)
-			if not found:
-				raise ValueError("Invalid test or group ID --skip \"%s\"" % id)
+			matcher = NameMatcher(id, context = "--skip")
 
-			found.thing.skip = True
+			found = False
+			for group in self.groups:
+				if not matcher.matchGroup(group.name):
+					continue
+
+				if matcher.matchAllTestcases:
+					group.skip = True
+
+				for test in group.tests:
+					if matcher.matchTestcase(test.name):
+						test.skip = True
+						found = True
+
+			if not found:
+				raise ValueError("Did not find any tests maching --only \"%s\"" % id)
 
 class TestDefinition:
 	@staticmethod
