@@ -130,25 +130,32 @@ class StringValuedResource(Resource):
 
 	def acquire(self, driver):
 		self.target.logInfo("%s = %s" % (self.name, self.value))
-		self.state = Resource.STATE_ACTIVE
 		return True
 
 	def release(self, driver):
-		self.state = Resource.STATE_INACTIVE
+		return True
 
 class ResourceAddressIPv4(StringValuedResource):
-	name = "ipv4-address"
+	name = "ipv4_address"
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(None, *args, **kwargs)
 		self.value = self.target.ipv4_addr
 
 class ResourceAddressIPv6(StringValuedResource):
-	name = "ipv6-address"
+	name = "ipv6_address"
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(None, *args, **kwargs)
 		self.value = self.target.ipv6_addr
+
+class ConcreteStringValuedResource(StringValuedResource):
+	def __init__(self, target, name, value):
+		self.name = name
+		super().__init__(value, target)
+
+	def acquire(self, driver):
+		return True
 
 class UserResource(Resource):
 	password = None

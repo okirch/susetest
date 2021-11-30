@@ -82,6 +82,20 @@ def test(f):
 	TestDefinition.defineTestcase(f)
 	return f
 
+def define_parameterized(testfn, *args):
+	@functools.wraps(testfn)
+	def wrapper(driver):
+		_args = driver.expandArguments(args)
+		if _args is None:
+			driver.logInfo("argument list %s expanded to None" % (args,))
+			driver.journal.skipped()
+			return
+
+		testfn(driver, _args)
+
+	wrapper.__doc__ = testfn.__doc__.replace("@ARGS", " ".join(args))
+	TestDefinition.defineTestcase(wrapper)
+
 # Called by the user at the end of a test script, like this
 #
 #  if __name == '__main__':

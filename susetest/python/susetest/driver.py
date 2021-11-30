@@ -10,6 +10,7 @@ import inspect
 import os
 import curly
 import sys
+import re
 
 from .resources import Resource, ResourceManager
 import susetest
@@ -257,6 +258,40 @@ class Driver:
 				self.journal.success()
 			self._in_test_case = False
 
+	# Support for parameterized tests
+	# Parameters are referenced using @node:variable syntax
+	def expandArguments(self, args):
+		result = []
+		for s in args:
+			orig_s = s
+			expanded = ""
+			while True:
+				m = re.match("(.*)@([a-z0-9_]+):([a-z0-9_]+)(.*)", s)
+				if not m:
+					expanded += s
+					break
+
+				expanded += m.group(1)
+				nodeName = m.group(2)
+				varName = m.group(3)
+				s = m.group(4)
+
+				node = self._targets.get(nodeName)
+				if node is None:
+					raise ValueError("Cannot expand %s: no target named \"%s\"" % (orig_s, nodeName))
+
+				value = node.expandStringResource(varName)
+				if value is None:
+					self.logInfo("parameter \"%s\" not set" % varName)
+					return None
+
+				expanded += value
+
+			result.append(expanded)
+
+		# susetest.say("expandArguments(%s) -> %s" % (args, result))
+		return result
+
 	def load_config(self):
 		if self._config is not None:
 			return
@@ -296,7 +331,8 @@ class Driver:
 			self._targets[name] = target
 			setattr(self, name, target)
 
-			# FIXME: target wants a pointer to the resource manager, too
+			target.defineStringResource("ipv4_loopback", "127.0.0.1")
+			target.defineStringResource("ipv6_loopback", "::1")
 
 		# Require test-user resource for all nodes
 		self.requireResource("test-user")

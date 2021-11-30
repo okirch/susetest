@@ -13,7 +13,7 @@ import time
 import re
 import sys
 
-from .resources import ConcreteExecutableResource
+from .resources import ConcreteExecutableResource, ConcreteStringValuedResource, StringValuedResource
 
 ifcfg_template = '''
 BOOTPROTO="static"
@@ -43,7 +43,9 @@ class Target(twopence.Target):
 		self.name = name
 
 		self.ipv4_addr = node_config.get_value("ipv4_address")
+		self.ipv4_address = self.ipv4_addr
 		self.ipv6_addr = node_config.get_value("ipv6_address")
+		self.ipv6_address = self.ipv6_addr
 		self.features = node_config.get_values("features")
 		self.test_user = node_config.get_value("user_user")
 
@@ -162,6 +164,37 @@ class Target(twopence.Target):
 		self.resourceManager.acquire(res, **stateArgs)
 
 		return res
+
+	def defineStringResource(self, name, value, **stateArgs):
+		if not self.resourceManager:
+			return None
+
+		res = self.getResource(name)
+		if res is None:
+			res = ConcreteStringValuedResource(self, name, value)
+			self.addResource(res)
+		elif isinstance(res, StringValuedResource):
+			res.value = value
+		else:
+			raise ValueError("%s: resource %s exists but is not a string" % (
+				self.name, name))
+
+		if 'mandatory' not in stateArgs:
+			stateArgs['mandatory'] = True
+
+		self.resourceManager.acquire(res, **stateArgs)
+
+		return res
+
+	def expandStringResource(self, name):
+		res = self.getResource(name)
+		if res is None:
+			return None
+
+		if not isinstance(res, StringValuedResource):
+			raise ValueError("parameter \"%s\" is not a string" % name)
+
+		return res.value
 
 	def _requestResource(self, resourceName, **stateArgs):
 		if not self.resourceManager:
