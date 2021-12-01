@@ -14,7 +14,6 @@ import os
 import functools
 
 from .target import Target
-from .config import Config
 from .driver import Driver
 from .testdef import TestDefinition
 

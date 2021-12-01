@@ -15,7 +15,6 @@ import os
 import functools
 
 from .target import Target
-from .config import Config
 from .driver import Driver
 from .resources import resourceRegistry
 import susetest
@@ -233,9 +232,7 @@ class TestsuiteInfo:
 		self.createGroup(tc.group).add(tc)
 
 	def requestResources(self, driver):
-		susetest.say(self._resources)
 		for req in self._resources:
-			susetest.say(req)
 			req.request(driver)
 
 	class Found:
