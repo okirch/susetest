@@ -11,6 +11,7 @@ import os
 import curly
 import sys
 import re
+import time
 
 from .resources import Resource, ResourceManager
 import susetest
@@ -340,10 +341,15 @@ class Driver:
 	# Set the workspace
 	def _set_workspace(self):
 		if self.workspace is None:
-			self.workspace = self._config.workspace()
-			if not self.workspace:
+			logspace = self._config.tree().get_value("logspace")
+			if not logspace:
 				susetest.say("Oops, no workspace defined. Using default.")
-				self.workspace = "."
+				logspace = "."
+
+			self.workspace = os.path.join(logspace, self.name, time.strftime("%Y%M%dT%H%M%S"))
+
+		if not os.path.isdir(self.workspace):
+			os.makedirs(self.workspace)
 
 		susetest.say("Using workspace %s" % self.workspace)
 
