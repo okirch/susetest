@@ -54,6 +54,10 @@ for var_name in python_cflags python_libs python_instdir; do
 	export uc_$var_name="$(pkg-config --variable $var_name twopence)"
 done
 
+for name in bindir libdir; do
+	export uc_twopence_$name="$(pkg-config --variable $name twopence)"
+done
+
 for name in cflags libs; do
 	export uc_twopence_$name="$(pkg-config --$name twopence)"
 done
