@@ -115,9 +115,10 @@ class Testcase:
 
 class Runner:
 	def __init__(self):
-		parser = build_arg_parser()
+		parser = self.build_arg_parser()
 		args = parser.parse_args()
 
+		self.valid = False
 		self.platform = args.platform
 		self.testrun = args.testrun
 		self.workspace = args.workspace
@@ -199,28 +200,28 @@ class Runner:
 
 		return path
 
-def build_arg_parser():
-	import argparse
+	def build_arg_parser(self):
+		import argparse
 
-	parser = argparse.ArgumentParser(description = 'Provision and run tests.')
-	parser.add_argument('--platform',
-		help = 'specify the OS platform to use for all nodes and roles')
-	parser.add_argument('--testrun',
-		help = 'the testrun this test case is part of')
-	parser.add_argument('--workspace',
-		help = 'the directory to use as workspace')
-	parser.add_argument('--logspace',
-		help = 'the directory to use as logspace')
-	parser.add_argument('--dry-run', default = False, action = 'store_true',
-		help = 'Do not run any commands, just show what would be done')
-	parser.add_argument('--debug', default = False, action = 'store_true',
-		help = 'Enable debugging output from the provisioner')
-	parser.add_argument('--quiet', default = False, action = 'store_true',
-		help = 'Do not show output of provisioning and test script')
-	parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
-		help = 'name of the test cases to run')
+		parser = argparse.ArgumentParser(description = 'Provision and run tests.')
+		parser.add_argument('--platform',
+			help = 'specify the OS platform to use for all nodes and roles')
+		parser.add_argument('--testrun',
+			help = 'the testrun this test case is part of')
+		parser.add_argument('--workspace',
+			help = 'the directory to use as workspace')
+		parser.add_argument('--logspace',
+			help = 'the directory to use as logspace')
+		parser.add_argument('--dry-run', default = False, action = 'store_true',
+			help = 'Do not run any commands, just show what would be done')
+		parser.add_argument('--debug', default = False, action = 'store_true',
+			help = 'Enable debugging output from the provisioner')
+		parser.add_argument('--quiet', default = False, action = 'store_true',
+			help = 'Do not show output of provisioning and test script')
+		parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
+			help = 'name of the test cases to run')
 
-	return parser
+		return parser
 
 runner = Runner()
 
