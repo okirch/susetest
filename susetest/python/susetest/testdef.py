@@ -364,6 +364,33 @@ class TestDefinition:
 		return opts
 
 
+	@staticmethod
+	def print_pre_run_summary(suite):
+		printed = False
+
+		print()
+		print("=== Test definition summary ===")
+
+		for group in suite.groups:
+			if group.empty:
+				continue
+
+			if not printed:
+				print("This test suite defines these groups and test cases")
+				printed = True
+
+			print("  Group %s%s" % (group.name, group.skip and "; SKIPPED" or ""))
+			for test in group.tests:
+				description = [test.description]
+				if test.skip:
+					description.append("SKIPPED")
+				if test.unmetRequirements:
+					description.append("unmet requirement(s): %s" % " ".join(test.unmetRequirements))
+				print("    %-20s %s" % (test.name, "; ".join(description)))
+
+		if not printed:
+			print("This test suite does not define any test cases")
+
 	# Called by the user at the end of a test script, like this
 	#
 	#  if __name == '__main__':
@@ -387,29 +414,14 @@ class TestDefinition:
 		suite.executeOnly(opts.only)
 		suite.executeSkip(opts.skip)
 
-		if True:
-			printed = False
-			for group in suite.groups:
-				if group.empty:
-					continue
-
-				if not printed:
-					print("This test suite defines a set of functions")
-					printed = True
-
-				print("  Group %s%s" % (group.name, group.skip and "; SKIPPED" or ""))
-				for test in group.tests:
-					print("    %-20s %s%s" % (test.name, test.description, test.skip and "; SKIPPED" or ""))
-
-			if not printed:
-				print("This test suite does not define any test cases")
-
 		driver = Driver()
 
 		driver.verbose = not opts.quiet
 		driver.config_path = opts.config
 
 		driver.load_config()
+
+		TestDefinition.print_pre_run_summary(suite)
 
 		# request all the resources that the user specified
 		# for this test suite
