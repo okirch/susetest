@@ -67,7 +67,7 @@ class SELinuxMessageFilter(MessageFilter):
 				target.logInfo("SELinux policy violation (ignored)")
 			else:
 				target.logFailure("SELinux policy violation")
-			target.logInfo("SELinux policy violation by %s (pid=%s; context=%s)" % (
+			target.logInfo("  by %s (pid=%s; context=%s)" % (
 						violation.comm, violation.pid, violation.scontext))
 
 		# ioctls will also have ioctlcmd=0xNNNN
@@ -142,6 +142,11 @@ def pamTally2ConsideredHarmless(violation):
 		return "info"
 	return None
 
+def twopenceConsideredHarmless(violation):
+	if violation.comm == "twopence_test_s":
+		return "info"
+	return None
+
 # Acquire the journal monitoring resource, and install a
 # message filter that checks for SELinux related kernel messages
 def enableFeature(driver, node):
@@ -149,6 +154,7 @@ def enableFeature(driver, node):
 
 	filter = SELinuxMessageFilter()
 	filter.addCheck(pamTally2ConsideredHarmless)
+	filter.addCheck(twopenceConsideredHarmless)
 
 	resource.addFilter(filter)
 	susetest.say("%s: installed SELinux filter" % resource)
