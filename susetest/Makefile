@@ -2,7 +2,7 @@ include ../Make.defs
 
 SUBDIRS	= shell python
 
-HELPERS	= run-test
+HELPERS	= run-test list-platforms
 
 all install clean distclean::
 	set -e; for dir in $(SUBDIRS); do make -C $$dir $@; done

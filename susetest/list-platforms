@@ -1,0 +1,41 @@
+#!/usr/bin/python3
+#
+# Display the list of available platforms
+#
+
+from _twopence.provision.config import Config
+import os
+
+class PlatformLister:
+	def __init__(self, banner = "List of available platforms"):
+		self.seen = set()
+		self.banner = banner
+
+	def listAll(self):
+		self.listDirectory("~/.twopence/config")
+		for dir in Config._default_config_dirs:
+			self.listDirectory(dir)
+
+	def listDirectory(self, path):
+		path = os.path.join(path, "platform.d")
+		path = os.path.expanduser(path)
+		for entry in os.scandir(path):
+			if entry.is_dir():
+				continue
+
+			name = entry.name
+			if name.startswith('.') or not name.endswith(".conf"):
+				continue
+
+			platform = name[:-5]
+			if platform not in self.seen:
+				if self.banner:
+					print()
+					print(self.banner)
+					self.banner = None
+
+				self.seen.add(platform)
+				print("  %s" % platform)
+
+lister = PlatformLister()
+lister.listAll()
