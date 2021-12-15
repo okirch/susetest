@@ -539,6 +539,9 @@ class Target(twopence.Target):
 		if user is None:
 			user = self.defaultUser
 
+		if type(buffer) == str:
+			buffer = buffer.encode("utf-8")
+
 		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), user = user, **kwargs)
 		if xfer.permissions < 0:
 			xfer.permissions = 0
