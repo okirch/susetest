@@ -416,6 +416,10 @@ class Target(twopence.Target):
 		return super().chat(cmd)
 
 	def runChatScript(self, cmd, chat_script, **kwargs):
+		# if not explicitly set to False by the caller, this defaults to True
+		if 'tty' not in kwargs:
+			kwargs['tty'] = True
+
 		chat = self.chat(cmd, **kwargs)
 
 		for expect, send in chat_script:
