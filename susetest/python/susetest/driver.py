@@ -242,7 +242,8 @@ class Driver:
 
 
 	def skipTest(self, *args, **kwargs):
-		self.beginTest(*args, **kwargs)
+		if not self._in_test_case:
+			self.beginTest(*args, **kwargs)
 
 		# mark the test as being skipped
 		self.journal.skipped()
