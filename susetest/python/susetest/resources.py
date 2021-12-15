@@ -274,6 +274,21 @@ class ExecutableResource(Resource):
 	# if omitted, we will just use klass.name
 	executable = None
 
+	# selinux_label_domain: if specified, this is
+	#	the domain part of the executable's label
+	#	(eg sshd_exec_t, passwd_exec_t, etc)
+	# selinux_process_domain: if specified, this
+	#	is the domain part of the process
+	#	context when executing the application
+	# interactive
+	#	if True, SELinux testing assumes that the command
+	#	is interactive and starts it accordingly.
+	#	Note, SELinux label testing currently does
+	#	not work for non-interactive commands.
+	selinux_label_domain = None
+	selinux_process_domain = None
+	interactive = False
+
 	PATH = "/sbin:/usr/sbin:/bin:/usr/bin"
 
 	def __init__(self, *args, **kwargs):
