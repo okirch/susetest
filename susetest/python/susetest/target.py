@@ -384,13 +384,6 @@ class Target(twopence.Target):
 
 
 	def run(self, cmd, fail_on_error = False, **kwargs):
-		# I don't remember what this was for. Probably no longer valid
-		if False:
-			# Workaround for a twopence problem
-			if 'timeout' in kwargs:
-				if kwargs['timeout'] < 0:
-					del kwargs['timeout']
-
 		cmd = self._buildCommand(cmd, **kwargs)
 
 		status = self._run(cmd)
