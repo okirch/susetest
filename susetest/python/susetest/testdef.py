@@ -106,6 +106,8 @@ class TestCaseDefinition(TestCase):
 		self.group = None
 		self.description = None
 		self.skip = False
+		self.requires = []
+		self.unmetRequirements = []
 
 		if not callable(f):
 			raise ValueError("Don't know how to handle test defined by %s" % type(f))
@@ -129,6 +131,19 @@ class TestCaseDefinition(TestCase):
 
 		if not self.description:
 			self.description = doc
+
+	def addRequires(self, name):
+		self.requires.append(name)
+
+	def lackingRequirements(self, driver):
+		result = set()
+
+		for name in self.requires:
+			for node in driver.targets:
+				if name not in node.features:
+					result.add(name)
+
+		return result
 
 	def __str__(self):
 		return "TestCase(%s.%s, \"%s\")" % (
@@ -231,6 +246,8 @@ class TestsuiteInfo:
 		# print("Defined test case %s" % tc)
 		self.createGroup(tc.group).add(tc)
 
+		return tc
+
 	def requestResources(self, driver):
 		for req in self._resources:
 			req.request(driver)
@@ -308,6 +325,20 @@ class TestsuiteInfo:
 			if not found:
 				raise ValueError("Did not find any tests maching --only \"%s\"" % id)
 
+	def verifyRequirements(self, driver):
+		for group in self.groups:
+			if group.skip:
+				continue
+
+			for test in group.tests:
+				if test.skip:
+					continue
+
+				lacking = test.lackingRequirements(driver)
+				if lacking:
+					test.unmetRequirements = list(lacking)
+					test.skip = True
+
 class TestDefinition:
 	@staticmethod
 	def defineResource(*args, **kwargs):
@@ -328,11 +359,15 @@ class TestDefinition:
 
 	@staticmethod
 	def defineGroup(*args, **kwargs):
-		TestsuiteInfo.instance().defineGroup(*args, **kwargs)
+		return TestsuiteInfo.instance().defineGroup(*args, **kwargs)
 
 	@staticmethod
 	def defineTestcase(*args, **kwargs):
-		TestsuiteInfo.instance().defineTestcase(*args, **kwargs)
+		return TestsuiteInfo.instance().defineTestcase(*args, **kwargs)
+
+	@staticmethod
+	def isValidTestcase(tc):
+		return isinstance(tc, TestCase)
 
 	@staticmethod
 	def parseArgs():
@@ -420,6 +455,9 @@ class TestDefinition:
 		driver.config_path = opts.config
 
 		driver.load_config()
+
+		# skip any tests whose requirements are not met
+		suite.verifyRequirements(driver)
 
 		TestDefinition.print_pre_run_summary(suite)
 

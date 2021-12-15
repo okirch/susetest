@@ -78,8 +78,23 @@ def group(f):
 
 # susetest.test decorator
 def test(f):
-	TestDefinition.defineTestcase(f)
-	return f
+	# We need to return the test definition here so that
+	#	@susetest.requires('foo')
+	#	@susetest.test
+	#	def bla(): ..
+	# can work
+	return TestDefinition.defineTestcase(f)
+
+# susetest.requires decorator
+def requires(name):
+	def partial_req(tc):
+		if not TestDefinition.isValidTestcase(tc):
+			raise ValueError("@susetest.requires() only valid when preceding @susetest.test")
+
+		tc.addRequires(name)
+		return tc
+
+	return partial_req
 
 def define_parameterized(testfn, *args):
 	@functools.wraps(testfn)
