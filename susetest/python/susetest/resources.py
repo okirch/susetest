@@ -292,6 +292,17 @@ class TestUserResource(UserResource):
 		node.test_user = self.login
 		return True
 
+class RootUserResource(UserResource):
+	name = "root-user"
+	login = "root"
+	password  = "guessme"
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self._uid = 0
+		self._gid = 0
+		self._home = "/root"
+
 class ExecutableResource(Resource):
 	# Derived classes can specify an executable name;
 	# if omitted, we will just use klass.name
