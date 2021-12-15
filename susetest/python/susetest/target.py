@@ -473,13 +473,13 @@ class Target(twopence.Target):
 
 		return status
 
-	def sendfile(self, remotefile, **kwargs):
-		if self.defaultUser and not kwargs.has_key('user'):
-			kwargs['user'] = self.defaultUser
+	def sendfile(self, remotefile, user = None, **kwargs):
+		if user is None:
+			user = self.defaultUser
 
 		self.logInfo("uploading " + remotefile)
 		try:
-			status = super(Target, self).sendfile(remotefile, **kwargs)
+			status = super(Target, self).sendfile(remotefile, user = user, **kwargs)
 		except:
 			self.logError("upload failed with exception")
 			self.journal.info(self.describeException())
@@ -490,13 +490,13 @@ class Target(twopence.Target):
 
 		return status
 
-	def recvfile(self, remotefile, **kwargs):
-		if self.defaultUser and not kwargs.has_key('user'):
-			kwargs['user'] = self.defaultUser
+	def recvfile(self, remotefile, user = None, **kwargs):
+		if user is None:
+			user = self.defaultUser
 
 		self.logInfo("downloading " + remotefile)
 		try:
-			status = super(Target, self).recvfile(remotefile, **kwargs)
+			status = super(Target, self).recvfile(remotefile, user = user, **kwargs)
 		except:
 			self.logError("download failed with exception")
 			self.journal.info(self.describeException())
@@ -508,16 +508,11 @@ class Target(twopence.Target):
 		return status
 
 
-	def recvbuffer(self, remoteFilename, **kwargs):
-		if self.defaultUser and not kwargs.has_key('user'):
-			kwargs['user'] = self.defaultUser
+	def recvbuffer(self, remoteFilename, quiet = False, user = None, **kwargs):
+		if user is None:
+			user = self.defaultUser
 
-		quiet = False
-		if kwargs.has_key('quiet') and kwargs['quiet']:
-			quiet = kwargs['quiet']
-			del kwargs['quiet']
-
-		xfer = twopence.Transfer(remoteFilename, **kwargs)
+		xfer = twopence.Transfer(remoteFilename, user = user, **kwargs)
 
 		if xfer.localfile:
 			self.logError("recvbuffer: you cannot specify a localfile!")
@@ -540,16 +535,11 @@ class Target(twopence.Target):
 			self.logInfo("<<< --- Data: ---\n" + str(status.buffer) + "\n --- End of Data --->>>\n");
 		return status.buffer
 
-	def sendbuffer(self, remoteFilename, buffer, **kwargs):
-		if self.defaultUser and not kwargs.has_key('user'):
-			kwargs['user'] = self.defaultUser
+	def sendbuffer(self, remoteFilename, buffer, quiet = False, user = None, **kwargs):
+		if user is None:
+			user = self.defaultUser
 
-		quiet = False
-		if kwargs.has_key('quiet') and kwargs['quiet']:
-			quiet = kwargs['quiet']
-			del kwargs['quiet']
-
-		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), **kwargs)
+		xfer = twopence.Transfer(remoteFilename, data = bytearray(buffer), user = user, **kwargs)
 		if xfer.permissions < 0:
 			xfer.permissions = 0
 
