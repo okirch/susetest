@@ -388,13 +388,12 @@ class Target(twopence.Target):
 
 		status = self._run(cmd)
 
-		if status == None or isinstance(status, bool):
-			# The command was backgrounded, and there is no status
-			# yet.
+		if isinstance(status, twopence.Process):
+			# The command was backgrounded, and there is no status yet.
 			self.logInfo("Command was backgrounded")
 			if fail_on_error:
 				self.logInfo("ignoring fail_on_error setting for backgrounded commands")
-			return True
+			return status
 
 		if not status:
 			msg = "command \"" + cmd.commandline + "\" failed: " + status.message
