@@ -170,6 +170,7 @@ class UserResource(Resource):
 		self._gid = None
 		self._groups = None
 		self._home = None
+		self._forced = False
 
 	@classmethod
 	def is_valid_user_class(klass):
@@ -198,6 +199,23 @@ class UserResource(Resource):
 	def release(self, driver):
 		return True
 
+	def forcePassword(self):
+		if self._forced:
+			return True
+
+		encrypted = self.encrypt_password()
+		if not encrypted:
+			self.target.logFailure("cannot force password - no password set")
+			return False
+
+		cmd = "sed -i 's|^root:[^:]*|root:%s|' /etc/shadow" % encrypted
+		if not self.target.runOrFail(cmd, user = "root"):
+			return False
+
+		self.target.logInfo("forced password for user %s" % self.login)
+		self._forced = True
+		return True
+
 	@property
 	def uid(self):
 		if self._uid is None:
@@ -224,15 +242,20 @@ class UserResource(Resource):
 			self._home = self._run_and_capture("echo $HOME")
 		return self._home
 
-	def _build_useradd(self):
-		useradd = ["useradd", "--create-home"]
+	def encrypt_password(self):
 		if not self.encrypted_password and self.password is not None:
 			import crypt
 
 			self.encrypted_password = crypt.crypt(self.password, crypt.METHOD_SHA256)
-		if self.encrypted_password:
+		return self.encrypted_password
+
+	def _build_useradd(self):
+		useradd = ["useradd", "--create-home"]
+
+		encrypted = self.encrypt_password()
+		if encrypted:
 			useradd.append("--password")
-			useradd.append("'%s'" % self.encrypted_password)
+			useradd.append("'%s'" % encrypted)
 		useradd.append(self.login)
 
 		return " ".join(useradd)
