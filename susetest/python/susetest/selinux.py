@@ -13,8 +13,9 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from susetest.resources import MessageFilter
+from .resources import MessageFilter, resourceRegistry, ExecutableResource
 import susetest
+import time
 
 # Typical SELinux message:
 # audit: type=1400 audit(1637744082.879:4): \
@@ -50,7 +51,7 @@ class SELinuxMessageFilter(MessageFilter):
 	def _match(self, m, target):
 		violation = self.parseViolation(m.message)
 
-		if violation and violation.tclass not in ('dir', 'file', 'chr_file', 'udp_socket'):
+		if violation and violation.tclass not in ('process', 'dir', 'file', 'chr_file', 'udp_socket', 'tcp_socket'):
 			target.logInfo("parsed unknown SELinux violation tclass=%s (%s)" % (
 					violation.tclass, dir(violation)))
 			violation = None
@@ -78,11 +79,16 @@ class SELinuxMessageFilter(MessageFilter):
 						violation.dev,
 						violation.ino,
 						violation.tcontext))
-		elif violation.tclass in ('udp_socket', ):
+		elif violation.tclass in ('udp_socket', 'tcp_socket', ):
 			target.logInfo("    %s access to %s %s (context=%s)" % (
 						violation.op,
 						violation.tclass,
 						violation.src,
+						violation.tcontext))
+		else:
+			target.logInfo("    %s access to %s (context=%s)" % (
+						violation.op,
+						violation.tclass,
 						violation.tcontext))
 
 		self.previous = violation
@@ -148,3 +154,106 @@ def enableFeature(driver, node):
 	susetest.say("%s: installed SELinux filter" % resource)
 
 	driver.performDeferredResourceChanges()
+
+class SELinux:
+	def resourceVerifyPolicy(self, node, resourceName):
+		if 'selinux' not in node.features:
+			node.logInfo("Skipping SELinux test; you may want to label the test with @susetest.requires('selinux')")
+			driver.skipTest()
+			return
+
+		res = node.requireResource(resourceName)
+		if res is None:
+			node.logFailure("unable to claim resource %s" % resourceName)
+			return
+
+		tested = False
+		if isinstance(res, ExecutableResource):
+			if not res.path:
+				node.logError("Unable to get path of executable");
+				return
+
+			if res.selinux_label_domain:
+				self.checkExecutableLabel(node, res)
+				tested = True
+
+			if res.selinux_process_domain:
+				self.verifyExecutableProcessDomain(node, res)
+				tested = True
+
+		if not tested:
+			node.logError("SELinux: don't know how to verify resource %s (type %s)" % (
+					res.name, res.__class__.__name__))
+
+	def checkExecutableLabel(self, node, res):
+		print("Checking executable's domain (expecting %s)" % res.selinux_label_domain)
+
+		expected = self.buildLabel(domain = res.selinux_label_domain)
+
+		if not res.path:
+			node.logError("Unable to get path of executable");
+			return
+
+		print("Executable is %s" % res.path)
+		status = node.runOrFail("stat -c %%C %s" % res.path, stdout = bytearray(), quiet = True)
+		if not status:
+			return
+
+		label = status.stdoutString.strip()
+		if label != expected:
+			node.logFailure("Unexpected SELinux label on %s" % res.path)
+			node.logInfo("  expected %s" % expected)
+			node.logInfo("  actual label %s" % label)
+		else:
+			node.logInfo("good, %s has expected SELinux label %s" % (res.path, expected));
+
+	def verifyExecutableProcessDomain(self, node, res):
+		print("Checking executable's process context (expecting %s)" % res.selinux_process_domain)
+
+		if not res.interactive:
+			node.logInfo("Skipping check of run-time process context (command is non-interactive)")
+			return
+
+		user = node.getResource("test-user")
+		if not user.uid:
+			node.logError("user %s does not seem to exist" % user.login)
+			return
+
+		cmd = susetest.Command(res.path, timeout = 10, user = user.login, background = True)
+
+		proc = node.chat(cmd)
+		if not proc:
+			node.logFailure("failed to start command \"%s\"" % cmdstring)
+			return
+
+		self.verifyProcessDomain(node, proc, self.buildContext(domain = res.selinux_process_domain))
+		proc.wait()
+
+	def verifyProcessDomain(self, node, proc, expected):
+		# Insert a minor delay to allow the the server to exec
+		# the application, and have it transition to the expected context
+		time.sleep(0.5)
+
+		process_ctx = proc.selinux_context
+
+		if proc.pid != 0:
+			proc.kill("KILL")
+
+		if process_ctx != expected:
+			node.logFailure("command is running with wrong SELinux context");
+			node.logInfo("  expected %s" % expected)
+			node.logInfo("  actual context %s" % process_ctx)
+			return False
+
+		node.logInfo("good, command is running with expected SELinux context %s" % expected);
+		return True
+
+	def buildLabel(self, user = "system_u", role = "object_r", domain = "bin_t", mcs = "s0"):
+		return "%s:%s:%s:%s" % (user, role, domain, mcs)
+
+	def buildContext(self, user = "unconfined_u", role = "unconfined_r", domain = "unconfined_t", mcs = "s0"):
+		return "%s:%s:%s:%s" % (user, role, domain, mcs)
+
+def verifyExecutable(driver, nodeName, appName):
+	node = driver.getTarget(nodeName)
+	resource = node.requireResource(name)

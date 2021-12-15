@@ -16,6 +16,12 @@ import functools
 from .target import Target
 from .driver import Driver
 from .testdef import TestDefinition
+from .selinux import SELinux
+
+# Having to import twopence just in order to create a command
+# is not so nice. So as a convenience, we import it here and
+# make it available this way.
+from twopence import Command
 
 def say(msg):
 	print(msg)
@@ -109,6 +115,10 @@ def define_parameterized(testfn, *args):
 
 	wrapper.__doc__ = testfn.__doc__.replace("@ARGS", " ".join(args))
 	TestDefinition.defineTestcase(wrapper)
+
+def verifySELinuxPolicy(node, resourceName):
+	executor = SELinux()
+	executor.resourceVerifyPolicy(node, resourceName)
 
 # Called by the user at the end of a test script, like this
 #
