@@ -342,7 +342,13 @@ class ExecutableResource(Resource):
 		executable = self.executable or self.name
 		node = self.target
 
-		st = node.run("type -p %s" % executable, environ = { "PATH": self.PATH }, stdout = bytearray())
+		# Unfortunately, a simple "type -p" does not do the trick, because it follows symbolic links.
+		# However, for some tests (such as SELinux label verification) we need the realpath,
+		# not the symlink.
+		cmd = 'realpath $(type -p "%s")'
+
+		node.logInfo("Locating binary file for command `%s'" % executable)
+		st = node.run(cmd % executable, environ = { "PATH": self.PATH }, stdout = bytearray())
 		if st and st.stdout:
 			path = st.stdoutString.strip()
 			if path:
