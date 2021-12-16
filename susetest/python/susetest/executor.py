@@ -1,7 +1,11 @@
 #!/usr/bin/python3
+##################################################################
 #
 # Run a test, including the provisioning and teardown of all nodes
 #
+# Copyright (C) 2021 SUSE Linux GmbH
+#
+##################################################################
 
 import argparse
 import os
@@ -19,6 +23,9 @@ class AbortedTestcase(Exception):
 	pass
 
 class ContinueTestcase(Exception):
+	pass
+
+class FinishTestcase(Exception):
 	pass
 
 class Interaction(object):
@@ -84,6 +91,10 @@ class Interaction(object):
 	def cont(self, testcase, *args):
 		'''continue: proceed to next step'''
 		raise ContinueTestcase()
+
+	def finish(self, testcase, *args):
+		'''finish: finish the test case non-interactively'''
+		raise FinishTestcase()
 
 	def help(self, testcase, *args):
 		'''help: display help message'''
@@ -288,15 +299,17 @@ class Testcase:
 		return path
 
 	def perform(self, testrunConfig, console = None):
+		self.console = console
+
 		self.initializeWorkspace(testrunConfig)
 
-		self.interactPreProvisioned(console)
+		self.interactPreProvisioned()
 		self.provisionCluster()
 
-		self.interactPostProvisioned(console)
+		self.interactPostProvisioned()
 		self.runScript()
 
-		self.interactPostTestrun(console)
+		self.interactPostTestrun()
 		self.validateResult()
 
 		self.destroyCluster()
@@ -397,7 +410,8 @@ class Testcase:
 
 		return os.system(cmd)
 
-	def interact(self, console, interaction):
+	def interact(self, interaction):
+		console = self.console
 		if not console:
 			return
 
@@ -405,18 +419,21 @@ class Testcase:
 			console.interact(interaction)
 		except ContinueTestcase:
 			pass
+		except FinishTestcase:
+			self.console = None
+			pass
 
-	def interactPreProvisioned(self, console):
+	def interactPreProvisioned(self):
 		msg = "Ready to provision %s" % self.name
-		self.interact(console, InteractionPreProvisioning(self, msg))
+		self.interact(InteractionPreProvisioning(self, msg))
 
-	def interactPostProvisioned(self, console):
+	def interactPostProvisioned(self):
 		msg = "Provisioned %s, ready to execute" % self.name
-		self.interact(console, InteractionPostProvisioning(self, msg))
+		self.interact(InteractionPostProvisioning(self, msg))
 
-	def interactPostTestrun(self, console):
+	def interactPostTestrun(self):
 		msg = "Test run %s complete, ready to destroy cluster" % self.name
-		self.interact(console, InteractionPostTestRun(self, msg))
+		self.interact(InteractionPostTestRun(self, msg))
 
 class Runner:
 	def __init__(self):
