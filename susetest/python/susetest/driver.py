@@ -316,6 +316,7 @@ class Driver:
 		self._set_workspace()
 		self._set_journal()
 		self._set_targets()
+		self._set_os_resources()
 
 	def _set_targets(self):
 		self._targets = {}
@@ -364,6 +365,15 @@ class Driver:
 
 		susetest.say("Writing journal to %s" % self.journal_path)
 		self.journal = suselog.Journal(self.name, path = self.journal_path);
+
+	def _set_os_resources(self):
+		for node in self.targets:
+			vendor = node.os_vendor
+			release = node.os_release
+			if not vendor or not release:
+				continue
+
+			self.resourceManager.loadOSResources(node, vendor, "linux", release)
 
 	def _close_journal(self):
 		if self.journal:

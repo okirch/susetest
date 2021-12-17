@@ -47,7 +47,9 @@ class Target(twopence.Target):
 		self.ipv6_addr = node_config.get_value("ipv6_address")
 		self.ipv6_address = self.ipv6_addr
 		self.features = node_config.get_values("features")
-		self.test_user = node_config.get_value("user_user")
+		self.test_user = node_config.get_value("test-user")
+		self.os_vendor = node_config.get_value("vendor")
+		self.os_release = node_config.get_value("os")
 
 		# Backward compat
 		self.ipaddr = self.ipv4_addr
@@ -446,6 +448,7 @@ class Target(twopence.Target):
 		susetest.say("Done with chat script, collecting command status")
 		st = chat.wait()
 
+		self.logInfo("consumed: %s" % chat.consumed)
 		return st
 
 	def runBackground(self, cmd, **kwargs):

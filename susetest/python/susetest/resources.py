@@ -96,6 +96,7 @@ import inspect
 import os
 import curly
 import sys
+import re
 
 class Resource:
 	STATE_INACTIVE = 0
@@ -158,6 +159,10 @@ class ConcreteStringValuedResource(StringValuedResource):
 		return True
 
 class UserResource(Resource):
+	attributes = {
+		'password'		: str,
+	}
+
 	password = None
 	encrypted_password = None
 
@@ -304,6 +309,14 @@ class RootUserResource(UserResource):
 		self._home = "/root"
 
 class ExecutableResource(Resource):
+	attributes = {
+		'executable'		: str,
+		'selinux_label_domain'	: str,
+		'selinux_process_domain': str,
+		'interactive'		: bool,
+		'package'		: str,
+	}
+
 	# Derived classes can specify an executable name;
 	# if omitted, we will just use klass.name
 	executable = None
@@ -571,6 +584,8 @@ class ResourceInventory:
 		# If required, add more resource modules like this:
 		# self.globalRegistry.findResources(susetest.othermodule.__dict__)
 
+		self.nodeRegistry = {}
+
 		self.resources = []
 
 	def __contains__(self, res):
@@ -578,6 +593,13 @@ class ResourceInventory:
 			if res.target == rover.target and res.name == rover.name:
 				return True
 		return False
+
+	def getNodeRegistry(self, node, create = False):
+		registry = self.nodeRegistry.get(node.name)
+		if registry is None and create:
+			registry = ResourceRegistry()
+			self.nodeRegistry[node.name] = registry
+		return registry
 
 	def get(self, node, type_name, create = False):
 		for res in self.resources:
@@ -587,7 +609,17 @@ class ResourceInventory:
 		if not create:
 			return None
 
-		resourceKlass = self.globalRegistry.get(type_name)
+		resourceKlass = None
+
+		# Look at the node registry first
+		registry = self.nodeRegistry.get(node.name)
+		if registry:
+			resourceKlass = registry.get(type_name)
+
+		# Finally, check the global registry
+		if resourceKlass is None:
+			resourceKlass = self.globalRegistry.get(type_name)
+
 		if resourceKlass is None:
 			raise KeyError("Unknown resource type \"%s\"" % type_name)
 
@@ -659,6 +691,11 @@ class ResourceRegistry:
 	def defineResource(self, klass, verbose = False):
 		if verbose:
 			susetest.say("Define resource %s = %s" % (klass.name, klass.__name__))
+			if hasattr(klass, 'attributes'):
+				for attr_name in klass.attributes:
+					value = getattr(klass, attr_name)
+					print("  %s = %s" % (attr_name, value))
+
 		self._types[klass.name] = klass
 
 	def findResources(self, ctx, verbose = False):
@@ -685,6 +722,179 @@ def globalResourceRegistry():
 	return ResourceRegistry._global_registry
 
 ##################################################################
+# Resource loader - load OS specific resource definitions
+# from one or more config files.
+##################################################################
+class ResourceLoader:
+	class ResourceDescription:
+		def __init__(self, name, klass, file, override = False):
+			self.name = name
+			self.klass = klass
+			self.file = file
+			self.override = override
+			self.attrs = {}
+
+		def setAttribute(self, name, value):
+			self.attrs[name] = value
+
+		def update(self, other):
+			assert(isinstance(other, self.__class__))
+
+			# If override is set, to not accept any updates
+			# from more generic resource files.
+			if not self.override:
+				self.attrs.update(other.attrs)
+				self.override = other.override
+
+		@property
+		def type(self):
+			return self.klass.__name__
+
+	class ResourceDescriptionSet:
+		def __init__(self):
+			self._resources = {}
+
+		@property
+		def resources(self):
+			return self._resources.values()
+
+		def __bool__(self):
+			return bool(self._resources)
+
+		def getResourceDescriptor(self, name):
+			return self._resources.get(name)
+
+		def createResourceDescriptor(self, name, klass, origin_file):
+			desc = self._resources.get(name)
+			if desc is None:
+				desc = ResourceLoader.ResourceDescription(name, klass, origin_file)
+				self._resources[name] = desc
+			else:
+				assert(desc.klass == klass)
+			return desc
+
+		def update(self, other):
+			for name, desc in other._resources.items():
+				mine = self.getResourceDescriptor(name)
+				if mine is None:
+					self._resources[name] = desc
+					continue
+
+				if mine.klass != desc.klass:
+					raise ResourceLoader.BadResource(desc, "conflicting definitions (type %s vs %s)" % (
+							desc.type, mine.type))
+
+				mine.update(desc)
+
+	class BadResource(Exception):
+		def __init__(self, desc, *args):
+			msg = "bad resource %s (defined in %s)" % (desc.name, desc.file)
+			if args:
+				msg += ": "
+
+			super().__init__(msg + " ".join(args))
+
+	def __init__(self):
+		self.resourceGroups = {}
+
+	def getResourceGroup(self, name):
+		name = name.lower()
+
+		found = self.resourceGroups.get(name)
+		if found is None:
+			found = self.loadResourceGroup(name)
+			self.resourceGroups[name] = found
+		return found
+
+	def loadResourceGroup(self, name):
+		# FIXME: hardcoded bad
+		# We should move paths.py from twopence-provision to twopence
+		default_paths = [
+			"~/.twopence/config",
+			"/etc/twopence",
+		]
+
+		descGroup = self.ResourceDescriptionSet()
+		for path in default_paths:
+			path = os.path.expanduser(path)
+			path = os.path.join(path, "resource.d", name + ".conf")
+			# print("Trying to load %s" % path)
+			if os.path.isfile(path):
+				group = self.load(descGroup, path)
+
+		return descGroup
+
+	def load(self, descGroup, path):
+		config = curly.Config(path)
+		tree = config.tree()
+
+		self.findResourceType(path, tree, descGroup, "executable", ExecutableResource)
+		self.findResourceType(path, tree, descGroup, "user", UserResource)
+
+		# print("Loaded %s" % path)
+
+	def findResourceType(self, origin_file, tree, descGroup, type, klass):
+		if not hasattr(klass, 'attributes'):
+			print("%s: please define valid attributes for class %s" % (self.__class__.__name__, klass,__name__))
+			raise NotImplementedError()
+
+		for name in tree.get_children(type):
+			desc = descGroup.createResourceDescriptor(name, klass, origin_file)
+			self.buildResourceDescription(desc, tree.get_child(type, name))
+			# print("  %s %s" % (type, name))
+
+	def buildResourceDescription(self, desc, config):
+		klass = desc.klass
+		for name, type in klass.attributes.items():
+			config_name = name.replace('_', '-')
+			value = config.get_value(config_name)
+			# print("%s = %s" % (config_name, value))
+
+			if not value:
+				continue
+
+			if type == str:
+				pass
+			elif type == bool:
+				if value.lower() in ('on', 'yes', 'true', '1'):
+					value = True
+				elif value.lower() in ('off', 'no', 'false', '0'):
+					value = False
+				else:
+					raise ResourceLoader.BadResource(desc, "bad value for attribute %s: expected a boolean value not \"%s\"" % (
+								config_name, value))
+			elif type == list:
+				value = config.get_values(config_name)
+			else:
+				raise NotImplementedError("cannot set resource attr %s of type %s" % (name, type))
+
+			desc.setAttribute(name, value)
+
+		# Check for spelling mistakes or unknown attributes in the config file
+		for config_name in config.get_attributes():
+			attr_name = config_name.replace('-', '_')
+
+			if attr_name == 'override':
+				value = config.get_value(config_name)
+				desc.override = value.lower() in ('on', 'yes', 'true', '1')
+				continue
+
+			if attr_name not in klass.attributes:
+				raise ResourceLoader.BadResource(desc, "unknown attribute %s (%s is not a class attribute of %s)" % (
+								config_name, attr_name, klass.__name__))
+
+	# This iterates over all resource descriptions and adds
+	# corresponding resources to a ResourceRegistry
+	def realize(self, group, registry, verbose = False):
+		for desc in group.resources:
+			klass = desc.klass
+			new_class_name = "Userdef%s_%s" % (klass.__name__, desc.name)
+			new_klass = type(new_class_name, (klass, ), desc.attrs)
+			new_klass.name = desc.name
+
+			registry.defineResource(new_klass, verbose = verbose)
+
+##################################################################
 # Keep track of desired state of resources
 ##################################################################
 class ResourceManager:
@@ -692,11 +902,69 @@ class ResourceManager:
 		self.driver = driver
 
 		self.inventory = ResourceInventory()
+		self.loader = ResourceLoader()
 
 		self._assertions = []
 		self._cleanups = {}
 
 		self._plugged = True
+
+	def loadOSResources(self, node, vendor, osclass, release):
+		# Find the resource definitions for vendor, osclass, and release(s)
+		# The collapse these into one set of resource definitions.
+		# This allows you to define the generic info on say sudo
+		# in one file, and the selinux specific information in another one.
+		group = self.buildResourceChain(vendor, osclass, release)
+
+		# Create the resources defined by this one in the node's
+		# resource registry.
+		# This is not really pretty; we should probably do this
+		# per OS rather than per node.
+		registry = self.inventory.getNodeRegistry(node, create = True)
+		self.loader.realize(group, registry)
+
+	def buildResourceChain(self, vendor, osclass, release):
+		# Given an OS vendor and release, create a list of names,
+		# from most specific to least specific:
+		#	leap-15.3
+		#	leap-15
+		#	leap
+		#	suse
+		# This is not quite optimal yet; instead, we should probably
+		# have something more explicit (like a statement in the
+		# platform definition), so that we can avoid duplicating
+		# information between SLES and Leap, for instance.
+		#
+		# Also, it's probably more natural to have a sort of
+		# progression from one version to the next of the same
+		# OS, rather that from a generic "Leap-15" to "Leap-15.4"
+		names = []
+		while True:
+			names.append(release)
+			m = re.match("(.*)\.[0-9]+", release)
+			if m:
+				release = m.group(1)
+				continue
+
+			m = re.match("(.*)-[0-9]+", release)
+			if m:
+				names.append(m.group(1))
+			break
+		names.append(osclass)
+		names.append(vendor)
+
+		result = ResourceLoader.ResourceDescriptionSet()
+		for name in names:
+			group = self.loader.getResourceGroup(name)
+			if group:
+				result.update(group)
+
+		if not result:
+			print("Did not find any resources for OS %s." % release)
+			print("If this is intentional, please create an empty file ~/.twopence/config/resource.d/%s.conf" % (release,))
+			raise ValueError()
+
+		return result
 
 	def getResource(self, *args, **kwargs):
 		return self.inventory.get(*args, **kwargs)
