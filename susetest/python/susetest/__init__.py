@@ -92,6 +92,11 @@ def test(f):
 	return TestDefinition.defineTestcase(f)
 
 # susetest.requires decorator
+# use this when a test case should be skipped unless a certain feature
+# is present. Typical use case:
+#
+#  @susetest.requires('selinux')
+#  def mytest(...)
 def requires(name):
 	def partial_req(tc):
 		if not TestDefinition.isValidTestcase(tc):
@@ -115,6 +120,42 @@ def define_parameterized(testfn, *args):
 
 	wrapper.__doc__ = testfn.__doc__.replace("@ARGS", " ".join(args))
 	TestDefinition.defineTestcase(wrapper)
+
+def template(name, *args, **kwargs):
+	if name == 'selinux-verify-resource':
+		templateSelinuxVerifyResource(*args, **kwargs)
+	else:
+		raise ValueError("unknown template %s" % name)
+
+
+def templateSelinuxVerifyResource(resourceName, nodeName = None):
+	def verify_exec_selinux(driver):
+		node = None
+
+		if nodeName is None:
+			nodes = list(driver.targets)
+			if len(nodes) == 1:
+				node = nodes[0]
+		else:
+			node = getattr(driver, nodeName, None)
+
+		if node is None:
+			driver.testError("SELinux: cannot verify %s policy - don't know which SUT to pick" % resourceName)
+			return
+
+		executor = SELinux()
+		executor.resourceVerifyPolicy(node, resourceName)
+
+	f = verify_exec_selinux
+	f.__doc__ = f"selinux.{resourceName}: verify that selinux policy is applied to {resourceName}"
+
+	tc = TestDefinition.defineTestcase(f)
+	tc.addOptionalResource(resourceName)
+	tc.addRequires('selinux')
+
+	TestDefinition.optionalResource(resourceName, nodeName = nodeName)
+
+	return tc
 
 def verifySELinuxPolicy(node, resourceName):
 	executor = SELinux()

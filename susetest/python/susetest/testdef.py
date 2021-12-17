@@ -108,6 +108,7 @@ class TestCaseDefinition(TestCase):
 		self.skip = False
 		self.requires = []
 		self.unmetRequirements = []
+		self.resources = []
 
 		if not callable(f):
 			raise ValueError("Don't know how to handle test defined by %s" % type(f))
@@ -134,6 +135,9 @@ class TestCaseDefinition(TestCase):
 
 	def addRequires(self, name):
 		self.requires.append(name)
+
+	def addOptionalResource(self, name):
+		self.resources.append(name)
 
 	def lackingRequirements(self, driver):
 		result = set()
@@ -421,6 +425,8 @@ class TestDefinition:
 					description.append("SKIPPED")
 				if test.unmetRequirements:
 					description.append("unmet requirement(s): %s" % " ".join(test.unmetRequirements))
+				if test.resources:
+					description.append("optional resources: %s" % " ".join(test.resources))
 				print("    %-20s %s" % (test.name, "; ".join(description)))
 
 		if not printed:

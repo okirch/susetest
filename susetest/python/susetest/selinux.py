@@ -168,15 +168,17 @@ class SELinux:
 			driver.skipTest()
 			return
 
-		res = node.requireResource(resourceName)
+		res = node.getResource(resourceName)
 		if res is None:
-			node.logFailure("unable to claim resource %s" % resourceName)
+			node.logError("Unable to find resource %s" % resourceName)
 			return
 
 		tested = False
 		if isinstance(res, ExecutableResource):
 			if not res.path:
-				node.logError("Unable to get path of executable");
+				# When defining this test case via susetest.template(), this will automatically
+				# ensure that we try to claim the resource during testsuite setup.
+				node.logInfo("Skipping SELinux test for %s; resource not present on SUT" % resourceName)
 				return
 
 			if res.selinux_label_domain:
