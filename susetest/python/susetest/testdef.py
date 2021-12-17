@@ -16,7 +16,7 @@ import functools
 
 from .target import Target
 from .driver import Driver
-from .resources import resourceRegistry
+from .resources import globalResourceRegistry
 import susetest
 
 class Name:
@@ -342,7 +342,7 @@ class TestsuiteInfo:
 class TestDefinition:
 	@staticmethod
 	def defineResource(*args, **kwargs):
-		registry = resourceRegistry()
+		registry = globalResourceRegistry()
 		registry.defineResource(*args, **kwargs, verbose = True)
 
 	@staticmethod

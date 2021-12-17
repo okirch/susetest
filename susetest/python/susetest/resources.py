@@ -563,7 +563,14 @@ class JournalResource(Resource):
 ##################################################################
 class ResourceInventory:
 	def __init__(self):
-		self.registry = resourceRegistry()
+		self.globalRegistry = globalResourceRegistry()
+
+		# Find all Resource classes defined in this module
+		self.globalRegistry.findResources(globals())
+
+		# If required, add more resource modules like this:
+		# self.globalRegistry.findResources(susetest.othermodule.__dict__)
+
 		self.resources = []
 
 	def __contains__(self, res):
@@ -580,7 +587,7 @@ class ResourceInventory:
 		if not create:
 			return None
 
-		resourceKlass = self.registry.get(type_name)
+		resourceKlass = self.globalRegistry.get(type_name)
 		if resourceKlass is None:
 			raise KeyError("Unknown resource type \"%s\"" % type_name)
 
@@ -640,16 +647,11 @@ class ResourceAssertion:
 ##################################################################
 # Global registry of resource types
 ##################################################################
-class ResourceRegistrySingleton:
-	_instance = None
+class ResourceRegistry:
+	_global_registry = None
 
 	def __init__(self):
 		self._types = {}
-
-		# Find all Resource classes defined in this module
-		self.findResources(globals())
-
-		# self.findResources(susetest.othermodule.__dict__)
 
 	def get(self, name):
 		return self._types.get(name)
@@ -677,10 +679,10 @@ class ResourceRegistrySingleton:
 			result.append(thing)
 		return result
 
-def resourceRegistry():
-	if ResourceRegistrySingleton._instance is None:
-		ResourceRegistrySingleton._instance = ResourceRegistrySingleton()
-	return ResourceRegistrySingleton._instance
+def globalResourceRegistry():
+	if ResourceRegistry._global_registry is None:
+		ResourceRegistry._global_registry = ResourceRegistry()
+	return ResourceRegistry._global_registry
 
 ##################################################################
 # Keep track of desired state of resources

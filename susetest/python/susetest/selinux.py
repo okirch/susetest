@@ -13,7 +13,7 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from .resources import MessageFilter, resourceRegistry, ExecutableResource
+from .resources import MessageFilter, ExecutableResource
 import susetest
 import time
 
