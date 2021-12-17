@@ -355,10 +355,25 @@ class ExecutableResource(Resource):
 		executable = self.executable or self.name
 		node = self.target
 
+		if self.locateBinary(node, executable):
+			return True
+
+		if self.package:
+			if not self.installPackage(node, self.package):
+				node.logError("Unable to install package %s" % self.package)
+				return False
+
+			if self.locateBinary(node, executable):
+				return True
+
+		node.logInfo("Unable to find %s in PATH=%s" % (executable, self.PATH))
+		return False
+
+	def locateBinary(self, node, executable):
 		# Unfortunately, a simple "type -p" does not do the trick, because it follows symbolic links.
 		# However, for some tests (such as SELinux label verification) we need the realpath,
 		# not the symlink.
-		cmd = 'realpath $(type -p "%s")'
+		cmd = '_path=$(type -p "%s"); test -n "$_path" && realpath "$_path"'
 
 		node.logInfo("Locating binary file for command `%s'" % executable)
 		st = node.run(cmd % executable, environ = { "PATH": self.PATH }, stdout = bytearray())
@@ -369,8 +384,12 @@ class ExecutableResource(Resource):
 				self.path = path
 				return True
 
-		node.logInfo("Unable to find %s in PATH=%s" % (executable, self.PATH))
 		return False
+
+	def installPackage(self, node, package):
+		# for now, only zypper, sorry
+		st = node.run("zypper in -y %s" % package)
+		return bool(st)
 
 	def release(self, driver):
 		return True
