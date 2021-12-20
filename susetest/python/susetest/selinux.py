@@ -51,7 +51,7 @@ class SELinuxMessageFilter(MessageFilter):
 	def _match(self, m, target):
 		violation = self.parseViolation(m.message)
 
-		if violation and violation.tclass not in ('process', 'dir', 'file', 'chr_file', 'udp_socket', 'tcp_socket'):
+		if violation and violation.tclass not in ('process', 'dir', 'file', 'chr_file', 'udp_socket', 'tcp_socket', 'netlink_selinux_socket'):
 			target.logInfo("parsed unknown SELinux violation tclass=%s (%s)" % (
 					violation.tclass, dir(violation)))
 			violation = None
