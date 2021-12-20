@@ -370,10 +370,11 @@ class ExecutableResource(Resource):
 		return False
 
 	def locateBinary(self, node, executable):
-		# Unfortunately, a simple "type -p" does not do the trick, because it follows symbolic links.
-		# However, for some tests (such as SELinux label verification) we need the realpath,
-		# not the symlink.
-		cmd = '_path=$(type -p "%s"); test -n "$_path" && realpath "$_path"'
+		# Caveat: type -p does not follow symlinks. If the user needs the realpath,
+		# (like, for instance, SELinux label checking) they need to chase symlink
+		# themselves.
+		#cmd = '_path=$(type -p "%s"); test -n "$_path" && realpath "$_path"'
+		cmd = 'type -p "%s"'
 
 		node.logInfo("Locating binary file for command `%s'" % executable)
 		st = node.run(cmd % executable, environ = { "PATH": self.PATH }, stdout = bytearray())

@@ -203,7 +203,7 @@ class SELinux:
 			return
 
 		print("Executable is %s" % res.path)
-		status = node.runOrFail("stat -c %%C %s" % res.path, stdout = bytearray(), quiet = True)
+		status = node.runOrFail("stat -Lc %%C %s" % res.path, stdout = bytearray(), quiet = True)
 		if not status:
 			return
 
