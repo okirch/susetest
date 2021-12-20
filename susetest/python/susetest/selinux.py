@@ -218,35 +218,38 @@ class SELinux:
 	def verifyExecutableProcessDomain(self, node, res):
 		print("Checking executable's process context (expecting %s)" % res.selinux_process_domain)
 
-		if not res.interactive:
-			node.logInfo("Skipping check of run-time process context (command is non-interactive)")
-			return
-
 		user = node.getResource("test-user")
 		if not user.uid:
 			node.logError("user %s does not seem to exist" % user.login)
 			return
 
-		cmd = susetest.Command(res.path, timeout = 10, user = user.login, background = True)
+		if not res.interactive:
+			# Run a NOP invocation of the command (could also be sth like "cmd --help")
+			# and tell twopence to collect the exit status when reaping the child process.
+			# This information will be available through Status.process to us.
+			cmdline = "%s --bogus-option-should-error >/dev/null 2>&1" % res.path
+			cmd = susetest.Command(cmdline, user = user.login, exitInfo = True, quiet = True)
+			st = node.run(cmd)
 
-		proc = node.chat(cmd)
-		if not proc:
-			node.logFailure("failed to start command \"%s\"" % cmdstring)
-			return
+			process_ctx = st.process.selinux_context
+		else:
+			cmd = susetest.Command(res.path, timeout = 10, user = user.login, background = True)
 
-		self.verifyProcessDomain(node, proc, self.buildContext(domain = res.selinux_process_domain))
-		proc.wait()
+			proc = node.chat(cmd)
+			if not proc:
+				node.logFailure("failed to start command \"%s\"" % cmdstring)
+				return
 
-	def verifyProcessDomain(self, node, proc, expected):
-		# Insert a minor delay to allow the the server to exec
-		# the application, and have it transition to the expected context
-		time.sleep(0.5)
+			# Insert a minor delay to allow the the server to exec
+			# the application, and have it transition to the expected context
+			time.sleep(0.5)
 
-		process_ctx = proc.selinux_context
+			process_ctx = proc.selinux_context
 
-		if proc.pid != 0:
 			proc.kill("KILL")
+			proc.wait()
 
+		expected = self.buildContext(domain = res.selinux_process_domain)
 		if process_ctx != expected:
 			node.logFailure("command is running with wrong SELinux context");
 			node.logInfo("  expected %s" % expected)
