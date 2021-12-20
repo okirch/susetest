@@ -88,13 +88,14 @@ class NameMatcher:
 		return "Matcher(%s)" % self.name
 
 class ResourceRequirement:
-	def __init__(self, resourceName, nodeName = None, mandatory = False):
+	def __init__(self, resourceType, resourceName, nodeName = None, mandatory = False):
+		self.resourceType = resourceType
 		self.resourceName = resourceName
 		self.nodeName = nodeName
 		self.mandatory = mandatory
 
 	def request(self, driver):
-		return driver._requireResource(self.resourceName, self.nodeName, mandatory = self.mandatory)
+		return driver.acquireResource(self.resourceType, self.resourceName, self.nodeName, mandatory = self.mandatory)
 
 class TestCase:
 	pass
@@ -231,11 +232,11 @@ class TestsuiteInfo:
 			self._groups[name] = group
 		return group
 
-	def requireResource(self, resourceName, nodeName = None):
-		self._resources.append(ResourceRequirement(resourceName, nodeName = nodeName, mandatory = True))
+	def requireResource(self,  resourceType,resourceName, nodeName = None):
+		self._resources.append(ResourceRequirement(resourceType, resourceName, nodeName = nodeName, mandatory = True))
 
-	def optionalResource(self, resourceName, nodeName = None):
-		self._resources.append(ResourceRequirement(resourceName, nodeName = nodeName, mandatory = False))
+	def optionalResource(self, resourceType, resourceName, nodeName = None):
+		self._resources.append(ResourceRequirement(resourceType, resourceName, nodeName = nodeName, mandatory = False))
 
 	def defineSetup(self, f):
 		name = f.__module__

@@ -117,7 +117,13 @@ class Resource:
 	def describe(self):
 		return self.name
 
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return None
+
 class StringValuedResource(Resource):
+	resource_type = "string"
+
 	def __init__(self, value, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.value = value
@@ -136,6 +142,10 @@ class StringValuedResource(Resource):
 	def release(self, driver):
 		return True
 
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteStringValuedResource(node, resourceName)
+
 class ResourceAddressIPv4(StringValuedResource):
 	name = "ipv4_address"
 
@@ -151,7 +161,7 @@ class ResourceAddressIPv6(StringValuedResource):
 		self.value = self.target.ipv6_addr
 
 class ConcreteStringValuedResource(StringValuedResource):
-	def __init__(self, target, name, value):
+	def __init__(self, target, name, value = None):
 		self.name = name
 		super().__init__(value, target)
 
@@ -159,6 +169,8 @@ class ConcreteStringValuedResource(StringValuedResource):
 		return True
 
 class UserResource(Resource):
+	resource_type = "user"
+
 	attributes = {
 		'password'		: str,
 	}
@@ -187,6 +199,10 @@ class UserResource(Resource):
 
 	def describe(self):
 		return "user(%s)" % self.login
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteUserResource(node, resourceName)
 
 	def acquire(self, driver):
 		if self.uid is not None:
@@ -308,7 +324,16 @@ class RootUserResource(UserResource):
 		self._gid = 0
 		self._home = "/root"
 
+class ConcreteUserResource(UserResource):
+	def __init__(self, target, name):
+		self.name = name
+		self.login = name
+
+		super().__init__(target)
+
 class ExecutableResource(Resource):
+	resource_type = "executable"
+
 	attributes = {
 		'executable'		: str,
 		'selinux_label_domain'	: str,
@@ -350,6 +375,10 @@ class ExecutableResource(Resource):
 
 	def describe(self):
 		return "executable(%s)" % self.name
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteExecutableResource(node, resourceName)
 
 	def acquire(self, driver):
 		executable = self.executable or self.name
@@ -419,8 +448,9 @@ class ConcreteExecutableResource(ExecutableResource):
 		super().__init__(target)
 
 class ServiceResource(Resource):
-	systemctl_path = "/usr/bin/systemctl"
+	resource_type = "service"
 
+	systemctl_path = "/usr/bin/systemctl"
 	systemd_activate = []
 
 	def __init__(self, *args, **kwargs):
@@ -521,6 +551,7 @@ class MessageFilter:
 
 
 class JournalResource(Resource):
+	resource_type = "journal"
 	name = "journal"
 
 	def __init__(self, *args, **kwargs):
@@ -592,10 +623,36 @@ class JournalResource(Resource):
 		return bool(st)
 
 ##################################################################
+# Manage all resources.
+# This is a bit convoluted, and involves several classes that
+# are needed to keep track.
+#
+# We distinguish between resource type, resource class and resource
+# instances.
+#
+# A resource type would be "executable", "user", etc. For each of
+# these, we define a python class (ExecutableResource, ...) above.
+#
+# A resource class is a subclass of any of these base classes.
+# For example, there may be a resource class for user "root".
+#
+# A resource instance represents the actual root user on an
+# actual system under test. A resource instance can be claimed
+# and released, or queried for specific attributes.
+##################################################################
+
+##################################################################
 # Global resource inventory
 ##################################################################
 class ResourceInventory:
+	# After class initiazation, this holds a dict mapping
+	# strings ("executable") to resource types (ExecutableResource)
+	_res_type_by_name = None
+
 	def __init__(self):
+		# Define resource types string, user, executable etc.
+		self.__class__.classinit()
+
 		self.globalRegistry = globalResourceRegistry()
 
 		# Find all Resource classes defined in this module
@@ -608,7 +665,24 @@ class ResourceInventory:
 
 		self.resources = []
 
+	@classmethod
+	def classinit(klass):
+		if klass._res_type_by_name is not None:
+			return
+
+		klass._res_type_by_name = {}
+		klass.defineResourceType(StringValuedResource)
+		klass.defineResourceType(ExecutableResource)
+		klass.defineResourceType(UserResource)
+		klass.defineResourceType(ServiceResource)
+		klass.defineResourceType(JournalResource)
+
+	@classmethod
+	def defineResourceType(klass, base_class):
+		klass._res_type_by_name[base_class.resource_type] = base_class
+
 	def __contains__(self, res):
+		obsolete()
 		for rover in self.resources:
 			if res.target == rover.target and res.name == rover.name:
 				return True
@@ -621,9 +695,17 @@ class ResourceInventory:
 			self.nodeRegistry[node.name] = registry
 		return registry
 
-	def get(self, node, type_name, create = False):
+	def getResource(self, node, resourceType, resourceName, create = False):
+		if type(resourceType) == str:
+			if not resourceType in self._res_type_by_name:
+				raise ValueError("%s: unknown resource type %s" % (self.__class__.__name__, resourceType))
+			resourceType = self._res_type_by_name[resourceType]
+
 		for res in self.resources:
-			if res.target == node and res.name == type_name:
+			if resourceType and not isinstance(res, resourceType):
+				continue
+
+			if res.target == node and res.name == resourceName:
 				return res
 
 		if not create:
@@ -634,21 +716,28 @@ class ResourceInventory:
 		# Look at the node registry first
 		registry = self.nodeRegistry.get(node.name)
 		if registry:
-			resourceKlass = registry.get(type_name)
+			resourceKlass = registry.getResourceClass(resourceType, resourceName)
 
 		# Finally, check the global registry
 		if resourceKlass is None:
-			resourceKlass = self.globalRegistry.get(type_name)
+			resourceKlass = self.globalRegistry.getResourceClass(resourceType, resourceName)
 
-		if resourceKlass is None:
-			raise KeyError("Unknown resource type \"%s\"" % type_name)
+		if resourceKlass is not None:
+			res = resourceKlass(node)
+		elif resourceType is not None:
+			# Fallback for simple resource classes like string-valued
+			res = resourceType.createDefaultInstance(node, resourceName)
+		else:
+			res = None
 
-		res = resourceKlass(node)
+		if res is None:
+			raise KeyError("Unknown %s resource \"%s\"" % (resourceType, resourceName))
+
 
 		self.resources.append(res)
 		node.addResource(res)
 
-		susetest.say("%s: created a %s resource" % (node.name, type_name))
+		# susetest.say("%s: created a %s resource" % (node.name, resourceName))
 		return res
 
 class ResourceAssertion:
@@ -698,29 +787,48 @@ class ResourceAssertion:
 
 ##################################################################
 # Global registry of resource types
+#
+# self._classes is a dict of lists, so that we can define
+# different resources with the same name (eg executable rpcbind
+# as well as service rpcbind).
 ##################################################################
 class ResourceRegistry:
 	_global_registry = None
 
 	def __init__(self):
-		self._types = {}
+		self._classes = {}
 
-	def get(self, name):
-		return self._types.get(name)
+	def getResourceClass(self, res_type, res_name):
+		found = None
+		for klass in self._classes.get(res_name, []):
+			if res_type and not issubclass(klass, res_type):
+				continue
+			if found is not None:
+				raise KeyError("Cannot resolve ambiguous resource name %s: %s (%s) vs %s (%s)" % (
+						res_name,
+						found.resource_type, found,
+						klass.resource_type, klass))
 
-	def defineResource(self, klass, verbose = False):
+			found = klass
+
+		return found
+
+	def defineResourceClass(self, klass, verbose = False):
 		if verbose:
-			susetest.say("Define resource %s = %s" % (klass.name, klass.__name__))
+			susetest.say("Define %s resource %s = %s" % (klass.resource_type, klass.name, klass.__name__))
 			if hasattr(klass, 'attributes'):
 				for attr_name in klass.attributes:
 					value = getattr(klass, attr_name)
 					print("  %s = %s" % (attr_name, value))
 
-		self._types[klass.name] = klass
+		if klass.name not in self._classes:
+			self._classes[klass.name] = []
+
+		self._classes[klass.name].append(klass)
 
 	def findResources(self, ctx, verbose = False):
 		for klass in self._find_classes(ctx, Resource, "name"):
-			self.defineResource(klass, verbose)
+			self.defineResourceClass(klass, verbose)
 
 	def _find_classes(self, ctx, baseKlass, required_attr = None):
 		class_type = type(self.__class__)
@@ -912,7 +1020,7 @@ class ResourceLoader:
 			new_klass = type(new_class_name, (klass, ), desc.attrs)
 			new_klass.name = desc.name
 
-			registry.defineResource(new_klass, verbose = verbose)
+			registry.defineResourceClass(new_klass, verbose = verbose)
 
 ##################################################################
 # Keep track of desired state of resources
@@ -987,7 +1095,7 @@ class ResourceManager:
 		return result
 
 	def getResource(self, *args, **kwargs):
-		return self.inventory.get(*args, **kwargs)
+		return self.inventory.getResource(*args, **kwargs)
 
 	@property
 	def pending(self):

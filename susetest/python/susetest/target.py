@@ -142,54 +142,39 @@ class Target(twopence.Target):
 
 		self.__syslogSize = -1
 
-	def addResource(self, resource):
-		self._resources[resource.name] = resource
-
-	def requireResource(self, resourceName, **stateArgs):
-		return self._requestResource(resourceName, mandatory = True, **stateArgs)
-
-	def optionalResource(self, resourceName, **stateArgs):
-		return self._requestResource(resourceName, mandatory = False, **stateArgs)
+	def requireUser(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("user", name, mandatory = True, **stateArgs)
 
 	def requireExecutable(self, name, **stateArgs):
-		if not self.resourceManager:
-			return None
+		return self.acquireResourceTypeAndName("executable", name, mandatory = True, **stateArgs)
 
-		res = self.getResource(name)
-		if res is None:
-			res = ConcreteExecutableResource(self, name)
-			self.addResource(res)
+	def requireService(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("service", name, mandatory = True, **stateArgs)
 
-		if 'mandatory' not in stateArgs:
-			stateArgs['mandatory'] = True
+	def requireJournal(self, **stateArgs):
+		return self.acquireResourceTypeAndName("journal", "journal", mandatory = True, **stateArgs)
 
-		self.resourceManager.acquire(res, **stateArgs)
+	def optionalUser(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("user", name, mandatory = False, **stateArgs)
 
-		return res
+	def optionalExecutable(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("executable", name, mandatory = False, **stateArgs)
+
+	def optionalService(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("service", name, mandatory = False, **stateArgs)
 
 	def defineStringResource(self, name, value, **stateArgs):
-		if not self.resourceManager:
-			return None
+		res = self.instantiateResourceTypeAndName("string", name)
 
-		res = self.getResource(name)
-		if res is None:
-			res = ConcreteStringValuedResource(self, name, value)
-			self.addResource(res)
-		elif isinstance(res, StringValuedResource):
-			res.value = value
-		else:
-			raise ValueError("%s: resource %s exists but is not a string" % (
-				self.name, name))
+		if res.is_active:
+			raise ValueError("%s: unable to redefine active string resource \"%s\"" % (self.name, name))
+		res.value = value
 
-		if 'mandatory' not in stateArgs:
-			stateArgs['mandatory'] = True
-
-		self.resourceManager.acquire(res, **stateArgs)
-
+		self.acquireResource(res, **stateArgs)
 		return res
 
 	def expandStringResource(self, name):
-		res = self.getResource(name)
+		res = self.getResource("string", name)
 		if res is None:
 			return None
 
@@ -198,29 +183,40 @@ class Target(twopence.Target):
 
 		return res.value
 
-	def _requestResource(self, resourceName, **stateArgs):
-		if not self.resourceManager:
-			return None
-
-		res = self.getResource(resourceName)
-		if res is None:
-			res = self.resourceManager.getResource(self, resourceName, create = True)
-
-		if 'mandatory' not in stateArgs:
-			stateArgs['mandatory'] = False
-
-		self.resourceManager.acquire(res, **stateArgs)
-
-		self.addResource(res)
-
-		return res
-
 	@property
 	def resources(self):
 		return self._resources.values()
 
-	def getResource(self, name):
-		return self._resources.get(name)
+	def getResource(self, type, name):
+		key = "%s:%s" % (type, name)
+		return self._resources.get(key)
+
+	def acquireResourceTypeAndName(self, resourceType, resourceName, **stateArgs):
+		res = self.instantiateResourceTypeAndName(resourceType, resourceName)
+		self.acquireResource(res, **stateArgs)
+		return res
+
+	def instantiateResourceTypeAndName(self, type, name):
+		assert(self.resourceManager)
+
+		res = self.getResource(type, name)
+		if res is None:
+			res = self.resourceManager.getResource(self, type, name, create = True)
+			if res is None:
+				raise ValueError("failed to instantiate %s resource \"%s\"" % (type, name))
+			self.addResource(res)
+
+		return res
+
+	def acquireResource(self, res, **stateArgs):
+		if 'mandatory' not in stateArgs:
+			stateArgs['mandatory'] = True
+
+		self.resourceManager.acquire(res, **stateArgs)
+
+	def addResource(self, resource):
+		key = "%s:%s" % (resource.resource_type, resource.name)
+		self._resources[key] = resource
 
 	def getActiveResource(self, name):
 		resource = self._resources.get(name)

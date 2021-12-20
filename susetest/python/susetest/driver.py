@@ -45,8 +45,6 @@ class Driver:
 		self._config = None
 		self._caller_frame = inspect.stack()[-1]
 
-		self.resourceManager = ResourceManager(self)
-
 		self._current_group = None
 		self._setup_complete = False
 
@@ -57,6 +55,8 @@ class Driver:
 
 		self._in_test_case = False
 		self._hooks_end_test = []
+
+		self.resourceManager = ResourceManager(self)
 
 		if self.name is None:
 			path = self._caller_frame.filename
@@ -108,33 +108,55 @@ class Driver:
 		self.journal.error(msg)
 
 	# requireResource, optionalResource:
-	#  type_name is the name of the resource class (eg ipv4-address)
-	#  node_name identifies the node on which to resource resides.
-	#	If not specified, the resource is created for all nodes
+	#  resourceType is the name of the resource class (eg executable)
+	#  resourceName is the name of the resource class (eg ipv4-address)
+	#  nodeName identifies the node on which to resource resides.
+	#	If not specified, the resource is acquired for all nodes
 	#  temporary (bool): if set to true, the resource is released
 	#	when the test group completes
 	#  defer (bool): do not make the requested resource change
 	#	right away, even if we're in the middle of executing a
 	#	test. Instead, defer the change until the user calls
 	#	performDeferredResourceChanges()
-	def requireResource(self, type_name, node_name = None, **stateArgs):
-		return self._requireResource(type_name, node_name, mandatory = True, **stateArgs)
+	def requireUser(self, resourceName, nodeName = None, **stateArgs):
+		return self.acquireResource("user", resourceName, nodeName, **stateArgs)
 
-	def optionalResource(self, type_name, node_name = None, **stateArgs):
-		return self._requireResource(type_name, node_name, mandatory = False, **stateArgs)
+	def requireExecutable(self, resourceName, nodeName = None, **stateArgs):
+		return self.acquireResource("executable", resourceName, nodeName, **stateArgs)
 
-	def _requireResource(self, type_name, node_name = None, **stateArgs):
+	def requireService(self, resourceName, nodeName = None, **stateArgs):
+		return self.acquireResource("service", resourceName, nodeName, **stateArgs)
+
+	def acquireResource(self, resourceType, resourceName, nodeName, **stateArgs):
+		stateArgs['mandatory'] = True
+		if nodeName is None:
+			result = []
+			for node in self.targets:
+				res = node.acquireResourceTypeAndName(resourceType, resourceName, **stateArgs)
+				result.append(res)
+			return result
+		else:
+			node = self._targets.get(nodeName)
+			if node is None:
+				raise KeyError("Unknown node \"%s\"" % nodeName)
+			result = node.acquireResourceTypeAndName(resourceType, resourceName, **stateArgs)
+
+		return result
+
+
+
+	def _requireResource(self, res_name, node_name = None, **stateArgs):
 		if node_name is None:
 			result = []
 			for node in self.targets:
-				res = node._requestResource(type_name, **stateArgs)
+				res = node._requestResource(res_name, **stateArgs)
 				result.append(res)
 			return result
 		else:
 			node = self._targets.get(node_name)
 			if node is None:
 				raise KeyError("Unknown node \"%s\"" % node_name)
-			result = node._requestResource(type_name, **stateArgs)
+			result = node._requestResource(res_name, **stateArgs)
 
 		return result
 
@@ -338,7 +360,7 @@ class Driver:
 			target.defineStringResource("ipv6_loopback", "::1")
 
 		# Require test-user resource for all nodes
-		self.requireResource("test-user")
+		self.requireUser("test-user")
 
 	# Set the workspace
 	def _set_workspace(self):

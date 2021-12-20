@@ -150,7 +150,7 @@ def twopenceConsideredHarmless(violation):
 # Acquire the journal monitoring resource, and install a
 # message filter that checks for SELinux related kernel messages
 def enableFeature(driver, node):
-	resource = node.requireResource("journal", defer = True)
+	resource = node.requireJournal(defer = True)
 
 	filter = SELinuxMessageFilter()
 	filter.addCheck(pamTally2ConsideredHarmless)
@@ -162,13 +162,13 @@ def enableFeature(driver, node):
 	driver.performDeferredResourceChanges()
 
 class SELinux:
-	def resourceVerifyPolicy(self, node, resourceName):
+	def resourceVerifyPolicy(self, node, resourceType, resourceName):
 		if 'selinux' not in node.features:
 			node.logInfo("Skipping SELinux test; you may want to label the test with @susetest.requires('selinux')")
 			driver.skipTest()
 			return
 
-		res = node.getResource(resourceName)
+		res = node.getResource(resourceType, resourceName)
 		if res is None:
 			node.logError("Unable to find resource %s" % resourceName)
 			return
@@ -218,7 +218,7 @@ class SELinux:
 	def verifyExecutableProcessDomain(self, node, res):
 		print("Checking executable's process context (expecting %s)" % res.selinux_process_domain)
 
-		user = node.getResource("test-user")
+		user = node.getResource("user", "test-user")
 		if not user.uid:
 			node.logError("user %s does not seem to exist" % user.login)
 			return

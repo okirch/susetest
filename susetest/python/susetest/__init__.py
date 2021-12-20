@@ -60,11 +60,11 @@ def group_resource(f):
 	print("Attaching group resource %s" % f)
 	return wrapper
 
-def requireResource(*args, **kwargs):
-	TestDefinition.requireResource(*args, **kwargs)
+def requireResource(resourceName, resourceType = None, nodeName = None, **kwargs):
+	TestDefinition.requireResource(resourceType, resourceName, nodeName, **kwargs)
 
-def optionalResource(*args, **kwargs):
-	TestDefinition.optionalResource(*args, **kwargs)
+def optionalResource(resourceName, resourceType = None, nodeName = None, **kwargs):
+	TestDefinition.optionalResource(resourceType, resourceName, nodeName, **kwargs)
 
 # susetest.resource decorator
 def resource(klass):
@@ -122,13 +122,13 @@ def define_parameterized(testfn, *args):
 	TestDefinition.defineTestcase(wrapper)
 
 def template(name, *args, **kwargs):
-	if name == 'selinux-verify-resource':
-		templateSelinuxVerifyResource(*args, **kwargs)
+	if name == 'selinux-verify-executable':
+		templateSelinuxVerifyResource("executable", *args, **kwargs)
 	else:
 		raise ValueError("unknown template %s" % name)
 
 
-def templateSelinuxVerifyResource(resourceName, nodeName = None):
+def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 	def verify_exec_selinux(driver):
 		node = None
 
@@ -144,7 +144,7 @@ def templateSelinuxVerifyResource(resourceName, nodeName = None):
 			return
 
 		executor = SELinux()
-		executor.resourceVerifyPolicy(node, resourceName)
+		executor.resourceVerifyPolicy(node, resourceType, resourceName)
 
 	f = verify_exec_selinux
 	f.__doc__ = f"selinux.{resourceName}: verify that selinux policy is applied to {resourceName}"
@@ -153,13 +153,13 @@ def templateSelinuxVerifyResource(resourceName, nodeName = None):
 	tc.addOptionalResource(resourceName)
 	tc.addRequires('selinux')
 
-	TestDefinition.optionalResource(resourceName, nodeName = nodeName)
+	TestDefinition.optionalResource(resourceType, resourceName, nodeName = nodeName)
 
 	return tc
 
-def verifySELinuxPolicy(node, resourceName):
+def verifySELinuxPolicy(node, resourceType, resourceName):
 	executor = SELinux()
-	executor.resourceVerifyPolicy(node, resourceName)
+	executor.resourceVerifyPolicy(node, resourceType, resourceName)
 
 # Called by the user at the end of a test script, like this
 #
