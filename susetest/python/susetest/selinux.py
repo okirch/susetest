@@ -14,6 +14,7 @@
 #
 ##################################################################
 from .resources import MessageFilter, ExecutableResource
+from .feature import Feature
 import susetest
 import time
 
@@ -147,21 +148,90 @@ def twopenceConsideredHarmless(violation):
 		return "info"
 	return None
 
-# Acquire the journal monitoring resource, and install a
-# message filter that checks for SELinux related kernel messages
-def enableFeature(driver, node):
-	resource = node.requireJournal(defer = True)
+class SELinux(Feature):
+	def __init__(self):
+		super().__init__()
+		self.policy = 'targeted'
+		self.default_seuser = 'unconfined_u'
+		self.default_serole = 'unconfined_r'
+		self.default_setype = 'unconfined_t'
 
-	filter = SELinuxMessageFilter()
-	filter.addCheck(pamTally2ConsideredHarmless)
-	filter.addCheck(twopenceConsideredHarmless)
+	# Acquire the journal monitoring resource, and install a
+	# message filter that checks for SELinux related kernel messages
+	def enableFeature(self, driver, node):
+		resource = node.requireJournal(defer = True)
 
-	resource.addFilter(filter)
-	susetest.say("%s: installed SELinux filter" % resource)
+		filter = SELinuxMessageFilter()
+		filter.addCheck(pamTally2ConsideredHarmless)
+		filter.addCheck(twopenceConsideredHarmless)
 
-	driver.performDeferredResourceChanges()
+		resource.addFilter(filter)
+		susetest.say("%s: installed SELinux filter" % resource)
 
-class SELinux:
+		selinuxPolicy = driver.getParameter('selinux-policy')
+		if not selinuxPolicy:
+			selinuxPolicy = self.policy
+
+		selinuxUser = driver.getParameter('selinux-user')
+		if not selinuxUser:
+			selinuxUser = driver.getParameter('selinux-testuser')
+
+		if selinuxUser:
+			self.updateSEUser(node, selinuxPolicy, selinuxUser)
+
+			# setting the role is sa bit of a hack.
+			# The default role for a user is policy dependent,
+			# and it's just a convention of the current policies
+			# that the default role for foobar_u is foobar_r
+			self.default_seuser = selinuxUser
+			self.default_serole = selinuxUser.replace('_u', '_r')
+			self.default_setype = selinuxUser.replace('_u', '_t')
+
+		driver.performDeferredResourceChanges()
+
+	def updateSEUser(self, node, selinuxPolicy, selinuxUser):
+		linuxUser = node.test_user
+
+		if linuxUser is None:
+			user = node.requireUser("test-user")
+			if not user:
+				raise ValueError("Cannot determine default Linux user")
+			linuxUser = user.login
+
+		node.logInfo("Updating user %s to use SELinux user/role %s" % (linuxUser, selinuxUser))
+
+		path = "/etc/selinux/%s/seusers" % selinuxPolicy
+		node.logInfo("Editing %s" % path)
+		content = node.recvbuffer(path, user = 'root')
+		if not content:
+			node.logError("Unable to define %s as SELinux user %s" % (linuxUser, selinuxUser))
+			return False
+
+		replace = "%s:%s:s0-s0:c0.c1023" % (linuxUser, selinuxUser)
+		result = []
+
+		for line in content.decode('utf-8').split('\n'):
+			line = line.strip()
+			if line == replace:
+				node.logInfo("seusers entry for %s already present" % linuxUser)
+				return True
+
+			if line.startswith(linuxUser + ":"):
+				line = replace
+				replace = None
+			result.append(line)
+
+		if replace:
+			result.append(replace)
+
+		content = ('\n'.join(result) + '\n').encode('utf-8')
+		st = node.sendbuffer(path, content, user = 'root')
+		if not st:
+			node.logError("Unable to overwrite %s: %s" % (path, st.message))
+			return False
+
+		return True
+
 	def resourceVerifyPolicy(self, node, resourceType, resourceName):
 		if 'selinux' not in node.features:
 			node.logInfo("Skipping SELinux test; you may want to label the test with @susetest.requires('selinux')")

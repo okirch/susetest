@@ -16,7 +16,6 @@ import functools
 from .target import Target
 from .driver import Driver
 from .testdef import TestDefinition
-from .selinux import SELinux
 
 # Having to import twopence just in order to create a command
 # is not so nice. So as a convenience, we import it here and
@@ -143,8 +142,8 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 			driver.testError("SELinux: cannot verify %s policy - don't know which SUT to pick" % resourceName)
 			return
 
-		executor = SELinux()
-		executor.resourceVerifyPolicy(node, resourceType, resourceName)
+		selinux = driver.getFeature('selinux')
+		selinux.resourceVerifyPolicy(node, resourceType, resourceName)
 
 	f = verify_exec_selinux
 	f.__doc__ = f"selinux.{resourceName}: verify that selinux policy is applied to {resourceName}"
