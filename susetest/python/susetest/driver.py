@@ -75,8 +75,6 @@ class Driver:
 
 		susetest.say("=== Created TestDriver(%s) ===" % self.name)
 
-		self._context = self._caller_frame.frame.f_globals
-
 	def __del__(self):
 		self._close_journal()
 
