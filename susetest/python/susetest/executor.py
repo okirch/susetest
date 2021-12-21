@@ -380,7 +380,7 @@ class Testcase:
 		info("Validating test result")
 
 	def destroyCluster(self):
-		if not (self.is_provisioned or self.is_test_complete):
+		if not (self.is_initialized or self.is_provisioned or self.is_test_complete):
 			return
 
 		info("Destroying test nodes")
