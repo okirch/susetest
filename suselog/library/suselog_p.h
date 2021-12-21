@@ -58,11 +58,21 @@ struct suselog_info {
 	char *			message;
 };
 
+struct suselog_keyvalue {
+	suselog_keyvalue_t *	next;
+	char *			key;
+	char *			value;
+};
+
 struct suselog_common {
 	char *			name;
 	char *			description;
 	struct timeval		timestamp;
 	double			duration;
+};
+
+struct suselog_properties {
+	LIST_HEAD(suselog_keyvalue_t) list;
 };
 
 /*
@@ -91,6 +101,7 @@ struct suselog_group {
 
 	suselog_common_t	common;
 	suselog_autoname_t	autoname;
+	suselog_properties_t	properties;
 	suselog_stats_t		stats;
 	char *			hostname;
 	unsigned int		id;
@@ -106,6 +117,7 @@ struct suselog_journal  {
 	suselog_stats_t		stats;
 	char *			pathname;
 	char *			hostname;
+	suselog_properties_t	properties;
 	suselog_writer_t *	writer;
 
 	suselog_level_t		max_name_level;

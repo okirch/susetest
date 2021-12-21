@@ -51,6 +51,8 @@ typedef struct suselog_test suselog_test_t;
 typedef struct suselog_info suselog_info_t;
 typedef struct suselog_common suselog_common_t;
 typedef struct suselog_autoname	suselog_autoname_t;
+typedef struct suselog_properties suselog_properties_t;
+typedef struct suselog_keyvalue	suselog_keyvalue_t;
 typedef struct suselog_group suselog_group_t;
 typedef struct suselog_journal suselog_journal_t;
 typedef const struct suselog_writer suselog_writer_t;
@@ -80,6 +82,7 @@ extern void		suselog_journal_set_pathname(suselog_journal_t *, const char *name)
 extern void		suselog_journal_set_max_name_level(suselog_journal_t *, suselog_level_t);
 extern void		suselog_journal_set_systemout_level(suselog_journal_t *, suselog_level_t);
 extern void		suselog_journal_set_color(suselog_journal_t *, int);
+extern void		suselog_journal_add_property(suselog_journal_t *, const char *key, const char *value);
 extern const suselog_stats_t *suselog_journal_get_stats(const suselog_journal_t *);
 extern void		suselog_journal_write(suselog_journal_t *);
 extern int		suselog_journal_merge(suselog_journal_t *, const char *);
@@ -88,6 +91,7 @@ extern suselog_group_t *suselog_group_begin(suselog_journal_t *, const char *nam
 extern const char *	suselog_group_name(const suselog_group_t *);
 extern const char *	suselog_group_description(const suselog_group_t *);
 extern const char *	suselog_group_fullname(const suselog_group_t *);
+extern void		suselog_group_add_property(suselog_group_t *, const char *key, const char *value);
 extern void		suselog_group_finish(suselog_journal_t *);
 extern suselog_test_t *	suselog_test_begin(suselog_journal_t *, const char *name, const char *description);
 extern const char *	suselog_test_name(const suselog_test_t *);

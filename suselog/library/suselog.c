@@ -131,6 +131,10 @@ suselog_common_update_duration(suselog_common_t *info)
 	info->duration = delta.tv_sec + 1e-6 * delta.tv_usec;
 }
 
+/*
+ * Autoname.
+ * This produces locally unique names of the form <BASENAME><NUMBER>
+ */
 static void
 suselog_autoname_init(suselog_autoname_t *autoname, const char *basename)
 {
@@ -152,6 +156,72 @@ suselog_autoname_destroy(suselog_autoname_t *autoname)
 	__drop_string(&autoname->base);
 }
 
+/*
+ * Simple key/value store
+ */
+static suselog_keyvalue_t *
+__suselog_keyvalue_new(const char *key, const char *value)
+{
+	suselog_keyvalue_t *item;
+
+	item = calloc(1, sizeof(*item));
+	__set_string(&item->key, key);
+	__set_string(&item->value, value);
+	return item;
+}
+
+static void
+__suselog_keyvalue_free(suselog_keyvalue_t *item)
+{
+	__drop_string(&item->key);
+	__drop_string(&item->value);
+	free(item);
+}
+
+static void
+suselog_properties_init(suselog_properties_t *properties)
+{
+	LIST_INIT(&properties->list);
+}
+
+static const char *
+suselog_properties_get(const suselog_properties_t *properties, const char *key)
+{
+	suselog_keyvalue_t *item;
+
+	for (item = properties->list.head; item; item = item->next) {
+		if (!strcmp(item->key, key))
+			return item->value;
+	}
+
+	return NULL;
+}
+
+static void
+suselog_properties_set(suselog_properties_t *properties, const char *key, const char *value)
+{
+	suselog_keyvalue_t *item;
+
+	for (item = properties->list.head; item; item = item->next) {
+		if (!strcmp(item->key, key)) {
+			__set_string(&item->value, value);
+			return;
+		}
+	}
+
+	item = __suselog_keyvalue_new(key, value);
+	LIST_APPEND(&properties->list, item);
+}
+
+static void
+suselog_properties_destroy(suselog_properties_t *properties)
+{
+	LIST_DROP(&properties->list, __suselog_keyvalue_free);
+}
+
+/*
+ * Access to the test report itself
+ */
 suselog_journal_t *
 suselog_journal_new(const char *name, suselog_writer_t *writer)
 {
@@ -161,6 +231,7 @@ suselog_journal_new(const char *name, suselog_writer_t *writer)
 	suselog_common_init(&journal->common, name, NULL);
 	suselog_autoname_init(&journal->autoname, "group");
 	__set_string(&journal->hostname, __suselog_hostname());
+	suselog_properties_init(&journal->properties);
 	journal->writer = writer;
 
 	/* Do not allow per-test names. This is creating more confusion in jenkins than
@@ -188,6 +259,7 @@ suselog_journal_free(suselog_journal_t *journal)
 	__drop_string(&journal->hostname);
 	__drop_string(&journal->pathname);
 	suselog_autoname_destroy(&journal->autoname);
+	suselog_properties_destroy(&journal->properties);
 	LIST_DROP(&journal->groups, suselog_group_free);
 
 	free(journal);
@@ -215,6 +287,12 @@ void
 suselog_journal_set_systemout_level(suselog_journal_t *journal, suselog_level_t level)
 {
 	journal->systemout_level = level;
+}
+
+void
+suselog_journal_add_property(suselog_journal_t *journal, const char *key, const char *value)
+{
+	suselog_properties_set(&journal->properties, key, value);
 }
 
 void
@@ -402,6 +480,7 @@ suselog_group_new(const char *name, const char *description)
 	group = calloc(1, sizeof(*group));
 	suselog_common_init(&group->common, name, description);
 	suselog_autoname_init(&group->autoname, "test");
+	suselog_properties_init(&group->properties);
 	__set_string(&group->hostname, __suselog_hostname());
 	LIST_INIT(&group->tests);
 
@@ -414,6 +493,7 @@ suselog_group_free(suselog_group_t *group)
 	__drop_string(&group->hostname);
 	suselog_common_destroy(&group->common);
 	suselog_autoname_destroy(&group->autoname);
+	suselog_properties_destroy(&group->properties);
 	LIST_DROP(&group->tests, suselog_test_free);
 
 	if (group->merged)
@@ -466,6 +546,12 @@ const char *
 suselog_group_fullname(const suselog_group_t *group)
 {
 	return __suselog_test_fullname(group->parent, group, NULL);
+}
+
+void
+suselog_group_add_property(suselog_group_t *group, const char *key, const char *value)
+{
+	suselog_properties_set(&group->properties, key, value);
 }
 
 void
@@ -848,6 +934,28 @@ __suselog_junit_journal(suselog_journal_t *journal)
 	return root;
 }
 
+static void
+__suselog_junit_add_properties(xml_node_t *parent, const suselog_properties_t *properties, const suselog_properties_t *except)
+{
+	xml_node_t *node, *container = NULL;
+	suselog_keyvalue_t *item;
+
+	for (item = properties->list.head; item; item = item->next) {
+		if (except && suselog_properties_get(except, item->key))
+			continue;
+
+		if (container == NULL) {
+			container = xml_node_get_child(parent, "properties");
+			if (container == NULL)
+				container = xml_node_new("properties", parent);
+		}
+
+		node = xml_node_new("property", container);
+		xml_node_add_attr(node, "key", item->key);
+		xml_node_add_attr(node, "value", item->value);
+	}
+}
+
 static xml_node_t *
 __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 {
@@ -873,6 +981,13 @@ __suselog_junit_group(suselog_group_t *group, xml_node_t *parent)
 	xml_node_add_attr_double(node, "time", group->common.duration);
 	xml_node_add_attr_uint(node, "id", group->id);
 	__suselog_junit_stats(node, &group->stats);
+
+	/* Add all properties defined at the group level */
+	__suselog_junit_add_properties(node, &group->properties, NULL);
+
+	/* Add all properties defined at the journal level, except for
+	 * those overridden by this group. */
+	__suselog_junit_add_properties(node, &group->parent->properties, &group->properties);
 
 	for (test = group->tests.head; test; test = test->next) {
 		xml_node_t *child;

@@ -53,6 +53,7 @@ static PyObject *	Journal_num_failed(PyObject *self, PyObject *args, PyObject *k
 static PyObject *	Journal_num_errors(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_set_color(PyObject *self, PyObject *args, PyObject *kwds);
 static PyObject *	Journal_mergeReport(PyObject *self, PyObject *args, PyObject *kwds);
+static PyObject *	Journal_add_property(PyObject *self, PyObject *args, PyObject *kwds);
 
 /*
  * Define the python bindings of class "Journal"
@@ -76,6 +77,9 @@ static PyMethodDef suselog_journalMethods[] = {
       },
       {	"beginTest", (PyCFunction) Journal_beginTest, METH_VARARGS | METH_KEYWORDS,
 	"Begin a test case"
+      },
+      {	"addProperty", (PyCFunction) Journal_add_property, METH_VARARGS | METH_KEYWORDS,
+	"Record key/value property"
       },
       {	"info", (PyCFunction) Journal_info, METH_VARARGS | METH_KEYWORDS,
 	"Log an information message"
@@ -337,6 +341,31 @@ Journal_finishGroup(PyObject *self, PyObject *args, PyObject *kwds)
 		return NULL;
 
 	suselog_group_finish(journal);
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+/*
+ * Record a testsuite property
+ */
+PyObject *
+Journal_add_property(PyObject *self, PyObject *args, PyObject *kwds)
+{
+	static char *kwlist[] = {
+		"key",
+		"value",
+		NULL
+	};
+	char *key, *value;
+	suselog_journal_t *journal;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ss", kwlist, &key, &value))
+		return NULL;
+
+	if ((journal = Journal_handle(self)) == NULL)
+		return NULL;
+
+	suselog_journal_add_property(journal, key, value);
 	Py_INCREF(Py_None);
 	return Py_None;
 }
