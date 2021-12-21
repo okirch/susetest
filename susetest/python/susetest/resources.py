@@ -587,10 +587,19 @@ class JournalResource(Resource):
 
 		driver.addPostTestHook(self.processMessages)
 
-		return self.processMessages(quiet = True)
+		# For now, just flush any messages that accumulated since boot
+		# We may want to create a test special case that looks at any
+		# policy violations during system boot (and that's TBD), but
+		# we should not do this for every test case.
+		return self.flushMessages()
+		# return self.processMessages(quiet = True)
 
 	def release(self, driver):
 		raise NotImplementedError()
+
+	def flushMessages(self):
+		self.target.run("twopence_journal", stdout = bytearray(), quiet = True)
+		return True
 
 	def processMessages(self, quiet = False):
 		import twopence
@@ -599,8 +608,7 @@ class JournalResource(Resource):
 		cmd = twopence.Command("twopence_journal", stdout = bytearray(), quiet = True)
 		st = self.target._run(cmd)
 
-		printed = False
-
+		processed = []
 		for line in st.stdout.decode("utf-8").split('\n'):
 			if not line:
 				continue
@@ -611,14 +619,21 @@ class JournalResource(Resource):
 			if m.transport == 'stdout' and m.application.startswith("twopence_test"):
 				continue
 
-			if not quiet:
-				if not printed:
-					self.target.logInfo("Received messages")
-					printed = True
-				self.target.logInfo("  %s" % line)
+			processed.append(line)
 
 			for filt in self._filters:
 				filt.match(m, self.target)
+
+		if processed and not quiet:
+			self.target.logInfo("Received %d journal messages" % len(processed))
+
+			# Print the messages themselves w/o prefixing them with the node name
+			# This makes it easier to cut and paste them into bug reports
+			journal = self.target.journal
+			journal.info("== Messages begin ==")
+			for line in processed:
+				journal.info("%s" % line)
+			journal.info("== Messages end ==")
 
 		return bool(st)
 
