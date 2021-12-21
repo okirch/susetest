@@ -445,6 +445,7 @@ class Runner:
 		self.testrun = args.testrun
 		self.workspace = args.workspace
 		self.logspace = args.logspace
+		self.parameters = args.parameter
 		self.testcases = []
 
 		if self.workspace is None:
@@ -534,6 +535,16 @@ class Runner:
 		node = tree.add_child("role", "default")
 		node.set_value("platform", self.platform)
 		node.set_value("repositories", ["testbus", ])
+
+		if self.parameters:
+			child = tree.add_child("parameters")
+			for paramString in self.parameters:
+				words = paramString.split('=', maxsplit = 1)
+				if len(words) != 2:
+					raise ValueError("argument to --parameter must be in the form name=value, not \"%s\"" % s)
+
+				child.set_value(*words)
+
 		config.save(path)
 
 		info("Contents of %s:" % path)
@@ -555,6 +566,8 @@ class Runner:
 			help = 'the directory to use as workspace')
 		parser.add_argument('--logspace',
 			help = 'the directory to use as logspace')
+		parser.add_argument('--parameter', action = 'append',
+			help = 'Parameters to be passed to the test suite, in name=value format')
 		parser.add_argument('--dry-run', default = False, action = 'store_true',
 			help = 'Do not run any commands, just show what would be done')
 		parser.add_argument('--debug', default = False, action = 'store_true',
