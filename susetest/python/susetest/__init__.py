@@ -156,10 +156,6 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 
 	return tc
 
-def verifySELinuxPolicy(node, resourceType, resourceName):
-	executor = SELinux()
-	executor.resourceVerifyPolicy(node, resourceType, resourceName)
-
 # Called by the user at the end of a test script, like this
 #
 #  if __name == '__main__':
