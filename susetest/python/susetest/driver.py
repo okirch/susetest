@@ -52,6 +52,7 @@ class Driver:
 		self.workspace = None
 		self.journal_path = None
 		self.journal = None
+		self._parameters = {}
 
 		self._in_test_case = False
 		self._hooks_end_test = []
@@ -178,6 +179,9 @@ class Driver:
 
 		susetest.say("%s: enabled feature %s" % (node.name, feature))
 		node.enabledFeature(feature)
+
+	def getParameter(self, name):
+		return self._parameters.get(name)
 
 	@property
 	def setupComplete(self):
@@ -336,6 +340,7 @@ class Driver:
 		self._config = curly.Config(self.config_path)
 
 		self._set_workspace()
+		self._set_parameters()
 		self._set_journal()
 		self._set_targets()
 		self._set_os_resources()
@@ -362,6 +367,24 @@ class Driver:
 		# Require test-user resource for all nodes
 		self.requireUser("test-user")
 
+	# Set any paramaters passed to us
+	def _set_parameters(self):
+		self._parameters = {}
+
+		tree = self._config.tree()
+		child = tree.get_child("parameters")
+		if child:
+			printed = False
+			for name in child.get_attributes():
+				if not printed:
+					print("Detected test suite parameter(s):")
+					printed = True
+
+				value = child.get_value(name)
+
+				print("  %s = %s" % (name, value))
+				self._parameters[name] = value
+
 	# Set the workspace
 	def _set_workspace(self):
 		if self.workspace is None:
@@ -387,6 +410,10 @@ class Driver:
 
 		susetest.say("Writing journal to %s" % self.journal_path)
 		self.journal = suselog.Journal(self.name, path = self.journal_path);
+
+		# Record all parameters that were set at global level
+		for key, value in self._parameters.items():
+			self.journal.addProperty(key, value)
 
 	def _set_os_resources(self):
 		for node in self.targets:
