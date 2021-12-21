@@ -319,22 +319,42 @@ class SELinux(Feature):
 			proc.kill("KILL")
 			proc.wait()
 
-		expected = self.buildContext(domain = res.selinux_process_domain)
-		if process_ctx != expected:
+		expected = self.checkContext(process_ctx, type = res.selinux_process_domain)
+		if expected:
 			node.logFailure("command is running with wrong SELinux context");
 			node.logInfo("  expected %s" % expected)
 			node.logInfo("  actual context %s" % process_ctx)
 			return False
 
-		node.logInfo("good, command is running with expected SELinux context %s" % expected);
+		node.logInfo("good, command is running with expected SELinux context %s" % process_ctx);
 		return True
 
-	def buildLabel(self, user = "system_u", role = "object_r", domain = "bin_t", mcs = "s0"):
-		return "%s:%s:%s:%s" % (user, role, domain, mcs)
+	def buildLabel(self, user = "system_u", role = "object_r", domain = "bin_t", sensitivity = "s0"):
+		return "%s:%s:%s:%s" % (user, role, domain, sensitivity)
 
-	def buildContext(self, user = "unconfined_u", role = "unconfined_r", domain = "unconfined_t", mcs = "s0"):
-		return "%s:%s:%s:%s" % (user, role, domain, mcs)
+	def buildContext(self, user = None, role = None, type = None, sensitivity = "s0"):
+		if user is None:
+			user = self.default_seuser
+		if role is None:
+			role = self.default_serole
+		if type is None:
+			type = self.default_setype
 
-def verifyExecutable(driver, nodeName, appName):
-	node = driver.getTarget(nodeName)
-	resource = node.requireResource(name)
+		return "%s:%s:%s:%s" % (user, role, type, sensitivity)
+
+	# Returns the expected context if there's a conflict, None otherwise
+	def checkContext(self, context, user = None, role = None, type = None, sensitivity = None, categories = None):
+		if user is None:
+			user = self.default_seuser
+		if role is None:
+			role = self.default_serole
+		if type is None:
+			type = self.default_setype
+
+		actual = context.split(":")
+		expect = [user, role, type]
+		for a, b in zip(expect, actual):
+			if a != b:
+				return ":".join(expect)
+
+		return None
