@@ -14,6 +14,7 @@ import re
 import time
 
 from .resources import Resource, ResourceManager
+from .feature import Feature
 import susetest
 
 class Group:
@@ -48,6 +49,7 @@ class Driver:
 		self._current_group = None
 		self._setup_complete = False
 
+		self._features = {}
 		self._targets = None
 		self.workspace = None
 		self.journal_path = None
@@ -164,20 +166,23 @@ class Driver:
 	def performDeferredResourceChanges(self):
 		return self.resourceManager.performDeferredChanges()
 
-	def enableFeature(self, node, feature):
+	def getFeature(self, name):
+		return self._features.get(name)
+
+	def createFeature(self, name):
+		feature = self._features.get(name)
+		if feature is None:
+			feature = Feature.createFeature(name)
+			self._features[name] = feature
+		return feature
+
+	def enableFeature(self, node, featureName):
+		feature = self.createFeature(featureName)
+
 		# ignore duplicates
-		if node.testFeature(feature):
-			return
-
-		if feature == 'selinux':
-			import susetest.selinux
-
-			susetest.selinux.enableFeature(self, node)
-		else:
-			susetest.say("WARNING: test run requests unsupported feature %s" % feature)
-			return
-
-		susetest.say("%s: enabled feature %s" % (node.name, feature))
+		if not node.testFeature(feature):
+			feature.enableFeature(self, node)
+			susetest.say("%s: enabled feature %s" % (node.name, featureName))
 		node.enabledFeature(feature)
 
 	def getParameter(self, name):

@@ -224,11 +224,11 @@ class Target(twopence.Target):
 			resource = None
 		return resource
 
-	def testFeature(self, name):
-		return name in self._enabled_features
+	def testFeature(self, feature):
+		return feature in self._enabled_features
 
-	def enabledFeature(self, name):
-		self._enabled_features.append(name)
+	def enabledFeature(self, feature):
+		self._enabled_features.append(feature)
 
 	@property
 	def is_systemd(self):
