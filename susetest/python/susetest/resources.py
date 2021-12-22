@@ -124,6 +124,10 @@ class Resource:
 class StringValuedResource(Resource):
 	resource_type = "string"
 
+	attributes = {
+		'value'			: str,
+	}
+
 	def __init__(self, value, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.value = value
@@ -346,6 +350,9 @@ class ExecutableResource(Resource):
 	# if omitted, we will just use klass.name
 	executable = None
 
+	# Package from which the executable can be installed
+	package = None
+
 	# selinux_label_domain: if specified, this is
 	#	the domain part of the executable's label
 	#	(eg sshd_exec_t, passwd_exec_t, etc)
@@ -450,6 +457,12 @@ class ConcreteExecutableResource(ExecutableResource):
 class ServiceResource(Resource):
 	resource_type = "service"
 
+	attributes = {
+		'daemon_path'		: str,
+		'systemd_unit'		: str,
+		'systemd_activate'	: list,
+	}
+
 	systemctl_path = "/usr/bin/systemctl"
 	systemd_activate = []
 
@@ -552,6 +565,8 @@ class MessageFilter:
 
 class JournalResource(Resource):
 	resource_type = "journal"
+	attributes = {}
+
 	name = "journal"
 
 	def __init__(self, *args, **kwargs):
@@ -746,7 +761,7 @@ class ResourceInventory:
 			res = None
 
 		if res is None:
-			raise KeyError("Unknown %s resource \"%s\"" % (resourceType, resourceName))
+			raise KeyError("Unknown %s resource \"%s\"" % (resourceType.resource_type, resourceName))
 
 
 		self.resources.append(res)
@@ -971,14 +986,15 @@ class ResourceLoader:
 		config = curly.Config(path)
 		tree = config.tree()
 
-		self.findResourceType(path, tree, descGroup, "executable", ExecutableResource)
-		self.findResourceType(path, tree, descGroup, "user", UserResource)
+		for name, klass in ResourceInventory._res_type_by_name.items():
+			# print("load %s %s" % (name, klass))
+			self.findResourceType(path, tree, descGroup, name, klass)
 
 		# print("Loaded %s" % path)
 
 	def findResourceType(self, origin_file, tree, descGroup, type, klass):
 		if not hasattr(klass, 'attributes'):
-			print("%s: please define valid attributes for class %s" % (self.__class__.__name__, klass,__name__))
+			print("%s: please define valid attributes for class %s" % (self.__class__.__name__, klass.__name__))
 			raise NotImplementedError()
 
 		for name in tree.get_children(type):
