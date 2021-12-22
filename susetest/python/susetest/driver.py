@@ -129,7 +129,8 @@ class Driver:
 		return self.acquireResource("service", resourceName, nodeName, **stateArgs)
 
 	def acquireResource(self, resourceType, resourceName, nodeName, **stateArgs):
-		stateArgs['mandatory'] = True
+		if 'mandatory' not in stateArgs:
+			stateArgs['mandatory'] = True
 		if nodeName is None:
 			result = []
 			for node in self.targets:

@@ -171,6 +171,9 @@ class Target(twopence.Target):
 			raise ValueError("%s: unable to redefine active string resource \"%s\"" % (self.name, name))
 		res.value = value
 
+		# We just defined it, so we should make it mandatory
+		stateArgs['mandatory'] = True
+
 		self.acquireResource(res, **stateArgs)
 		return res
 
@@ -211,7 +214,7 @@ class Target(twopence.Target):
 
 	def acquireResource(self, res, **stateArgs):
 		if 'mandatory' not in stateArgs:
-			stateArgs['mandatory'] = True
+			raise ValueError("cannot acquire resource %s: caller did not specify whether it's mandatory or optional" % res)
 
 		self.resourceManager.acquire(res, **stateArgs)
 
