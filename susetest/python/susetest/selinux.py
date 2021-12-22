@@ -38,6 +38,16 @@ class SELinuxMessageFilter(MessageFilter):
 			self.tcontext = None
 			self.tclass = None
 
+		# Two violations are considered to originate from the same process iff the following
+		# are identical
+		#	process id
+		#	comm (we want to catch exec() calls)
+		#	scontext (we want to catch dynamic context transitions)
+		def sameProcess(self, other):
+			if other is None:
+				return False
+			return self.pid == other.pid and self.comm == other.comm and self.scontext == other.scontext
+
 	def __init__(self):
 		self.previous = None
 		self._checks = []
@@ -62,7 +72,10 @@ class SELinuxMessageFilter(MessageFilter):
 			target.logInfo(m.message)
 			return
 
-		if not self.previous or self.previous.pid != violation.pid:
+		if violation.sameProcess(self.previous):
+			# This is the same process triggering another policy violation
+			pass
+		else:
 			rating = self.rateViolation(violation)
 			if rating == "info":
 				target.logInfo("SELinux policy violation (ignored)")
