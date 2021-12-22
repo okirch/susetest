@@ -189,6 +189,16 @@ class TestGroupDef:
 				return tc
 		return None
 
+class GroupInitWrapper:
+	def __init__(self, group):
+		self.group = group
+		self.name = "setup-resources"
+		self.description = group.setup.__doc__
+		self.skip = False
+
+	def __call__(self, driver):
+		self.group.setup(driver)
+
 class TestsuiteInfo:
 	_instance = None
 
@@ -207,6 +217,9 @@ class TestsuiteInfo:
 		# in the calling script, even if that script imports
 		# other files that define additional test cases
 		self.createGroup('__main__')
+
+		self._currentGroup = None
+		self._failing = False
 
 	@classmethod
 	def instance(klass):
@@ -257,7 +270,88 @@ class TestsuiteInfo:
 		for req in self._resources:
 			req.request(driver)
 
+	def actionBeginGroup(self, driver, group):
+		try:
+			driver.beginGroup(group.name)
+		except twopence.Exception as e:
+			susetest.say("received fatal exception, failing all remaining test cases")
+			driver.testError("test suite is failing")
+			self._failing = True
+		self._currentGroup = group
+
+	def actionEndGroup(self, driver, group):
+		if self._currentGroup:
+			self._currentGroup = None
+			driver.endGroup()
+
+	def actionSkipGroup(self, driver, group):
+		susetest.say("\nSkipping group %s" % group.name)
+		driver.beginGroup(group.name)
+		if group.setup:
+			driver.skipTest("setup-resources", group.setup.__doc__)
+		for test in group.tests:
+			driver.skipTest(test.name, test.description)
+		driver.endGroup()
+
+	def actionPerformTest(self, driver, test):
+		if test.skip:
+			driver.skipTest(test.name, test.description)
+		else:
+			driver.beginTest(test.name, test.description)
+			if not self._failing:
+				try:
+					test(driver)
+				except twopence.Exception as e:
+					susetest.say("received fatal exception, failing all remaining test cases")
+					self._failing = True
+
+			# Note, it's "if" not "elif" here for a reason
+			if self._failing:
+				driver.testError("test suite is failing")
+
+			driver.endTest()
+
+	def enumerateSteps(self):
+		result = []
+
+		for group in self.groups:
+			skipping = group.skip
+
+			if group.skip:
+				result.append([self.actionSkipGroup, group])
+				continue
+
+			result.append([self.actionBeginGroup, group])
+
+			# Note: there is one significant difference in the way
+			# setup works at the driver level (above) vs at the test group
+			# level. At the driver level, we queue up the list of required
+			# resources, and then perform the resource changes in one go.
+			#
+			# When calling user-defined functions, this is probably a bit
+			# counter-intuitive, which is why in this case, we execute
+			# these changes as they are issued by the user.
+			if group.setup:
+				result.append([self.actionPerformTest, GroupInitWrapper(group)])
+
+			for test in group.tests:
+				result.append([self.actionPerformTest, test])
+
+			result.append([self.actionEndGroup, group])
+		return result
+
+	def performSteps(self, driver, steps):
+		while steps:
+			action, arg = steps.pop(0)
+			action(driver, arg)
+
 	def perform(self, driver):
+		steps = self.enumerateSteps()
+		self.performSteps(driver, steps)
+		return
+
+		# OLD CODE:
+
 		# request all the resources that the user specified
 		# for this test self
 		self.requestResources(driver)
