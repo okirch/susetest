@@ -28,6 +28,7 @@ class Target(twopence.Target):
 			raise ValueError("Cannot connect to node %s: config doesn't specify a target" % name)
 
 		super(Target, self).__init__(spec, None, name)
+		self.connectionDead = False
 
 		self.node_config = node_config
 		self.journal = journal
@@ -325,17 +326,30 @@ class Target(twopence.Target):
 			path = path + "/" + relativeName
 		return path
 
+	def handleException(self, operation, exc):
+		self.logError("%s failed: %s" % (operation, exc))
+		self.journal.info(self.describeException().strip())
+
+		if exc.code in (twopence.OPEN_SESSION_ERROR, ):
+			self.logError("this is a fatal error; all future communication on this node will fail");
+			self.connectionDead = True
+
+			# re-raise the exception
+			raise exc
+
 	# Call twopence.Target.run() to execute the
 	# command for real.
 	# If there's an exception, catch it and log an error.
 	def _run(self, cmd, **kwargs):
+		if self.connectionDead:
+			self.logError("SUT is dead, not running command")
+			return twopence.Status(256, bytearray(), bytearray())
+
 		t0 = time.time()
 		try:
 			status = super().run(cmd, **kwargs)
-		except Exception as e:
-			self.logError("command execution failed with exception")
-			self.logError("%s(%s)" % (e.__class__.__name__, e))
-			self.journal.info(self.describeException())
+		except twopence.Exception as e:
+			self.handleException("command execution", e)
 
 			t1 = time.time()
 			self.journal.info("Command ran for %u seconds" % (t1 - t0))
