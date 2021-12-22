@@ -237,7 +237,7 @@ suselog_journal_new(const char *name, suselog_writer_t *writer)
 	/* Do not allow per-test names. This is creating more confusion in jenkins than
 	 * it's worth it.
 	 */
-	journal->max_name_level = SUSELOG_LEVEL_GROUP;
+	journal->max_name_level = SUSELOG_LEVEL_TEST;
 
 	/* On the other hand, jenkins will grok <systemout> elements as children
 	 * of a <testcase> node, which is not part of the official schema. */
