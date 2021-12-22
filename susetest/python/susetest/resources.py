@@ -923,19 +923,20 @@ class ResourceLoader:
 			return self._resources.get(name)
 
 		def createResourceDescriptor(self, name, klass, origin_file):
-			desc = self._resources.get(name)
+			key = '%s:%s' % (klass.resource_type, name)
+			desc = self._resources.get(key)
 			if desc is None:
 				desc = ResourceLoader.ResourceDescription(name, klass, origin_file)
-				self._resources[name] = desc
+				self._resources[key] = desc
 			else:
 				assert(desc.klass == klass)
 			return desc
 
 		def update(self, other):
-			for name, desc in other._resources.items():
-				mine = self.getResourceDescriptor(name)
+			for key, desc in other._resources.items():
+				mine = self.getResourceDescriptor(key)
 				if mine is None:
-					self._resources[name] = desc
+					self._resources[key] = desc
 					continue
 
 				if mine.klass != desc.klass:
