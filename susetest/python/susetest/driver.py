@@ -144,23 +144,6 @@ class Driver:
 
 		return result
 
-
-
-	def _requireResource(self, res_name, node_name = None, **stateArgs):
-		if node_name is None:
-			result = []
-			for node in self.targets:
-				res = node._requestResource(res_name, **stateArgs)
-				result.append(res)
-			return result
-		else:
-			node = self._targets.get(node_name)
-			if node is None:
-				raise KeyError("Unknown node \"%s\"" % node_name)
-			result = node._requestResource(res_name, **stateArgs)
-
-		return result
-
 	def performDeferredResourceChanges(self):
 		return self.resourceManager.performDeferredChanges()
 
