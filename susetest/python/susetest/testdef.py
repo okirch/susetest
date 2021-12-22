@@ -270,13 +270,31 @@ class TestsuiteInfo:
 		for req in self._resources:
 			req.request(driver)
 
-	def actionBeginGroup(self, driver, group):
+	def enterFailMode(self, driver, exc):
+		susetest.say("received fatal exception, failing all remaining test cases")
+		driver.testError("test suite is failing")
+		self._failing = True
+
+	def actionSetup(self, driver):
 		try:
-			driver.beginGroup(group.name)
+			if self.setup:
+				self.setup(driver)
+			if not driver.setupComplete:
+				driver.setup()
 		except twopence.Exception as e:
-			susetest.say("received fatal exception, failing all remaining test cases")
-			driver.testError("test suite is failing")
-			self._failing = True
+			self.enterFailMode(driver, e)
+
+	def actionBeginGroup(self, driver, group):
+		if self._failing:
+			# Just go through the reporting motions, but don't
+			# claim any resources etc.
+			driver.journal.beginGroup(group.name)
+		else:
+			try:
+				driver.beginGroup(group.name)
+			except twopence.Exception as e:
+				self.enterFailMode(driver, e)
+
 		self._currentGroup = group
 
 	def actionEndGroup(self, driver, group):
@@ -298,16 +316,13 @@ class TestsuiteInfo:
 			driver.skipTest(test.name, test.description)
 		else:
 			driver.beginTest(test.name, test.description)
-			if not self._failing:
+			if self._failing:
+				driver.testError("test suite is failing")
+			else:
 				try:
 					test(driver)
 				except twopence.Exception as e:
-					susetest.say("received fatal exception, failing all remaining test cases")
-					self._failing = True
-
-			# Note, it's "if" not "elif" here for a reason
-			if self._failing:
-				driver.testError("test suite is failing")
+					self.enterFailMode(driver, e)
 
 			driver.endTest()
 
@@ -340,15 +355,13 @@ class TestsuiteInfo:
 			result.append([self.actionEndGroup, group])
 		return result
 
-	def performSteps(self, driver, steps):
+	def perform(self, driver):
+		steps = self.enumerateSteps()
+
+		self.actionSetup(driver)
 		while steps:
 			action, arg = steps.pop(0)
 			action(driver, arg)
-
-	def perform(self, driver):
-		steps = self.enumerateSteps()
-		self.performSteps(driver, steps)
-
 	class Found:
 		def __init__(self, testOrGroup, parent = None):
 			self.thing = testOrGroup
