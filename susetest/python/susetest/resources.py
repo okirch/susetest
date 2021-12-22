@@ -613,7 +613,7 @@ class JournalResource(Resource):
 		raise NotImplementedError()
 
 	def flushMessages(self):
-		self.target.run("twopence_journal", stdout = bytearray(), quiet = True)
+		self.target.run("twopence_journal >/dev/null", quiet = True)
 		return True
 
 	def processMessages(self, quiet = False):
