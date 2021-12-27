@@ -306,17 +306,22 @@ class SELinux(Feature):
 			node.logError("user %s does not seem to exist" % user.login)
 			return
 
-		if not res.interactive:
+		cmdline = res.selinux_test_command
+
+		if not (res.interactive or res.selinux_test_interactive):
 			# Run a NOP invocation of the command (could also be sth like "cmd --help")
 			# and tell twopence to collect the exit status when reaping the child process.
 			# This information will be available through Status.process to us.
-			cmdline = "%s --bogus-option-should-error >/dev/null 2>&1" % res.path
+			if not cmdline:
+				cmdline = "%s --bogus-option-should-error >/dev/null 2>&1" % res.path
 			cmd = susetest.Command(cmdline, user = user.login, exitInfo = True, quiet = True)
 			st = node.run(cmd)
 
 			process_ctx = st.process.selinux_context
 		else:
-			cmd = susetest.Command(res.path, timeout = 10, user = user.login, background = True)
+			if not cmdline:
+				cmdline = res.path
+			cmd = susetest.Command(cmdline, timeout = 10, user = user.login, background = True)
 
 			proc = node.chat(cmd)
 			if not proc:

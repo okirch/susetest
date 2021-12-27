@@ -342,6 +342,8 @@ class ExecutableResource(Resource):
 		'executable'		: str,
 		'selinux_label_domain'	: str,
 		'selinux_process_domain': str,
+		'selinux_test_interactive' : bool,
+		'selinux_test_command'	: str,
 		'interactive'		: bool,
 		'package'		: str,
 	}
@@ -366,6 +368,8 @@ class ExecutableResource(Resource):
 	#	not work for non-interactive commands.
 	selinux_label_domain = None
 	selinux_process_domain = None
+	selinux_test_interactive = False
+	selinux_test_command = None
 	interactive = False
 
 	PATH = "/sbin:/usr/sbin:/bin:/usr/bin"
