@@ -270,19 +270,11 @@ class TestsuiteInfo:
 		for req in self._resources:
 			req.request(driver)
 
-	def enterFailMode(self, driver, exc):
-		susetest.say("received fatal exception, failing all remaining test cases")
-		driver.testError("test suite is failing")
-		self._failing = True
-
-	def actionSetup(self, driver):
-		try:
-			if self.setup:
-				self.setup(driver)
-			if not driver.setupComplete:
-				driver.setup()
-		except twopence.Exception as e:
-			self.enterFailMode(driver, e)
+	def actionSetup(self, driver, dummy = None):
+		if self.setup:
+			self.setup(driver)
+		if not driver.setupComplete:
+			driver.setup()
 
 	def actionBeginGroup(self, driver, group):
 		if self._failing:
@@ -290,10 +282,7 @@ class TestsuiteInfo:
 			# claim any resources etc.
 			driver.journal.beginGroup(group.name)
 		else:
-			try:
-				driver.beginGroup(group.name)
-			except twopence.Exception as e:
-				self.enterFailMode(driver, e)
+			driver.beginGroup(group.name)
 
 		self._currentGroup = group
 
@@ -316,19 +305,13 @@ class TestsuiteInfo:
 			driver.skipTest(test.name, test.description)
 		else:
 			driver.beginTest(test.name, test.description)
-			if self._failing:
-				driver.testError("test suite is failing")
-			else:
-				try:
-					test(driver)
-				except twopence.Exception as e:
-					self.enterFailMode(driver, e)
-
+			test(driver)
 			driver.endTest()
 
 	def enumerateSteps(self):
 		result = []
 
+		result.append([self.actionSetup, None])
 		for group in self.groups:
 			skipping = group.skip
 
@@ -357,11 +340,20 @@ class TestsuiteInfo:
 
 	def perform(self, driver):
 		steps = self.enumerateSteps()
-
-		self.actionSetup(driver)
 		while steps:
 			action, arg = steps.pop(0)
-			action(driver, arg)
+			try:
+				action(driver, arg)
+			except twopence.Exception as e:
+				susetest.say("received fatal exception, failing all remaining test cases")
+				driver.testError("test suite is failing (%s)" % e)
+				self._failing = True
+			except Exception as e:
+				import traceback
+
+				driver.testError("Caught python exception %s" % e)
+				driver.logInfo(traceback.format_exc(None))
+
 	class Found:
 		def __init__(self, testOrGroup, parent = None):
 			self.thing = testOrGroup
