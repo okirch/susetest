@@ -251,9 +251,10 @@ class SELinux(Feature):
 			driver.skipTest()
 			return
 
-		res = node.getResource(resourceType, resourceName)
+		res = node.acquireResourceTypeAndName(resourceType, resourceName, mandatory = False)
 		if res is None:
-			node.logError("Unable to find resource %s" % resourceName)
+			node.logInfo("Unable to find %s resource %s - skipping this test" % (resourceType, resourceName))
+			driver.skipTest()
 			return
 
 		tested = False
