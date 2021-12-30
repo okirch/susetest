@@ -319,6 +319,9 @@ class SELinux(Feature):
 			st = node.run(cmd)
 
 			process_ctx = st.process.selinux_context
+			if process_ctx is None:
+				node.logFailure("unable to find process context for exited command: %s" % cmdline)
+				return
 		else:
 			if not cmdline:
 				cmdline = res.path
@@ -334,6 +337,10 @@ class SELinux(Feature):
 			time.sleep(0.5)
 
 			process_ctx = proc.selinux_context
+
+			if process_ctx is None:
+				node.logFailure("unable to find process context for exited command: %s" % cmdline)
+				return
 
 			proc.kill("KILL")
 			proc.wait()
