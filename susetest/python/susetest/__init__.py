@@ -143,6 +143,11 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 			return
 
 		selinux = driver.getFeature('selinux')
+		if not selinux:
+			driver.testError("SELinux: cannot get handle for feature 'selinux'")
+			say(driver._features)
+			return
+
 		selinux.resourceVerifyPolicy(node, resourceType, resourceName)
 
 	f = verify_exec_selinux
