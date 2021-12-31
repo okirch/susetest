@@ -97,6 +97,9 @@ class ResourceRequirement:
 	def request(self, driver):
 		return driver.acquireResource(self.resourceType, self.resourceName, self.nodeName, mandatory = self.mandatory)
 
+	def __str__(self):
+		return "ResourceRequirement(%s %s)" % (self.resourceType, self.resourceName)
+
 class TestCase:
 	pass
 
@@ -273,6 +276,7 @@ class TestsuiteInfo:
 	def actionSetup(self, driver, dummy = None):
 		if self.setup:
 			self.setup(driver)
+		self.requestResources(driver)
 		if not driver.setupComplete:
 			driver.setup()
 
