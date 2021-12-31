@@ -35,6 +35,11 @@
 #	optional class attribute executable, or, if not present,
 #	from the resource class' name.
 #
+#	Optionally, you can specify a "package" class attribute.
+#	If the executable cannot be found, the resource will
+#	attempt to install the indicated package, and make another
+#	attempt at locating the executable.
+#
 #	If found, the path of the executable is available in
 #	the .path attribute
 #
@@ -56,6 +61,11 @@
 #	(via systemd). In addition, it offers helper functions to
 #	obtain runtime information on the server process, such as
 #	its pid or uid.
+#
+#	Optionally, you can specify a "package" class attribute.
+#	If one or more of the systemd units cannot be found, the
+#	resource will install the indicated package before trying
+#	to enable and start all services.
 #
 #	Example:
 #	  class RpcbindServiceResource(ServiceResource):
@@ -465,10 +475,12 @@ class ServiceResource(Resource):
 		'daemon_path'		: str,
 		'systemd_unit'		: str,
 		'systemd_activate'	: list,
+		'package'		: str,
 	}
 
 	systemctl_path = "/usr/bin/systemctl"
 	systemd_activate = []
+	package = None
 
 	def __init__(self, *args, **kwargs):
 		assert(self.is_valid_service_class())
@@ -502,6 +514,20 @@ class ServiceResource(Resource):
 		if not node.is_systemd:
 			raise NotImplementedError("Unable to start service %s: SUT does not use systemd" % self.name)
 
+		if not self.allUnitsPresent(node):
+			if not self.package:
+				node.logError("Missing unit(s) for service %s" % self.name)
+				return False
+
+			susetest.say("Missing unit(s) for service %s, trying to install package %s" % (self.name, self.package))
+			if not self.installPackage(node, self.package):
+				node.logError("Failed to install %s on %s" % (self.package, node.name))
+				return False
+
+			if not self.package:
+				node.logError("Missing unit(s) for service %s" % self.name)
+				return False
+
 		for unit in self.systemd_activate:
 			node.logInfo("activating service %s" % (unit))
 			if not self.systemctl("enable", unit) or not self.systemctl("start", unit):
@@ -521,6 +547,17 @@ class ServiceResource(Resource):
 				return False
 
 		return True
+
+	def allUnitsPresent(self, node):
+		for unit in self.systemd_activate:
+			if not node.run("systemctl status %s" % unit, quiet = True):
+				return False
+		return True
+
+	def installPackage(self, node, package):
+		# for now, only zypper, sorry
+		st = node.run("zypper in -y %s" % package)
+		return bool(st)
 
 	def systemctl(self, verb, unit):
 		cmd = "%s %s %s" % (self.systemctl_path, verb, unit)
