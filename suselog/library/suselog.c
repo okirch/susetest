@@ -339,6 +339,8 @@ __suselog_vlogmsg(suselog_journal_t *journal, suselog_severity_t severity, const
 	if ((test = suselog_current_test(journal)) != NULL) {
 		journal_writer_message(journal, test, severity, msgbuf);
 		__suselog_test_log_extra(test, severity, msgbuf);
+	} else {
+		journal_writer_message(journal, NULL, severity, msgbuf);
 	}
 }
 
