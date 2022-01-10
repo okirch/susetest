@@ -585,6 +585,9 @@ class ServiceResource(PackageBackedResource):
 	def stop(self):
 		return self.systemctlForAllUnits("stop")
 
+	def running(self):
+		return self.systemctlForAllUnits("status")
+
 	def allUnitsPresent(self, node):
 		for unit in self.systemd_activate:
 			if not node.run("systemctl show --property UnitFileState %s" % unit, quiet = True):
