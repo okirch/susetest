@@ -100,6 +100,15 @@ class ResourceRequirement:
 	def __str__(self):
 		return "ResourceRequirement(%s %s)" % (self.resourceType, self.resourceName)
 
+	@property
+	def testID(self):
+		return "resource-acquire:%s:%s:%s:%s" % (
+			self.nodeName,
+			self.mandatory and "mandatory" or "optional",
+			self.resourceType,
+			self.resourceName
+			)
+
 class TestCase:
 	pass
 
@@ -272,7 +281,7 @@ class TestsuiteInfo:
 			self._groups[name] = group
 		return group
 
-	def requireResource(self,  resourceType,resourceName, nodeName = None):
+	def requireResource(self, resourceType, resourceName, nodeName = None):
 		self._resources.append(ResourceRequirement(resourceType, resourceName, nodeName = nodeName, mandatory = True))
 
 	def optionalResource(self, resourceType, resourceName, nodeName = None):
@@ -299,8 +308,15 @@ class TestsuiteInfo:
 		return tc
 
 	def requestResources(self, driver):
+		if not self._resources:
+			return
+
+		driver.beginGroup("__resources__")
 		for req in self._resources:
+			driver.beginTest(req.testID, "acquire %s resource %s" % (req.resourceType or "*", req.resourceName))
 			req.request(driver)
+			driver.endTest()
+		driver.endGroup()
 
 	def actionSetup(self, driver, dummy = None):
 		# First set up everything the drivers needs/thinks we need
