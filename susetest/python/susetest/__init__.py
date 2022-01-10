@@ -163,7 +163,7 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 
 # Called by the user at the end of a test script, like this
 #
-#  if __name == '__main__':
+#  if __name__ == '__main__':
 #	susetest.perform()
 #
 # For this to work, the user needs to define one or more functions
