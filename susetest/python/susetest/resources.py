@@ -182,6 +182,55 @@ class ConcreteStringValuedResource(StringValuedResource):
 	def acquire(self, driver):
 		return True
 
+class PackageBackedResource(Resource):
+	package = None
+
+	def __init__(self, *args, **kwargs):
+		assert('package' in self.__class__.attributes)
+		super().__init__(*args, **kwargs)
+
+	# Default implementation for PackageBackedResource.acquire
+	def acquire(self, driver):
+		print("acquire %s; package %s" % (self, self.package))
+		if self.detect():
+			return True
+
+		if not self.tryInstallPackage("resource %s not present" % self):
+			return False
+
+		if self.detect():
+			return True
+
+		self.target.logError("resource %s not present" % self)
+		return False
+
+	# Default implementation for PackageBackedResource.release
+	def release(self, driver):
+		return True
+
+	def tryInstallPackage(self, errmsg):
+		node = self.target
+
+		if not self.package:
+			node.logError(errmsg)
+			return False
+
+		susetest.say("%s, trying to install package %s" % (errmsg, self.package))
+		if not self.installPackage(node, self.package):
+			node.logError("Failed to install %s on %s" % (self.package, node.name))
+			return False
+
+		if not self.package:
+			node.logError(errmsg)
+			return False
+
+		return True
+
+	def installPackage(self, node, package):
+		# for now, only zypper, sorry
+		st = node.run("zypper in -y %s" % package, user = "root")
+		return bool(st)
+
 class UserResource(Resource):
 	resource_type = "user"
 
