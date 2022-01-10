@@ -152,6 +152,9 @@ class Target(twopence.Target):
 	def requireService(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("service", name, mandatory = True, **stateArgs)
 
+	def requireFile(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("file", name, mandatory = True, **stateArgs)
+
 	def requireJournal(self, **stateArgs):
 		return self.acquireResourceTypeAndName("journal", "journal", mandatory = True, **stateArgs)
 
@@ -163,6 +166,9 @@ class Target(twopence.Target):
 
 	def optionalService(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("service", name, mandatory = False, **stateArgs)
+
+	def optionalFile(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("file", name, mandatory = False, **stateArgs)
 
 	def defineStringResource(self, name, value, **stateArgs):
 		res = self.instantiateResourceTypeAndName("string", name)

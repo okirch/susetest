@@ -98,6 +98,13 @@
 #	If the account does not exist, these properties return
 #	None
 #
+#  FileResource
+#	This is primarily intended to handle variation between
+#	platforms. For example, one OS release may use ISC ntp,
+#	which places its config and key files in one location,
+#	and another OS release may use chrony, which places
+#	them in some other location.
+#
 ##################################################################
 
 import susetest
@@ -645,6 +652,46 @@ class ServiceResource(Resource):
 		# the first column of the ps output is the user name
 		return status.stdoutString.split(None, 1)[0]
 
+class FileResource(PackageBackedResource):
+	resource_type = "file"
+
+	attributes = {
+		'path'			: str,
+		'format'		: str,
+		'package'		: str,
+	}
+
+	path = None
+	format = None
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+	def describe(self):
+		return "file(%s) = \"%s\"" % (self.name, self.path)
+
+	@property
+	def is_present(self):
+		return bool(self.path)
+
+	# inherit default acquire/release methods from PackageBackedResource
+	# acquire will call our .detect() to see if the file is already
+	# present. If not, it will try to install the package named by
+	# the resource definition
+
+	def detect(self):
+		st = self.target.run("test -a '%s'" % self.path, user = "root")
+		return bool(st)
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteFileResource(node, resourceName)
+
+class ConcreteFileResource(FileResource):
+	def __init__(self, target, name):
+		self.name = name
+		super().__init__(target)
+
 # Interface for message filters
 class MessageFilter:
 	# Analyze the message (of class Message above)
@@ -795,6 +842,7 @@ class ResourceInventory:
 		klass.defineResourceType(ExecutableResource)
 		klass.defineResourceType(UserResource)
 		klass.defineResourceType(ServiceResource)
+		klass.defineResourceType(FileResource)
 		klass.defineResourceType(JournalResource)
 
 	@classmethod
@@ -845,7 +893,7 @@ class ResourceInventory:
 		if resourceKlass is not None:
 			res = resourceKlass(node)
 		elif resourceType is not None:
-			# Fallback for simple resource classes like string-valued
+			# Fallback for resource classes that can be configured via file
 			res = resourceType.createDefaultInstance(node, resourceName)
 		else:
 			res = None
