@@ -401,7 +401,7 @@ class ConcreteUserResource(UserResource):
 
 		super().__init__(target)
 
-class ExecutableResource(Resource):
+class ExecutableResource(PackageBackedResource):
 	resource_type = "executable"
 
 	attributes = {
@@ -417,9 +417,6 @@ class ExecutableResource(Resource):
 	# Derived classes can specify an executable name;
 	# if omitted, we will just use klass.name
 	executable = None
-
-	# Package from which the executable can be installed
-	package = None
 
 	# selinux_label_domain: if specified, this is
 	#	the domain part of the executable's label
@@ -458,22 +455,16 @@ class ExecutableResource(Resource):
 		return ConcreteExecutableResource(node, resourceName)
 
 	def acquire(self, driver):
-		executable = self.executable or self.name
-		node = self.target
-
-		if self.locateBinary(node, executable):
+		if super().acquire(driver):
 			return True
-
-		if self.package:
-			if not self.installPackage(node, self.package):
-				node.logError("Unable to install package %s" % self.package)
-				return False
-
-			if self.locateBinary(node, executable):
-				return True
 
 		node.logInfo("Unable to find %s in PATH=%s" % (executable, self.PATH))
 		return False
+
+	def detect(self):
+		executable = self.executable or self.name
+
+		return self.locateBinary(self.target, executable)
 
 	def locateBinary(self, node, executable):
 		# Caveat: type -p does not follow symlinks. If the user needs the realpath,
@@ -492,11 +483,6 @@ class ExecutableResource(Resource):
 				return True
 
 		return False
-
-	def installPackage(self, node, package):
-		# for now, only zypper, sorry
-		st = node.run("zypper in -y %s" % package)
-		return bool(st)
 
 	def release(self, driver):
 		return True
@@ -524,7 +510,7 @@ class ConcreteExecutableResource(ExecutableResource):
 
 		super().__init__(target)
 
-class ServiceResource(Resource):
+class ServiceResource(PackageBackedResource):
 	resource_type = "service"
 
 	attributes = {
@@ -536,7 +522,6 @@ class ServiceResource(Resource):
 
 	systemctl_path = "/usr/bin/systemctl"
 	systemd_activate = []
-	package = None
 
 	def __init__(self, *args, **kwargs):
 		assert(self.is_valid_service_class())
@@ -564,33 +549,8 @@ class ServiceResource(Resource):
 	def describe(self):
 		return "service(%s)" % self.name
 
-	def acquire(self, driver):
-		node = self.target
-
-		if not node.is_systemd:
-			raise NotImplementedError("Unable to start service %s: SUT does not use systemd" % self.name)
-
-		if not self.allUnitsPresent(node):
-			if not self.package:
-				node.logError("Missing unit(s) for service %s" % self.name)
-				return False
-
-			susetest.say("Missing unit(s) for service %s, trying to install package %s" % (self.name, self.package))
-			if not self.installPackage(node, self.package):
-				node.logError("Failed to install %s on %s" % (self.package, node.name))
-				return False
-
-			if not self.package:
-				node.logError("Missing unit(s) for service %s" % self.name)
-				return False
-
-		for unit in self.systemd_activate:
-			node.logInfo("activating service %s" % (unit))
-			if not self.systemctl("enable", unit) or not self.systemctl("start", unit):
-				return False
-
-		return True
-
+	# We inherit PackageBackedResource.acquire(), which calls .detect() to
+	# check whether the resource in the desired state (active)
 	def release(self, driver):
 		node = self.target
 
@@ -622,10 +582,22 @@ class ServiceResource(Resource):
 				return False
 		return True
 
-	def installPackage(self, node, package):
-		# for now, only zypper, sorry
-		st = node.run("zypper in -y %s" % package)
-		return bool(st)
+	# Called from PackageBackedResource.acquire
+	def detect(self):
+		node = self.target
+
+		if not node.is_systemd:
+			raise NotImplementedError("Unable to start service %s: SUT does not use systemd" % self.name)
+
+		if not self.allUnitsPresent(self.target):
+			return False
+
+		for unit in self.systemd_activate:
+			node.logInfo("activating service %s" % (unit))
+			if not self.systemctl("enable", unit) or not self.systemctl("start", unit):
+				return False
+
+		return True
 
 	def systemctlForAllUnits(self, verb):
 		for unit in self.systemd_activate:
