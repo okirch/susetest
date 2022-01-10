@@ -604,6 +604,18 @@ class ServiceResource(Resource):
 
 		return True
 
+	def start(self):
+		return self.systemctlForAllUnits("start")
+
+	def restart(self):
+		return self.systemctlForAllUnits("restart")
+
+	def reload(self):
+		return self.systemctlForAllUnits("reload")
+
+	def stop(self):
+		return self.systemctlForAllUnits("stop")
+
 	def allUnitsPresent(self, node):
 		for unit in self.systemd_activate:
 			if not node.run("systemctl status %s" % unit, quiet = True):
@@ -614,6 +626,13 @@ class ServiceResource(Resource):
 		# for now, only zypper, sorry
 		st = node.run("zypper in -y %s" % package)
 		return bool(st)
+
+	def systemctlForAllUnits(self, verb):
+		for unit in self.systemd_activate:
+			if not self.systemctl(verb, unit):
+				return False
+
+		return True
 
 	def systemctl(self, verb, unit):
 		cmd = "%s %s %s" % (self.systemctl_path, verb, unit)
