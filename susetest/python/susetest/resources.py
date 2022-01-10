@@ -198,7 +198,7 @@ class PackageBackedResource(Resource):
 
 	# Default implementation for PackageBackedResource.acquire
 	def acquire(self, driver):
-		print("acquire %s; package %s" % (self, self.package))
+		# print("acquire %s; package %s" % (self, self.package))
 		if self.detect():
 			return True
 
@@ -409,6 +409,7 @@ class ExecutableResource(PackageBackedResource):
 		'selinux_label_domain'	: str,
 		'selinux_process_domain': str,
 		'selinux_test_interactive' : bool,
+		'selinux_test_service'	: str,
 		'selinux_test_command'	: str,
 		'interactive'		: bool,
 		'package'		: str,
@@ -424,7 +425,14 @@ class ExecutableResource(PackageBackedResource):
 	# selinux_process_domain: if specified, this
 	#	is the domain part of the process
 	#	context when executing the application
-	# interactive
+	# selinux_test_service
+	#	If set, test the process domain by looking
+	#	at the (main process of) the indicated
+	#	service.
+	#	Note that the string is not an actual
+	#	systemd unit file, but refers to the name of
+	#	a service resource.
+	# selinux_test_interactive (was: interactive)
 	#	if True, SELinux testing assumes that the command
 	#	is interactive and starts it accordingly.
 	#	Note, SELinux label testing currently does
@@ -433,6 +441,7 @@ class ExecutableResource(PackageBackedResource):
 	selinux_process_domain = None
 	selinux_test_interactive = False
 	selinux_test_command = None
+	selinux_test_service = None
 	interactive = False
 
 	PATH = "/sbin:/usr/sbin:/bin:/usr/bin"

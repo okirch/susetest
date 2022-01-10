@@ -302,6 +302,50 @@ class SELinux(Feature):
 	def verifyExecutableProcessDomain(self, node, res):
 		print("Checking executable's process context (expecting %s)" % res.selinux_process_domain)
 
+		if res.selinux_test_service:
+			return self.verifyExecutableProcessDomainService(node, res)
+		else:
+			return self.verifyExecutableProcessDomainCommand(node, res)
+
+	def verifyExecutableProcessDomainService(self, node, res):
+		node.logInfo("  to verify the context, we need to inspect service %s" % res.selinux_test_service)
+		service = node.requireService(res.selinux_test_service)
+		if not service:
+			node.logError("Unable to find/activate service %s" % res.selinux_test_service)
+			return None
+
+		pid = service.pid
+		if not pid:
+			node.logError("Unable to get pid for service %s" % res.selinux_test_service)
+			return None
+
+		content = node.recvbuffer("/proc/%s/attr/current" % pid, user = "root")
+
+		# For some odd reason, the kernel will return a NUL terminated string
+		# when reading from /proc/PID/attr/current
+		content = content.strip(b'\0')
+
+		if not content:
+			node.logError("Unable to get SELinux process domain for PID %s" % pid)
+			return None
+
+		process_ctx = content.decode('utf-8')
+		process_ctx = ":".join(process_ctx.split(':')[:3])
+
+		expected = self.checkContext(process_ctx,
+					user = 'system_u',
+					role = 'system_r',
+					type = res.selinux_process_domain)
+		if expected:
+			node.logFailure("Service %s is running with wrong SELinux context" % service.name);
+			node.logInfo("  expected %s" % expected)
+			node.logInfo("  actual context %s" % process_ctx)
+			return False
+
+		node.logInfo("good, service is running with expected SELinux context %s" % process_ctx);
+		return True
+
+	def verifyExecutableProcessDomainCommand(self, node, res):
 		user = node.getResource("user", "test-user")
 		if not user.uid:
 			node.logError("user %s does not seem to exist" % user.login)
