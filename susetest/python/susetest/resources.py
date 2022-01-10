@@ -618,7 +618,7 @@ class ServiceResource(Resource):
 
 	def allUnitsPresent(self, node):
 		for unit in self.systemd_activate:
-			if not node.run("systemctl status %s" % unit, quiet = True):
+			if not node.run("systemctl show --property UnitFileState %s" % unit, quiet = True):
 				return False
 		return True
 
