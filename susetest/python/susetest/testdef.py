@@ -205,10 +205,27 @@ class GroupInitWrapper:
 class TestsuiteInfo:
 	_instance = None
 
-	def __init__(self):
+	def __init__(self, name = None):
 		self._groups = {}
 
 		self.setup = None
+
+		# If the caller did not specify a name, we try to guess one.
+		# - if we were invoked as somepath/NAME/run, we use NAME
+		if name is None:
+			import inspect
+
+			caller_frame = inspect.stack()[-1]
+			script = caller_frame.filename
+
+			(dir, file) = os.path.split(caller_frame.filename)
+			(dir, parent) = os.path.split(dir)
+			if file == 'run' and not parent.startswith('.'):
+				name = parent
+
+			assert(name)
+
+		self._name = name
 
 		# List of resource requirements
 		# Scripts can specify these via
@@ -219,7 +236,7 @@ class TestsuiteInfo:
 		# Ensure that the first group is always the one defined
 		# in the calling script, even if that script imports
 		# other files that define additional test cases
-		self.createGroup('__main__')
+		self.createGroup(self._name)
 
 		self._currentGroup = None
 		self._failing = False
@@ -235,6 +252,10 @@ class TestsuiteInfo:
 		return all(_.empty for _ in self.groups)
 
 	@property
+	def name(self):
+		return self._name
+
+	@property
 	def groups(self):
 		return self._groups.values()
 
@@ -242,6 +263,9 @@ class TestsuiteInfo:
 		return self._groups.get(name)
 
 	def createGroup(self, name):
+		if name == '__main__':
+			name = self._name
+
 		group = self._groups.get(name)
 		if not group:
 			group = TestGroupDef(name)
@@ -256,6 +280,11 @@ class TestsuiteInfo:
 
 	def defineSetup(self, f):
 		name = f.__module__
+
+		# So that we don't end up with module name __main__
+		if name == '__main__':
+			name = self._name
+
 		self.createGroup(name).setup = f
 
 	def defineTestcase(self, f):
@@ -557,7 +586,7 @@ class TestDefinition:
 		suite.executeOnly(opts.only)
 		suite.executeSkip(opts.skip)
 
-		driver = Driver()
+		driver = Driver(suite.name)
 
 		driver.verbose = not opts.quiet
 		driver.config_path = opts.config
