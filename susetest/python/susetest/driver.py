@@ -218,15 +218,21 @@ class Driver:
 		self._current_group.begin()
 
 		# If we have pending resource activations, start
-		# a test cases for these specifically. Without an
+		# a test case for these specifically. Without an
 		# active test case, most of the logging would otherwise
 		# go to the bit bucket.
 		if self.resourceManager.pending:
-			self.journal.beginTest("setup-resources")
+			self.beginTest("setup-resources")
 
-		# Perform any postponed resource changes,
-		# allow future resource changes to be executed right away
-		self.resourceManager.unplug()
+			# Perform any postponed resource changes,
+			# allow future resource changes to be executed right away
+			self.resourceManager.unplug()
+
+			self.endTest()
+		else:
+			# This doesn't do anything except change the status
+			# from plugged to unplugged.
+			self.resourceManager.unplug()
 
 		return True
 
