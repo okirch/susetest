@@ -13,7 +13,7 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from .resources import MessageFilter, ExecutableResource
+from .resources import MessageFilter, ExecutableResource, FileResource
 from .feature import Feature
 import susetest
 import time
@@ -262,7 +262,7 @@ class SELinux(Feature):
 			if not res.path:
 				# When defining this test case via susetest.template(), this will automatically
 				# ensure that we try to claim the resource during testsuite setup.
-				node.logInfo("Skipping SELinux test for %s; resource not present on SUT" % resourceName)
+				node.logInfo("Skipping SELinux test for %s; resource not present on SUT" % res)
 				return
 
 			if res.selinux_label_domain:
@@ -272,32 +272,47 @@ class SELinux(Feature):
 			if res.selinux_process_domain:
 				self.verifyExecutableProcessDomain(node, res)
 				tested = True
+		elif isinstance(res, FileResource):
+			if not res.path:
+				# When defining this test case via susetest.template(), this will automatically
+				# ensure that we try to claim the resource during testsuite setup.
+				node.logInfo("Skipping SELinux test for %s; resource not present on SUT" % res)
+				return
+
+			if res.selinux_label_domain:
+				self.checkFileLabel(node, res)
+				tested = True
 
 		if not tested:
 			node.logError("SELinux: don't know how to verify resource %s (type %s)" % (
 					res.name, res.__class__.__name__))
 
 	def checkExecutableLabel(self, node, res):
-		print("Checking executable's domain (expecting %s)" % res.selinux_label_domain)
-
 		expected = self.buildLabel(domain = res.selinux_label_domain)
+		return self.checkLabel(node, res.path, expected)
 
-		if not res.path:
-			node.logError("Unable to get path of executable");
+	def checkFileLabel(self, node, res):
+		expected = self.buildLabel(domain = res.selinux_label_domain)
+		return self.checkLabel(node, res.path, expected)
+
+	def checkLabel(self, node, path, expected_label):
+		print("Checking label of %s (expecting %s)" % (path, expected_label))
+		if not path:
+			node.logError("Unable to get path of resource");
 			return
 
-		print("Executable is %s" % res.path)
-		status = node.runOrFail("stat -Lc %%C %s" % res.path, stdout = bytearray(), quiet = True)
+		print("Resource path is %s" % path)
+		status = node.runOrFail("stat -Lc %%C %s" % path, stdout = bytearray(), quiet = True)
 		if not status:
 			return
 
 		label = status.stdoutString.strip()
-		if label != expected:
-			node.logFailure("Unexpected SELinux label on %s" % res.path)
-			node.logInfo("  expected %s" % expected)
-			node.logInfo("  actual label %s" % label)
+		if label != expected_label:
+			node.logFailure("Unexpected SELinux label on %s" % path)
+			node.logInfo("  expected label %s" % expected_label)
+			node.logInfo("  actual label   %s" % label)
 		else:
-			node.logInfo("good, %s has expected SELinux label %s" % (res.path, expected));
+			node.logInfo("good, %s has expected SELinux label %s" % (path, expected_label));
 
 	def verifyExecutableProcessDomain(self, node, res):
 		print("Checking executable's process context (expecting %s)" % res.selinux_process_domain)

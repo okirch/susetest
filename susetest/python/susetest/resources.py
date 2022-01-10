@@ -659,10 +659,12 @@ class FileResource(PackageBackedResource):
 		'path'			: str,
 		'format'		: str,
 		'package'		: str,
+		'selinux_label_domain'	: str,
 	}
 
 	path = None
 	format = None
+	selinux_label_domain = None
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)

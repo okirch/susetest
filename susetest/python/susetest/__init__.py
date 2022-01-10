@@ -123,6 +123,8 @@ def define_parameterized(testfn, *args):
 def template(name, *args, **kwargs):
 	if name == 'selinux-verify-executable':
 		templateSelinuxVerifyResource("executable", *args, **kwargs)
+	elif name == 'selinux-verify-file':
+		templateSelinuxVerifyResource("file", *args, **kwargs)
 	else:
 		raise ValueError("unknown template %s" % name)
 
