@@ -303,11 +303,18 @@ class TestsuiteInfo:
 			req.request(driver)
 
 	def actionSetup(self, driver, dummy = None):
+		# First set up everything the drivers needs/thinks we need
+		# This includes setup of features, like SELinux
+		driver.setup()
+
+		# Request all resources that the user specified in the test
+		# script using susetest.requireResource() and friends
+		self.requestResources(driver)
+
+		# Last, run the setup function the user decorated with
+		# @susetest.setup (if any).
 		if self.setup:
 			self.setup(driver)
-		self.requestResources(driver)
-		if not driver.setupComplete:
-			driver.setup()
 
 	def actionBeginGroup(self, driver, group):
 		if self._failing:
