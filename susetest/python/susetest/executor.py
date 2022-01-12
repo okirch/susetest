@@ -338,7 +338,9 @@ class Testcase:
 			return
 
 		info("Provisioning test nodes")
-		self.runProvisioner("create")
+		if self.runProvisioner("create") != 0:
+			info("Failed to provision cluster")
+			return
 
 		self.stage = self.STAGE_PROVISIONED
 
@@ -358,7 +360,11 @@ class Testcase:
 		# to obtain the name of that file
 		statusFile = os.path.join(self.workspace, "status.conf")
 
-		self.runCommand(self.testScript, "--config", statusFile)
+		if self.runCommand(self.testScript, "--config", statusFile) != 0:
+			info("Test script return non-zero exit status")
+
+			# FIXME: record failure; we should also return non-zero
+			# exit status in this case
 
 		self.stage = self.STAGE_TEST_COMPLETE
 
@@ -380,7 +386,8 @@ class Testcase:
 		info("Validating test result")
 
 	def destroyCluster(self):
-		if not (self.is_initialized or self.is_provisioned or self.is_test_complete):
+		# in any but the larval state, we have cleanup to do
+		if self.is_larval:
 			return
 
 		info("Destroying test nodes")
@@ -389,8 +396,8 @@ class Testcase:
 		self.stage = self.STAGE_DESTROYED
 
 	def runProvisioner(self, *args):
-		self.runCommand("twopence provision", "--workspace", self.workspace, *args)
-	
+		return self.runCommand("twopence provision", "--workspace", self.workspace, *args)
+
 	def runCommand(self, cmd, *args):
 		argv = [cmd]
 		if self.debug:
@@ -403,7 +410,7 @@ class Testcase:
 		print("    " + cmd)
 
 		if self.dryrun:
-			return
+			return 0
 
 		if self.quiet:
 			cmd += " >/dev/null 2>&1"
