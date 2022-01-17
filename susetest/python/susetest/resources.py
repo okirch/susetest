@@ -1228,7 +1228,7 @@ class ResourceManager:
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
 		# in one file, and the selinux specific information in another one.
-		group = self.buildResourceChain(filenames, files_must_exist = True)
+		group = self.buildResourceChain(filenames)
 
 		# Create the resources defined by this one in the node's
 		# resource registry.
@@ -1237,62 +1237,10 @@ class ResourceManager:
 		registry = self.inventory.getNodeRegistry(node, create = True)
 		self.loader.realize(group, registry)
 
-	def loadOSResources(self, node, vendor, osclass, release):
-		names = self.generateResourceNamesFromOS(vendor, osclass, release)
-
-		# Find the resource definitions for vendor, osclass, and release(s)
-		# The collapse these into one set of resource definitions.
-		# This allows you to define the generic info on say sudo
-		# in one file, and the selinux specific information in another one.
-		group = self.buildResourceChain(names)
-
-		if not group:
-			print("Did not find any resources for OS %s." % release)
-			print("If this is intentional, please create an empty file ~/.twopence/config/resource.d/%s.conf" % (release,))
-			raise ValueError()
-
-		# Create the resources defined by this one in the node's
-		# resource registry.
-		# This is not really pretty; we should probably do this
-		# per OS rather than per node.
-		registry = self.inventory.getNodeRegistry(node, create = True)
-		self.loader.realize(group, registry)
-
-	def generateResourceNamesFromOS(self, vendor, osclass, release):
-		# Given an OS vendor and release, create a list of names,
-		# from most specific to least specific:
-		#	leap-15.3
-		#	leap-15
-		#	leap
-		#	suse
-		# This is not quite optimal yet; instead, we should probably
-		# have something more explicit (like a statement in the
-		# platform definition), so that we can avoid duplicating
-		# information between SLES and Leap, for instance.
-		#
-		# Also, it's probably more natural to have a sort of
-		# progression from one version to the next of the same
-		# OS, rather that from a generic "Leap-15" to "Leap-15.4"
-		names = []
-		while True:
-			names.append(release)
-			m = re.match("(.*)\.[0-9]+", release)
-			if m:
-				release = m.group(1)
-				continue
-
-			m = re.match("(.*)-[0-9]+", release)
-			if m:
-				names.append(m.group(1))
-			break
-		names.append(osclass)
-		names.append(vendor)
-		return names
-
-	def buildResourceChain(self, names, files_must_exist = False):
+	def buildResourceChain(self, names):
 		result = ResourceLoader.ResourceDescriptionSet()
 		for name in names:
-			group = self.loader.getResourceGroup(name, files_must_exist)
+			group = self.loader.getResourceGroup(name, files_must_exist = True)
 			if group:
 				result.update(group)
 
