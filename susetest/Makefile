@@ -1,6 +1,6 @@
 include ../Make.defs
 
-SUBDIRS	= shell python
+SUBDIRS	= python
 
 HELPERS	= run-test list-platforms
 
