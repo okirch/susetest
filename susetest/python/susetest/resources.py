@@ -1240,7 +1240,7 @@ class ResourceManager:
 	def buildResourceChain(self, names):
 		result = ResourceLoader.ResourceDescriptionSet()
 		for name in names:
-			group = self.loader.getResourceGroup(name, files_must_exist = True)
+			group = self.loader.getResourceGroup(name, file_must_exist = True)
 			if group:
 				result.update(group)
 
