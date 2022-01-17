@@ -1,4 +1,5 @@
 core
+*.tar.bz2
 *.swp
 *.o
 *.so

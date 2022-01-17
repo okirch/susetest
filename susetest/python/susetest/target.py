@@ -15,12 +15,6 @@ import sys
 
 from .resources import ConcreteExecutableResource, ConcreteStringValuedResource, StringValuedResource
 
-ifcfg_template = '''
-BOOTPROTO="static"
-STARTMODE="auto"
-IPADDR="@IPADDR@"
-'''
-
 class Target(twopence.Target):
 	def __init__(self, name, node_config, journal = None, resource_manager = None):
 		spec = node_config.get_value("target")
@@ -258,64 +252,6 @@ class Target(twopence.Target):
 		import traceback
 
 		return traceback.format_exc(None)
-
-	def configureOtherNetworks(self):
-		result = True
-
-		# iflist = self.config.node_interfaces(self.name)
-		iflist = []
-
-		for ifname in iflist:
-			if ifname == "eth0":
-				continue
-
-			self.journal.beginTest(None, "Try to bring up interface " + ifname)
-
-			ifcfg = self._buildIfconfig(ifname)
-			if not self.sendbuffer("/etc/sysconfig/network/ifcfg-" + ifname, ifcfg, user = 'root'):
-				self.logError("failed to upload interface config for " + ifname)
-				result = False
-				continue
-
-			if not self.run("ifup " + ifname, user = 'root'):
-				self.logError("failed to bring up interface " + ifname)
-				result = False
-				continue
-
-		return result
-
-	def _buildIfconfig(self, interface):
-		global ifcfg_template
-
-		# XXXX: Currently broken
-		if_ipaddr = interface.get('ipv4_addr')
-		if not if_ipaddr:
-			print("%s: no ipv4 addr for interface %s" % (self.name, interface.name))
-			return None
-
-		subnet = None
-		netname = interface.get('network')
-		if netname:
-			network = self.config.container.network(netname)
-			if network:
-				subnet = network.get('subnet')
-
-		prefixlen = 0
-		if not subnet:
-			print("%s: no subnet info for interface %s (network %s)" % (self.name, interface.name, netname))
-		else:
-			m = re.match(".*/([0-9]*)", subnet)
-			if m:
-				prefixlen = m.group(1)
-		if not prefixlen:
-			print("Assuming 24 bit prefix")
-			prefixlen = 24
-
-		if_ipaddr = if_ipaddr + "/" + str(prefixlen)
-
-		self.logInfo("%s: using IP address %s" % (interface.name, if_ipaddr))
-		ifcfg = re.sub('@IPADDR@', if_ipaddr, ifcfg_template)
-		return ifcfg
 
 	def fqdn(self):
 		status = self.run("hostname -f")
@@ -584,37 +520,9 @@ class Target(twopence.Target):
 
 			return twopence.Status(256)
 
-	# These functions can help you capture log messages written
-	# while a test was executed.
-	# Use them as
-	#  server.syslogCapture()
-	#  ... do stuff ...
-	#  if stuffFailed:
-	#	server.syslogDisplay()
-	def syslogCapture(self):
-		self.__syslogSize = -1
-		try:
-			status = server._run("/bin/stat -c %s /var/log/messages", quiet = True)
-			self.__syslogSize = int(status.stdout)
-		except:
-			pass
-
-	def syslogDisplay(self):
-		if self.__syslogSize < 0:
-			return
-
-		try:
-			status = server._run("dd bs=1 skip=%u if=/var/log/messages" % self.__syslogSize, quiet = True)
-			if status and len(status.stdout):
-				journal.info("--- begin %s log messages ---" % self.name)
-				journal.recordStdout(status.stdout);
-				print(status.stdoutString)
-				journal.info("--- end %s log messages ---" % self.name)
-		except:
-			pass
-
-		self.__syslogSize = -1
-
+	#
+	# FIXME: this function does not belong here...
+	#
 	# Add a new entry to the node's hosts file.
 	# if @clobber is set, all other entries containing either the hostname
 	# or the IP address will be removed, so that applications do not
@@ -680,6 +588,9 @@ class Target(twopence.Target):
 
 		return True
 
+	#
+	# FIXME: this function does not belong here...
+	#
 	def changeSysconfigVar(self, filename, var, value):
 		if not isinstance(filename, str):
 			self.logError("changeSysconfigVar: filename argument must be a string")
