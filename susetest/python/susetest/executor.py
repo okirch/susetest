@@ -541,7 +541,7 @@ class Runner:
 
 		node = tree.add_child("role", "default")
 		node.set_value("platform", self.platform)
-		node.set_value("repositories", ["testbus", ])
+		node.set_value("repositories", ["twopence", ])
 
 		if self.parameters:
 			child = tree.add_child("parameters")
