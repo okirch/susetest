@@ -1,4 +1,4 @@
-include ../../Make.defs
+include ../Make.defs
 
 SUSETEST_PYTHON_DIR = $(PYTHON_INSTDIR)/susetest
 
