@@ -48,6 +48,7 @@ class Target(twopence.Target):
 		self.ipv6_addr = node_config.get_value("ipv6_address")
 		self.ipv6_address = self.ipv6_addr
 		self.features = node_config.get_values("features")
+		self.resource_files = node_config.get_values("resources")
 		self.test_user = node_config.get_value("test-user")
 		self.os_vendor = node_config.get_value("vendor")
 		self.os_release = node_config.get_value("os")

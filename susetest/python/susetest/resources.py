@@ -1062,6 +1062,9 @@ class ResourceLoader:
 		def __bool__(self):
 			return bool(self._resources)
 
+		def __str__(self):
+			return "ResourceDescriptionSet(%s)" % ", ".join(self._resources.keys());
+
 		def getResourceDescriptor(self, name):
 			return self._resources.get(name)
 
@@ -1099,16 +1102,16 @@ class ResourceLoader:
 	def __init__(self):
 		self.resourceGroups = {}
 
-	def getResourceGroup(self, name):
+	def getResourceGroup(self, name, file_must_exist):
 		name = name.lower()
 
 		found = self.resourceGroups.get(name)
 		if found is None:
-			found = self.loadResourceGroup(name)
+			found = self.loadResourceGroup(name, file_must_exist)
 			self.resourceGroups[name] = found
 		return found
 
-	def loadResourceGroup(self, name):
+	def loadResourceGroup(self, name, file_must_exist):
 		# FIXME: hardcoded bad
 		# We should move paths.py from twopence-provision to twopence
 		default_paths = [
@@ -1117,12 +1120,18 @@ class ResourceLoader:
 		]
 
 		descGroup = self.ResourceDescriptionSet()
+		found = False
+
 		for path in default_paths:
 			path = os.path.expanduser(path)
 			path = os.path.join(path, "resource.d", name + ".conf")
 			# print("Trying to load %s" % path)
 			if os.path.isfile(path):
 				group = self.load(descGroup, path)
+				found = True
+
+		if file_must_exist and not found:
+			raise KeyError(f"Unable to find {name}.conf")
 
 		return descGroup
 
@@ -1212,12 +1221,35 @@ class ResourceManager:
 
 		self._plugged = True
 
+	def loadPlatformResources(self, node, filenames):
+		print("Loading resources", filenames)
+
+		# Load resource definitions from the given list of resource files.
+		# Then collapse these into one set of resource definitions.
+		# This allows you to define the generic info on say sudo
+		# in one file, and the selinux specific information in another one.
+		group = self.buildResourceChain(filenames, files_must_exist = True)
+
+		# Create the resources defined by this one in the node's
+		# resource registry.
+		# This is not really pretty; we should probably do this
+		# per platform rather than per node.
+		registry = self.inventory.getNodeRegistry(node, create = True)
+		self.loader.realize(group, registry)
+
 	def loadOSResources(self, node, vendor, osclass, release):
+		names = self.generateResourceNamesFromOS(vendor, osclass, release)
+
 		# Find the resource definitions for vendor, osclass, and release(s)
 		# The collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
 		# in one file, and the selinux specific information in another one.
-		group = self.buildResourceChain(vendor, osclass, release)
+		group = self.buildResourceChain(names)
+
+		if not group:
+			print("Did not find any resources for OS %s." % release)
+			print("If this is intentional, please create an empty file ~/.twopence/config/resource.d/%s.conf" % (release,))
+			raise ValueError()
 
 		# Create the resources defined by this one in the node's
 		# resource registry.
@@ -1226,7 +1258,7 @@ class ResourceManager:
 		registry = self.inventory.getNodeRegistry(node, create = True)
 		self.loader.realize(group, registry)
 
-	def buildResourceChain(self, vendor, osclass, release):
+	def generateResourceNamesFromOS(self, vendor, osclass, release):
 		# Given an OS vendor and release, create a list of names,
 		# from most specific to least specific:
 		#	leap-15.3
@@ -1255,17 +1287,14 @@ class ResourceManager:
 			break
 		names.append(osclass)
 		names.append(vendor)
+		return names
 
+	def buildResourceChain(self, names, files_must_exist = False):
 		result = ResourceLoader.ResourceDescriptionSet()
 		for name in names:
-			group = self.loader.getResourceGroup(name)
+			group = self.loader.getResourceGroup(name, files_must_exist)
 			if group:
 				result.update(group)
-
-		if not result:
-			print("Did not find any resources for OS %s." % release)
-			print("If this is intentional, please create an empty file ~/.twopence/config/resource.d/%s.conf" % (release,))
-			raise ValueError()
 
 		return result
 

@@ -410,12 +410,7 @@ class Driver:
 
 	def _set_os_resources(self):
 		for node in self.targets:
-			vendor = node.os_vendor
-			release = node.os_release
-			if not vendor or not release:
-				continue
-
-			self.resourceManager.loadOSResources(node, vendor, "linux", release)
+			self.resourceManager.loadPlatformResources(node, node.resource_files)
 
 	def _close_journal(self):
 		if self.journal:
