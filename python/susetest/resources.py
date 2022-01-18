@@ -114,6 +114,7 @@ import os
 import curly
 import sys
 import re
+import crypt
 
 class Resource:
 	STATE_INACTIVE = 0
@@ -294,17 +295,25 @@ class UserResource(Resource):
 		if self._forced:
 			return True
 
-		encrypted = self.encrypt_password()
+		if not self.overwritePassword():
+			return False
+
+		self._forced = True
+		return True
+
+	def overwritePassword(self, cryptAlgo = None):
+		encrypted = self.encrypt_password(cryptAlgo)
 		if not encrypted:
 			self.target.logFailure("cannot force password - no password set")
 			return False
 
-		cmd = "sed -i 's|^root:[^:]*|root:%s|' /etc/shadow" % encrypted
+		login = self.login
+
+		cmd = f"sed -i 's|^{login}:[^:]*|{login}:{encrypted}|' /etc/shadow"
 		if not self.target.runOrFail(cmd, user = "root"):
 			return False
 
-		self.target.logInfo("forced password for user %s" % self.login)
-		self._forced = True
+		self.target.logInfo(f"changed password for user {login}")
 		return True
 
 	@property
@@ -333,11 +342,12 @@ class UserResource(Resource):
 			self._home = self._run_and_capture("echo $HOME")
 		return self._home
 
-	def encrypt_password(self):
-		if not self.encrypted_password and self.password is not None:
-			import crypt
+	def encrypt_password(self, algorithm = None):
+		if algorithm is None:
+			algorithm = crypt.METHOD_SHA256
 
-			self.encrypted_password = crypt.crypt(self.password, crypt.METHOD_SHA256)
+		if self.password is not None:
+			self.encrypted_password = crypt.crypt(self.password, algorithm)
 		return self.encrypted_password
 
 	def _build_useradd(self):
