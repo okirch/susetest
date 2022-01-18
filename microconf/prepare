@@ -101,7 +101,7 @@ function uc_add_help {
 
 	declare -g __uc_help_msg
 
-	__uc_help_msg+=$(cat)
+	__uc_help_msg+="$(cat)"
 }
 
 function uc_show_help {

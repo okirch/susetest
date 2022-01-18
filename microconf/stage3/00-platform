@@ -44,8 +44,8 @@ else
 	case "$MACHTYPE" in
 	*-suse-*)
 		uc_os_vendor=suse;;
-	*-redhat*-)
-		uc_os_vendor=fedora;;
+	*-redhat-*)
+		uc_os_vendor=redhat;;
 	esac
 
 	if [ -n "$uc_os_vendor" ]; then
@@ -61,6 +61,8 @@ else
 			uc_os_vendor=suse;;
 		*Ubuntu*)
 			uc_os_vendor=ubuntu;;
+		*CentOS*)
+			uc_os_vendor=centos;;
 		esac
 	else
 		sw_vers_path=$(type -p sw_vers)

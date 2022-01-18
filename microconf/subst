@@ -44,5 +44,6 @@ function uc_subst {
 			mv $output.tmp $output
 			echo "done"
 		fi
+		chmod --reference=$input $output
 	done
 }
