@@ -230,6 +230,8 @@ class Target(twopence.Target):
 		return resource
 
 	def testFeature(self, feature):
+		if type(feature) == str:
+			return any((f.name == feature) for f in self._enabled_features)
 		return feature in self._enabled_features
 
 	def enabledFeature(self, feature):
