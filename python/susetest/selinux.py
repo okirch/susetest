@@ -177,6 +177,7 @@ class SELinux(Feature):
 		self.default_seuser = 'unconfined_u'
 		self.default_serole = 'unconfined_r'
 		self.default_setype = 'unconfined_t'
+		self._filters = []
 
 	# Acquire the journal monitoring resource, and install a
 	# message filter that checks for SELinux related kernel messages
@@ -186,6 +187,7 @@ class SELinux(Feature):
 		filter = SELinuxMessageFilter()
 		filter.addCheck(pamTally2ConsideredHarmless)
 		filter.addCheck(twopenceConsideredHarmless)
+		self._filters.append(filter)
 
 		resource.addFilter(filter)
 		susetest.say("%s: installed SELinux filter" % resource)
@@ -253,6 +255,10 @@ class SELinux(Feature):
 			return False
 
 		return True
+
+	def addMessageFilter(self, fn):
+		for filter in self._filters:
+			filter.addCheck(fn)
 
 	def resourceVerifyPolicy(self, node, resourceType, resourceName):
 		if 'selinux' not in node.features:
