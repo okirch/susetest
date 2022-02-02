@@ -259,6 +259,7 @@ class Testcase:
 
 		self.testConfig = None
 		self.testScript = None
+		self.testReport = None
 
 		self.stage = self.STAGE_LARVAL
 		self._nodes = []
@@ -384,6 +385,13 @@ class Testcase:
 		#	and actively call out regressions (and improvements)
 		# -	aggregate test results and store them in a database
 		info("Validating test result")
+
+		reportPath = os.path.join(self.logspace, "junit-results.xml")
+		if not os.path.isfile(reportPath):
+			print("Error: cannot find test report document at %s" % reportPath);
+			return
+
+		self.testReport = reportPath
 
 	def destroyCluster(self):
 		# in any but the larval state, we have cleanup to do
@@ -529,6 +537,9 @@ class Runner:
 				print("Test %s was aborted, trying to clean up" % test.name)
 				test.destroyCluster()
 				break
+
+			if test.testReport:
+				info(f"Test report can be found in {test.testReport}")
 
 		os.remove(testrunConfig)
 
