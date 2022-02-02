@@ -389,10 +389,10 @@ class Driver:
 		if self.workspace is None:
 			logspace = self._config.tree().get_value("logspace")
 			if not logspace:
-				susetest.say("Oops, no workspace defined. Using default.")
-				logspace = "."
+				logspace = "./" + self.name
+				susetest.say("Oops, no workspace defined. Using default \"%s\"" % logspae)
 
-			self.workspace = os.path.join(logspace, self.name, time.strftime("%Y%m%dT%H%M%S"))
+			self.workspace = logspace
 
 		if not os.path.isdir(self.workspace):
 			os.makedirs(self.workspace)

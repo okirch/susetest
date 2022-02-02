@@ -460,17 +460,17 @@ class Runner:
 		if self.logspace is None:
 			self.logspace = os.path.expanduser("~/susetest/logs")
 
+		if self.testrun:
+			self.workspace = os.path.join(self.workspace, self.testrun)
+			self.logspace = os.path.join(self.logspace, self.testrun)
+
 		if not os.path.isdir(self.workspace):
 			os.makedirs(self.workspace)
 		info("Workspace is %s" % self.workspace)
 
 		if not os.path.isdir(self.logspace):
 			os.makedirs(self.logspace)
-		info("Workspace is %s" % self.logspace)
-
-		if self.testrun:
-			self.workspace = os.path.join(self.workspace, self.testrun)
-			self.logspace = os.path.join(self.logspace, self.testrun)
+		info("Logspace is %s" % self.logspace)
 
 		for name in args.testcase:
 			test = Testcase(name,
