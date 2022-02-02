@@ -76,7 +76,7 @@ class Driver:
 		susetest.say("=== Created TestDriver(%s) ===" % self.name)
 
 	def __del__(self):
-		self._close_journal()
+		self.close()
 
 	def say(self, msg):
 		print(msg)
@@ -107,6 +107,12 @@ class Driver:
 
 	def testError(self, msg):
 		self.journal.error(msg)
+
+	def close(self):
+		if self.journal:
+			self.journal.writeReport()
+			self.journal.close()
+			self.journal = None
 
 	# requireResource, optionalResource:
 	#  resourceType is the name of the resource class (eg executable)
@@ -411,11 +417,6 @@ class Driver:
 	def _set_os_resources(self):
 		for node in self.targets:
 			self.resourceManager.loadPlatformResources(node, node.resource_files)
-
-	def _close_journal(self):
-		if self.journal:
-			self.journal.writeReport()
-			self.journal = None
 
 	def addPostTestHook(self, fn):
 		self._hooks_end_test.append(fn)

@@ -621,4 +621,4 @@ class TestDefinition:
 
 		TestDefinition.print_pre_run_summary(suite)
 
-		suite.perform(driver)
+		driver.close()
