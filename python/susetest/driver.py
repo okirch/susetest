@@ -392,7 +392,7 @@ class Driver:
 				susetest.say("Oops, no workspace defined. Using default.")
 				logspace = "."
 
-			self.workspace = os.path.join(logspace, self.name, time.strftime("%Y%M%dT%H%M%S"))
+			self.workspace = os.path.join(logspace, self.name, time.strftime("%Y%m%dT%H%M%S"))
 
 		if not os.path.isdir(self.workspace):
 			os.makedirs(self.workspace)
