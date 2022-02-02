@@ -25,6 +25,10 @@ import time
 #	scontext=unconfined_u:unconfined_r:useradd_t:s0 \
 #	tcontext=system_u:object_r:var_log_t:s0 \
 #	tclass=dir permissive=1
+# or, when coming from audispd:
+# audit(1637744082.879:4): \
+#	avc:  denied  { write } for  \
+#	... etc
 class SELinuxMessageFilter(MessageFilter):
 	class Violation:
 		def __init__(self):
@@ -53,7 +57,9 @@ class SELinuxMessageFilter(MessageFilter):
 		self._checks = []
 
 	def match(self, m, target):
-		if m.transport != "kernel" or not m.message.startswith("audit:") or " avc: " not in  m.message:
+		if m.transport == "audit":
+			pass
+		elif m.transport != "kernel" or not m.message.startswith("audit:") or " avc: " not in  m.message:
 			return
 
 		if not self._match(m, target):
@@ -121,9 +127,10 @@ class SELinuxMessageFilter(MessageFilter):
 	def parseViolation(self, msg):
 		words = msg.split()
 
-		if words.pop(0) != "audit:" or \
-		   not words.pop(0).startswith("type=") or \
-		   not words.pop(0).startswith("audit(") or \
+		if words[0] == "audit:" and words[1].startswith("type="):
+			del words[:2]
+
+		if not words.pop(0).startswith("audit(") or \
 		   words.pop(0) != "avc:" or \
 		   words.pop(0) != "denied":
 			return None
@@ -162,6 +169,8 @@ def twopenceConsideredHarmless(violation):
 	return None
 
 class SELinux(Feature):
+	name = 'selinux'
+
 	def __init__(self):
 		super().__init__()
 		self.policy = 'targeted'
@@ -172,7 +181,7 @@ class SELinux(Feature):
 	# Acquire the journal monitoring resource, and install a
 	# message filter that checks for SELinux related kernel messages
 	def enableFeature(self, driver, node):
-		resource = node.requireJournal(defer = True)
+		resource = node.requireEvents("audit", defer = True)
 
 		filter = SELinuxMessageFilter()
 		filter.addCheck(pamTally2ConsideredHarmless)
@@ -192,7 +201,7 @@ class SELinux(Feature):
 		if selinuxUser:
 			self.updateSEUser(node, selinuxPolicy, selinuxUser)
 
-			# setting the role is sa bit of a hack.
+			# setting the role is a bit of a hack.
 			# The default role for a user is policy dependent,
 			# and it's just a convention of the current policies
 			# that the default role for foobar_u is foobar_r

@@ -714,13 +714,7 @@ class MessageFilter:
 	def match(self, msg, node):
 		pass
 
-
-class JournalResource(Resource):
-	resource_type = "journal"
-	attributes = {}
-
-	name = "journal"
-
+class LogResource(Resource):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
@@ -731,7 +725,7 @@ class JournalResource(Resource):
 		return True
 
 	def describe(self):
-		return "journal"
+		return self.__class__.name
 
 	class Message:
 		def __init__(self, timestamp, transport, application, message):
@@ -742,6 +736,44 @@ class JournalResource(Resource):
 
 	def addFilter(self, filter):
 		self._filters.append(filter)
+
+	def filterMessage(self, m):
+		for filt in self._filters:
+			filt.match(m, self.target)
+
+class AuditResource(LogResource):
+	resource_type = "audit"
+	name = "audit"
+	attributes = {}
+
+	def acquire(self, driver):
+		node = self.target
+		self.mon = node.monitor("audit", self.handleAuditMessage)
+
+		# driver.addPostTestHook(self.auditSettle)
+		return True
+
+	def handleAuditMessage(self, seq, type, formatted):
+		# print(f"handleAuditMessage({type}, {formatted}")
+		if type.lower() != "avc":
+			return
+
+		m = self.Message(None, "audit", None, formatted)
+		self.filterMessage(m)
+
+	# If we ever find that we're not catching some audit messages, we need to
+	# implement a mechanism to flush out all pending messages on the SUT.
+	# One such approach could be to implement a SETTLE operation on the
+	# pending twopence transaction, which triggers an AUDIT_TEST message
+	# and waits for that message to appear in the message stream from
+	# audispd
+	def auditSettle(self):
+		pass
+
+class JournalResource(LogResource):
+	resource_type = "journal"
+	name = "journal"
+	attributes = {}
 
 	def acquire(self, driver):
 		node = self.target
@@ -786,10 +818,8 @@ class JournalResource(Resource):
 			if m.transport == 'stdout' and m.application.startswith("twopence_test"):
 				continue
 
+			self.filterMessage(m)
 			processed.append(line)
-
-			for filt in self._filters:
-				filt.match(m, self.target)
 
 		if processed and not quiet:
 			self.target.logInfo("Received %d journal messages" % len(processed))
@@ -859,6 +889,7 @@ class ResourceInventory:
 		klass.defineResourceType(ServiceResource)
 		klass.defineResourceType(FileResource)
 		klass.defineResourceType(JournalResource)
+		klass.defineResourceType(AuditResource)
 
 	@classmethod
 	def defineResourceType(klass, base_class):

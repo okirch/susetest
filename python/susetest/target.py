@@ -150,8 +150,9 @@ class Target(twopence.Target):
 	def requireFile(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("file", name, mandatory = True, **stateArgs)
 
-	def requireJournal(self, **stateArgs):
-		return self.acquireResourceTypeAndName("journal", "journal", mandatory = True, **stateArgs)
+	# known event sources: audit, journal
+	def requireEvents(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName(name, name, mandatory = True, **stateArgs)
 
 	def optionalUser(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("user", name, mandatory = False, **stateArgs)
