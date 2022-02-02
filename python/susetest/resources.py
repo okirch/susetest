@@ -864,13 +864,6 @@ class ResourceInventory:
 	def defineResourceType(klass, base_class):
 		klass._res_type_by_name[base_class.resource_type] = base_class
 
-	def __contains__(self, res):
-		obsolete()
-		for rover in self.resources:
-			if res.target == rover.target and res.name == rover.name:
-				return True
-		return False
-
 	def getNodeRegistry(self, node, create = False):
 		registry = self.nodeRegistry.get(node.name)
 		if registry is None and create:
