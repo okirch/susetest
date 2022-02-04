@@ -41,6 +41,7 @@ class SELinuxMessageFilter(MessageFilter):
 			self.scontext = None
 			self.tcontext = None
 			self.tclass = None
+			self.src = None
 
 		# Two violations are considered to originate from the same process iff the following
 		# are identical
@@ -65,10 +66,17 @@ class SELinuxMessageFilter(MessageFilter):
 		if not self._match(m, target):
 			self.previous = None
 
+	selinux_socket_classes = ('socket', 'tcp_socket', 'udp_socket', 'rawip_socket', 'netlink_selinux_socket', 'unix_stream_socket', 'unix_dgram_socket',)
+	selinux_file_classes = ('file', 'dir', 'fd', 'lnk_file', 'chr_file', 'blk_file', 'sock_file', 'fifo_file',)
+	selinux_ipc_classes = ('sem', 'msg', 'msgq', 'shm', 'ipc',)
+	selinx_known_classes = selinux_socket_classes + selinux_file_classes + selinux_ipc_classes + (
+			'process', 'security', 'capability', 'filesystem',
+		)
+
 	def _match(self, m, target):
 		violation = self.parseViolation(m.message)
 
-		if violation and violation.tclass not in ('process', 'dir', 'file', 'chr_file', 'udp_socket', 'tcp_socket', 'netlink_selinux_socket'):
+		if violation and violation.tclass not in self.selinx_known_classes:
 			target.logInfo("parsed unknown SELinux violation tclass=%s (%s)" % (
 					violation.tclass, dir(violation)))
 			violation = None
@@ -91,7 +99,7 @@ class SELinuxMessageFilter(MessageFilter):
 						violation.comm, violation.pid, violation.scontext))
 
 		# ioctls will also have ioctlcmd=0xNNNN
-		if violation.tclass in ('dir', 'file', 'chr_file'):
+		if violation.tclass in self.selinux_file_classes:
 			target.logInfo("    %s access to %s %s (dev=%s; ino=%s; context=%s)" % (
 						violation.op,
 						violation.tclass,
@@ -99,7 +107,7 @@ class SELinuxMessageFilter(MessageFilter):
 						violation.dev,
 						violation.ino,
 						violation.tcontext))
-		elif violation.tclass in ('udp_socket', 'tcp_socket', ):
+		elif violation.tclass in self.selinux_socket_classes:
 			target.logInfo("    %s access to %s %s (context=%s)" % (
 						violation.op,
 						violation.tclass,

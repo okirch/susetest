@@ -759,7 +759,10 @@ class AuditResource(LogResource):
 			return
 
 		m = self.Message(None, "audit", None, formatted)
-		self.filterMessage(m)
+		try:
+			self.filterMessage(m)
+		except Exception as e:
+			self.target.logError(f"Caught exception in handleAuditMessage: {e}")
 
 	# If we ever find that we're not catching some audit messages, we need to
 	# implement a mechanism to flush out all pending messages on the SUT.
