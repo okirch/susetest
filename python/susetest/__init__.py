@@ -122,24 +122,32 @@ def define_parameterized(testfn, *args):
 
 def template(name, *args, **kwargs):
 	if name == 'selinux-verify-executable':
-		templateSelinuxVerifyResource("executable", *args, **kwargs)
+		return templateSelinuxVerifyResource("executable", *args, **kwargs)
 	elif name == 'selinux-verify-file':
-		templateSelinuxVerifyResource("file", *args, **kwargs)
+		return templateSelinuxVerifyResource("file", *args, **kwargs)
+	elif name == 'verify-executable-no-args':
+		args = list(args)
+		resourceName = args.pop(0)
+		return templateVerifyExecutable(resourceName, [], *args, **kwargs)
+	elif name == 'verify-executable':
+		return templateVerifyExecutable(*args, **kwargs)
 	else:
 		raise ValueError("unknown template %s" % name)
+
+def getTargetForTemplate(driver, nodeName):
+	if nodeName is None:
+		nodes = list(driver.targets)
+		if len(nodes) == 1:
+			node = nodes[0]
+	else:
+		node = getattr(driver, nodeName, None)
+
+	return node
 
 
 def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 	def verify_exec_selinux(driver):
-		node = None
-
-		if nodeName is None:
-			nodes = list(driver.targets)
-			if len(nodes) == 1:
-				node = nodes[0]
-		else:
-			node = getattr(driver, nodeName, None)
-
+		node = getTargetForTemplate(driver, nodeName)
 		if node is None:
 			driver.testError("SELinux: cannot verify %s policy - don't know which SUT to pick" % resourceName)
 			return
@@ -162,6 +170,45 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 	TestDefinition.optionalResource(resourceType, resourceName, nodeName = nodeName)
 
 	return tc
+
+def templateVerifyExecutable(resourceName, arguments, nodeName = None, **kwargs):
+	def verify_executable(driver):
+		node = getTargetForTemplate(driver, nodeName)
+		if node is None:
+			driver.testError(f"Cannot verify executable {resourceName} - don't know which SUT to pick")
+			return
+
+		user = driver.client.requireUser("test-user")
+		if not user.uid:
+			node.logError("user %s does not seem to exist" % user.login)
+			return
+
+		executable = node.requireExecutable(resourceName)
+		command = executable.path
+		if arguments:
+			command += " " + arguments
+		st = node.run(command, user = user.login, **kwargs)
+		if not st:
+			node.logFailure(f"{command} failed: {st.message}")
+			return
+
+		node.logInfo(f"OK, {command} works")
+
+	arguments = " ".join(arguments)
+
+	command = f"{resourceName} {arguments}"
+	testid = command.replace(" ", "").replace("-", "_").replace("/", "_")
+
+	f = verify_executable
+	f.__doc__ = f"general.{testid}: verify that test user can invoke executable {command}"
+
+	tc = TestDefinition.defineTestcase(f)
+	tc.addOptionalResource(resourceName)
+
+	TestDefinition.optionalResource("executable", resourceName, nodeName = nodeName)
+
+	return tc
+
 
 # Called by the user at the end of a test script, like this
 #
