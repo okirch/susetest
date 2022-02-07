@@ -288,9 +288,13 @@ class SELinux(Feature):
 				node.logInfo("Skipping SELinux test for %s; resource not present on SUT" % res)
 				return
 
-			if res.selinux_label_domain:
-				self.checkExecutableLabel(node, res)
-				tested = True
+			label = res.selinux_label_domain
+			if label is None:
+				# default label. Should be configurable on a per-policy basis.
+				label = "bin_t";
+
+			self.checkExecutableLabel(node, res, label)
+			tested = True
 
 			if res.selinux_process_domain:
 				self.verifyExecutableProcessDomain(node, res)
@@ -310,8 +314,8 @@ class SELinux(Feature):
 			node.logError("SELinux: don't know how to verify resource %s (type %s)" % (
 					res.name, res.__class__.__name__))
 
-	def checkExecutableLabel(self, node, res):
-		expected = self.buildLabel(domain = res.selinux_label_domain)
+	def checkExecutableLabel(self, node, res, given_domain):
+		expected = self.buildLabel(domain = given_domain)
 		return self.checkLabel(node, res.path, expected)
 
 	def checkFileLabel(self, node, res):
