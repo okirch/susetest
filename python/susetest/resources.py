@@ -190,6 +190,53 @@ class ConcreteStringValuedResource(StringValuedResource):
 	def acquire(self, driver):
 		return True
 
+class PackageResource(Resource):
+	resource_type = "package"
+
+	attributes = {}
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+	@property
+	def package(self):
+		return self.name
+
+	@property
+	def is_present(self):
+		return True
+
+	def acquire(self, driver):
+		# print("acquire %s; package %s" % (self, self.package))
+		node = self.target
+
+		if not self.package:
+			node.logFailure(f"{self} does not define package name?!")
+			return False
+
+		susetest.say(f"Trying to install package {self.package}")
+		if not self.installPackage(node, self.package):
+			node.logError(f"Failed to install {self.package} on {node.name}")
+			return False
+
+		return True
+
+	# Default implementation for PackageBackedResource.release
+	def release(self, driver):
+		return True
+
+	def installPackage(self, node, package):
+		if node.os_vendor == "suse":
+			cmd = f"zypper in -y {package}"
+		elif node.os_vendor == "redhat":
+			cmd = f"dnf -y install {package}"
+		else:
+			node.logError(f"Don't know how to install a package on this platform (vendor={node.os_vendor})")
+			return False
+
+		st = node.run(cmd, user = "root")
+		return bool(st)
+
 class PackageBackedResource(Resource):
 	package = None
 
@@ -893,6 +940,7 @@ class ResourceInventory:
 		klass.defineResourceType(FileResource)
 		klass.defineResourceType(JournalResource)
 		klass.defineResourceType(AuditResource)
+		klass.defineResourceType(PackageResource)
 
 	@classmethod
 	def defineResourceType(klass, rsrc_class):
@@ -945,8 +993,7 @@ class ResourceInventory:
 			res = None
 
 		if res is None:
-			raise KeyError("Unknown %s resource \"%s\"" % (resourceType.resource_type, resourceName))
-
+			raise KeyError("Unknown %s resource \"%s\"" % (resourceType, resourceName))
 
 		self.resources.append(res)
 		node.addResource(res)
@@ -1075,6 +1122,7 @@ class ResourceLoader:
 			self.file = file
 			self.override = override
 			self.attrs = {}
+			self.children = []
 
 		def setAttribute(self, name, value):
 			self.attrs[name] = value
@@ -1205,13 +1253,13 @@ class ResourceLoader:
 
 	def loadPackage(self, descGroup, path, node):
 		packageName = node.name
-		packageResources = []
 
+		pkgDesc = descGroup.createResourceDescriptor(packageName, PackageResource, path)
 		for child in node:
 			desc = self.loadResource(descGroup, path, child)
-			packageResources.append(desc)
+			pkgDesc.children.append(desc)
 
-		for desc in packageResources:
+		for desc in pkgDesc.children:
 			otherPackageName = desc.getAttribute("package")
 			if otherPackageName and otherPackageName != packageName:
 				raise ResourceLoader.BadResource(desc, "conflicting package names %s vs %s" % (otherPackageName, packageName))
