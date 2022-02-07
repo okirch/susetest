@@ -125,6 +125,8 @@ def template(name, *args, **kwargs):
 		return templateSelinuxVerifyResource("executable", *args, **kwargs)
 	elif name == 'selinux-verify-file':
 		return templateSelinuxVerifyResource("file", *args, **kwargs)
+	elif name == 'selinux-verify-package':
+		return templateSelinuxVerifyResource("package", *args, **kwargs)
 	elif name == 'verify-executable-no-args':
 		args = list(args)
 		resourceName = args.pop(0)

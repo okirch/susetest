@@ -129,6 +129,9 @@ class Resource:
 	def is_active(self):
 		return self.state == Resource.STATE_ACTIVE
 
+	# By default, resources have no child resources
+	children = []
+
 	def __str__(self):
 		return "%s on %s" % (self.describe(), self.target.name)
 
@@ -977,7 +980,7 @@ class ResourceInventory:
 		self.resources.append(res)
 		node.addResource(res)
 
-		# susetest.say("%s: created a %s resource" % (node.name, resourceName))
+		# susetest.say(f"{node.name}: created resource {res}")
 		return res
 
 class ResourceAssertion:
@@ -1243,6 +1246,7 @@ class ResourceLoader:
 			if otherPackageName and otherPackageName != packageName:
 				raise ResourceLoader.BadResource(desc, "conflicting package names %s vs %s" % (otherPackageName, packageName))
 
+			# print("Package %s defines %s(%s)" % (packageName, desc.type, desc.name))
 			desc.setAttribute("package", packageName)
 
 	def loadResource(self, descGroup, path, node):
@@ -1310,6 +1314,8 @@ class ResourceLoader:
 			new_class_name = "Userdef%s_%s" % (klass.__name__, desc.name)
 			new_klass = type(new_class_name, (klass, ), desc.attrs)
 			new_klass.name = desc.name
+
+			new_klass.children = desc.children
 
 			registry.defineResourceClass(new_klass, verbose = verbose)
 

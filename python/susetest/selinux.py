@@ -13,7 +13,7 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from .resources import MessageFilter, ExecutableResource, FileResource
+from .resources import MessageFilter, ExecutableResource, FileResource, PackageResource, ServiceResource
 from .feature import Feature
 import susetest
 import time
@@ -280,6 +280,9 @@ class SELinux(Feature):
 			driver.skipTest()
 			return
 
+		self.resourceVerifyPolicyImpl(node, res)
+
+	def resourceVerifyPolicyImpl(self, node, res):
 		tested = False
 		if isinstance(res, ExecutableResource):
 			if not res.path:
@@ -306,8 +309,28 @@ class SELinux(Feature):
 				node.logInfo("Skipping SELinux test for %s; resource not present on SUT" % res)
 				return
 
-			if res.selinux_label_domain:
-				self.checkFileLabel(node, res)
+			label = res.selinux_label_domain
+			if label is None:
+				path = res.path
+				if path.startswith("/etc"):
+					label = "etc_t"
+				elif path.startswith("/tmp"):
+					label = "tmp_t"
+				elif path.startswith("/var"):
+					label = "var_t"
+				elif path.startswith("/usr"):
+					label = "usr_t"
+
+			if label:
+				self.checkFileLabel(node, res, label)
+				tested = True
+		elif isinstance(res, ServiceResource):
+			# For now, don't do anything with service resources
+			return
+		elif isinstance(res, PackageResource):
+			for desc in res.children:
+				childResource = node.acquireResourceTypeAndName(desc.klass.resource_type, desc.name, mandatory = True)
+				self.resourceVerifyPolicyImpl(node, childResource)
 				tested = True
 
 		if not tested:
@@ -318,8 +341,8 @@ class SELinux(Feature):
 		expected = self.buildLabel(domain = given_domain)
 		return self.checkLabel(node, res.path, expected)
 
-	def checkFileLabel(self, node, res):
-		expected = self.buildLabel(domain = res.selinux_label_domain)
+	def checkFileLabel(self, node, res, given_domain):
+		expected = self.buildLabel(domain = given_domain)
 		return self.checkLabel(node, res.path, expected)
 
 	def checkLabel(self, node, path, expected_label):
