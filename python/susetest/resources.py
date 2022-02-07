@@ -895,8 +895,12 @@ class ResourceInventory:
 		klass.defineResourceType(AuditResource)
 
 	@classmethod
-	def defineResourceType(klass, base_class):
-		klass._res_type_by_name[base_class.resource_type] = base_class
+	def defineResourceType(klass, rsrc_class):
+		if not hasattr(rsrc_class, 'attributes'):
+			print("%s: please define valid attributes for class %s" % (self.__class__.__name__, rsrc_class.__name__))
+			raise NotImplementedError()
+
+		klass._res_type_by_name[rsrc_class.resource_type] = rsrc_class
 
 	def getNodeRegistry(self, node, create = False):
 		registry = self.nodeRegistry.get(node.name)
@@ -1075,6 +1079,9 @@ class ResourceLoader:
 		def setAttribute(self, name, value):
 			self.attrs[name] = value
 
+		def getAttribute(self, name):
+			return self.attrs.get(name)
+
 		def update(self, other):
 			assert(isinstance(other, self.__class__))
 
@@ -1176,17 +1183,53 @@ class ResourceLoader:
 		config = curly.Config(path)
 		tree = config.tree()
 
-		for name, klass in ResourceInventory._res_type_by_name.items():
-			# print("load %s %s" % (name, klass))
-			self.findResourceType(path, tree, descGroup, name, klass)
+		for child in tree:
+			if child.type == "package":
+				self.loadPackage(descGroup, path, child)
+			else:
+				self.loadResource(descGroup, path, child)
 
-		# print("Loaded %s" % path)
+	class FakeCurlyNode:
+		def __init__(self, type, name):
+			self.type = type
+			self.name = name
+
+		def __iter__(self):
+			return iter([])
+
+		def get_value(self, name):
+			return None
+
+		def get_attributes(self):
+			return []
+
+	def loadPackage(self, descGroup, path, node):
+		packageName = node.name
+		packageResources = []
+
+		for child in node:
+			desc = self.loadResource(descGroup, path, child)
+			packageResources.append(desc)
+
+		for desc in packageResources:
+			otherPackageName = desc.getAttribute("package")
+			if otherPackageName and otherPackageName != packageName:
+				raise ResourceLoader.BadResource(desc, "conflicting package names %s vs %s" % (otherPackageName, packageName))
+
+			desc.setAttribute("package", packageName)
+
+	def loadResource(self, descGroup, path, node):
+		type = node.type
+		klass = ResourceInventory._res_type_by_name.get(node.type)
+		if klass is None:
+			raise NotImplementedError("Unknown resource type \"%s\" in %s" % (node.type, node))
+
+		desc = descGroup.createResourceDescriptor(node.name, klass, path)
+		self.buildResourceDescription(desc, node)
+
+		return desc
 
 	def findResourceType(self, origin_file, tree, descGroup, type, klass):
-		if not hasattr(klass, 'attributes'):
-			print("%s: please define valid attributes for class %s" % (self.__class__.__name__, klass.__name__))
-			raise NotImplementedError()
-
 		for name in tree.get_children(type):
 			desc = descGroup.createResourceDescriptor(name, klass, origin_file)
 			self.buildResourceDescription(desc, tree.get_child(type, name))
