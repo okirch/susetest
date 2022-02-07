@@ -411,7 +411,7 @@ class SELinux(Feature):
 		else:
 			if not cmdline:
 				cmdline = res.path
-			cmd = susetest.Command(cmdline, timeout = 10, user = user.login, background = True)
+			cmd = susetest.Command(cmdline, timeout = 10, user = user.login, background = True, tty = True)
 
 			proc = node.chat(cmd)
 			if not proc:
