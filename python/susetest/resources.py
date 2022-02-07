@@ -217,6 +217,10 @@ class PackageResource(Resource):
 			node.logFailure(f"{self} does not define package name?!")
 			return False
 
+		if self.checkPackage(node, self.package):
+			node.logInfo(f"Package {self.package} already installed on {node.name}")
+			return True
+
 		susetest.say(f"Trying to install package {self.package}")
 		if not self.installPackage(node, self.package):
 			node.logError(f"Failed to install {self.package} on {node.name}")
@@ -227,6 +231,16 @@ class PackageResource(Resource):
 	# Default implementation for PackageBackedResource.release
 	def release(self, driver):
 		return True
+
+	def checkPackage(self, node, package):
+		if node.os_vendor in ("suse", "redhat"):
+			cmd = f"rpm -q {package}";
+		else:
+			node.logError(f"Don't know how to check for presence of a package on this platform (vendor={node.os_vendor})")
+			return False
+
+		st = node.run(cmd, user = "root")
+		return bool(st)
 
 	def installPackage(self, node, package):
 		if node.os_vendor == "suse":
