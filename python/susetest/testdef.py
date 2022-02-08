@@ -408,6 +408,7 @@ class TestsuiteInfo:
 				import traceback
 
 				driver.testError("Caught python exception %s" % e)
+				# print(traceback.format_exc(None))
 				driver.logInfo(traceback.format_exc(None))
 
 	class Found:
@@ -535,6 +536,8 @@ class TestDefinition:
 
 		p.add_option('--quiet', action = 'store_true', default = False,
 			help = "Suppress test case output")
+		p.add_option('--debug', action = 'store_true', default = False,
+			help = "Enable debugging at the provisioning layer")
 		p.add_option('--twopence-debug', action = 'store_true', default = False,
 			help = "Enable debugging at the twopence layer")
 		p.add_option('--config',
