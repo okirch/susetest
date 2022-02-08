@@ -193,6 +193,32 @@ class ConcreteStringValuedResource(StringValuedResource):
 	def acquire(self, driver):
 		return True
 
+class SubsystemResource(Resource):
+	resource_type = "subsystem"
+
+	attributes = {
+		'packages'		: list,
+	}
+
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+	@property
+	def is_present(self):
+		return bool(self.packages)
+
+	def acquire(self, driver):
+		okay = True
+		for package in self.packages:
+			pkg = self.target.requirePackage(package)
+			if not pkg:
+				okay = False
+
+		return okay
+
+	def release(self, driver):
+		return True
+
 class PackageResource(Resource):
 	resource_type = "package"
 
@@ -577,11 +603,14 @@ class ServiceResource(PackageBackedResource):
 
 	attributes = {
 		'daemon_path'		: str,
+		'executable'		: str,
 		'systemd_unit'		: str,
 		'systemd_activate'	: list,
 		'package'		: str,
 	}
 
+	executable = None
+	daemon_path = None
 	systemctl_path = "/usr/bin/systemctl"
 	systemd_activate = []
 
@@ -592,10 +621,10 @@ class ServiceResource(PackageBackedResource):
 
 	@classmethod
 	def is_valid_service_class(klass):
-		if not hasattr(klass, "daemon_path") or not hasattr(klass, "systemd_unit"):
+		if not klass.daemon_path and not klass.executable:
 			return False
 
-		if not klass.daemon_path or not klass.systemd_unit:
+		if not klass.systemd_unit:
 			return False
 
 		if not getattr(klass, "systemd_activate", None):
@@ -643,7 +672,9 @@ class ServiceResource(PackageBackedResource):
 
 	def allUnitsPresent(self, node):
 		for unit in self.systemd_activate:
-			if not node.run("systemctl show --property UnitFileState %s" % unit, quiet = True):
+			st = node.run(f"systemctl show --property UnitFileState {unit}", stdout = bytearray())
+			if not st or st.stdoutString.strip() == "UnitFileState=":
+				susetest.say(f"Unit file {unit} is missing")
 				return False
 		return True
 
@@ -937,6 +968,7 @@ class ResourceInventory:
 		klass.defineResourceType(JournalResource)
 		klass.defineResourceType(AuditResource)
 		klass.defineResourceType(PackageResource)
+		klass.defineResourceType(SubsystemResource)
 
 	@classmethod
 	def defineResourceType(klass, rsrc_class):
@@ -955,9 +987,12 @@ class ResourceInventory:
 
 	def getResource(self, node, resourceType, resourceName, create = False):
 		if type(resourceType) == str:
+			resourceTypeName = resourceType
 			if not resourceType in self._res_type_by_name:
 				raise ValueError("%s: unknown resource type %s" % (self.__class__.__name__, resourceType))
 			resourceType = self._res_type_by_name[resourceType]
+		elif resourceType is not None:
+			resourceTypeName = resourceType.resource_type
 
 		for res in self.resources:
 			if resourceType and not isinstance(res, resourceType):
@@ -989,7 +1024,7 @@ class ResourceInventory:
 			res = None
 
 		if res is None:
-			raise KeyError("Unknown %s resource \"%s\"" % (resourceType, resourceName))
+			raise KeyError("Unknown %s resource \"%s\"" % (resourceTypeName, resourceName))
 
 		self.resources.append(res)
 		node.addResource(res)

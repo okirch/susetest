@@ -13,7 +13,7 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from .resources import MessageFilter, ExecutableResource, FileResource, PackageResource, ServiceResource
+from .resources import MessageFilter, ExecutableResource, FileResource, PackageResource, SubsystemResource, ServiceResource
 from .feature import Feature
 import susetest
 import time
@@ -187,6 +187,8 @@ class SELinux(Feature):
 		self.default_setype = 'unconfined_t'
 		self._filters = []
 
+		self.verifiedResources = set()
+
 	# Acquire the journal monitoring resource, and install a
 	# message filter that checks for SELinux related kernel messages
 	def enableFeature(self, driver, node):
@@ -283,6 +285,12 @@ class SELinux(Feature):
 		self.resourceVerifyPolicyImpl(node, res)
 
 	def resourceVerifyPolicyImpl(self, node, res):
+		# Avoid verifying the same resource twice
+		# (which could happen with services, for instance)
+		if res in self.verifiedResources:
+			return
+		self.verifiedResources.add(res)
+
 		tested = False
 		if isinstance(res, ExecutableResource):
 			if not res.path:
@@ -325,10 +333,22 @@ class SELinux(Feature):
 				self.checkFileLabel(node, res, label)
 				tested = True
 		elif isinstance(res, ServiceResource):
-			# For now, don't do anything with service resources
-			return
+			self.verifyService(node, res)
+			tested = True
+		elif isinstance(res, SubsystemResource):
+			for package in res.packages:
+				self.resourceVerifyPolicy(node, "package", package)
+				tested = True
 		elif isinstance(res, PackageResource):
+			# First, verify services, then everything else
+			ordered = []
 			for desc in res.children:
+				if desc.klass == ServiceResource:
+					ordered.insert(0, desc)
+				else:
+					ordered.append(desc)
+
+			for desc in ordered:
 				childResource = node.acquireResourceTypeAndName(desc.klass.resource_type, desc.name, mandatory = True)
 				self.resourceVerifyPolicyImpl(node, childResource)
 				tested = True
@@ -379,10 +399,29 @@ class SELinux(Feature):
 			node.logError("Unable to find/activate service %s" % res.selinux_test_service)
 			return None
 
+		# Do not check service again
+		self.verifiedResources.add(service)
+
+		return self.verifyService(node, service, res)
+
+	def verifyService(self, node, service, executable = None):
 		pid = service.pid
 		if not pid:
-			node.logError("Unable to get pid for service %s" % res.selinux_test_service)
+			node.logError("Unable to get pid for service %s" % service.name)
 			return None
+
+		print(f"service {service.name} uses executable {service.executable}")
+		if executable is None:
+			if service.executable is None:
+				node.logError(f"Service {service.name} does not specify an executable; cannot test SELinux process label")
+				return None
+
+			executable = node.requireExecutable(service.executable)
+			if executable is None:
+				return None
+
+			# Do not check executable again
+			self.verifiedResources.add(executable)
 
 		content = node.recvbuffer("/proc/%s/attr/current" % pid, user = "root")
 
@@ -400,7 +439,7 @@ class SELinux(Feature):
 		expected = self.checkContext(process_ctx,
 					user = 'system_u',
 					role = 'system_r',
-					type = res.selinux_process_domain)
+					type = executable.selinux_process_domain)
 		if expected:
 			node.logFailure("Service %s is running with wrong SELinux context" % service.name);
 			node.logInfo("  expected %s" % expected)
