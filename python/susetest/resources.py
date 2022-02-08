@@ -832,6 +832,14 @@ class AuditResource(LogResource):
 		if type.lower() != "avc":
 			return
 
+		# On CentOS8, the binary audit messages we receive via audispd seem to be
+		# somewhat redundant, in that the formatted message start with
+		#  type=TYPE msg=.... rest of message ...
+		# If we detect this, we strip off the redundant gunk
+		rhel_weird_prefix = f"type={type} msg=";
+		if formatted.startswith(rhel_weird_prefix):
+			formatted = formatted[len(rhel_weird_prefix):]
+
 		m = self.Message(None, "audit", None, formatted)
 		try:
 			self.filterMessage(m)
