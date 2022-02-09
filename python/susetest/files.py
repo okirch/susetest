@@ -93,7 +93,10 @@ class FileEditor(object):
 		if key is None:
 			key = self.makeKey(**kwargs)
 
-		reader = self._createReader()
+		reader = self.rewriter
+		if reader is None:
+			reader = self._createReader()
+
 		for e in reader.entries():
 			if isinstance(e, CommentOrOtherFluff):
 				continue
@@ -361,3 +364,166 @@ class HostsFile(LineOrientedFileFormat):
 			return
 
 		return self.Entry(name = w[1], addr = w[0], aliases = w[2:], raw = raw_line)
+
+
+class LinesWithColonFileFormat(LineOrientedFileFormat):
+	entry_type = None
+
+	class EntryType:
+		def __init__(self, name, key_fields, entry_fields, display_fields = None):
+			self.name = name
+			self.key_fields = key_fields
+			self.entry_fields = entry_fields
+			self.num_entry_fields = len(entry_fields)
+			self.display_fields = display_fields or entry_fields
+
+	class KeyOrEntryBase:
+		def initialize(self, fields, *args, **kwargs):
+			for attr_name in fields:
+				setattr(self, attr_name, None)
+			for attr_name, value in zip(fields, args):
+				setattr(self, attr_name, value)
+			for attr_name, value in kwargs.items():
+				assert(attr_name in fields)
+				setattr(self, attr_name, value)
+
+		def render(self, name, fields):
+			attrs = []
+			for attr_name in fields:
+				attrs.append("%s=%s" % (attr_name, getattr(self, attr_name)))
+			return "%s(%s)" % (name, ", ".join(attrs))
+
+		def has_nonempty_attr(self, fields):
+			for attr_name in fields:
+				if getattr(self, attr_name) is not None:
+					return True
+			return False
+
+	class Key(KeyOrEntryBase):
+		def __init__(self, type, *args, **kwargs):
+			self._type = type
+			if not args and not kwargs:
+				raise ValueError(f"refusing to create empty key")
+			self.initialize(type.key_fields, *args, **kwargs)
+
+		def __str__(self):
+			type = self._type
+			return self.render(type.name, type.key_fields)
+
+		def matchEntry(self, entry):
+			for attr_name in self._type.key_fields:
+				key_value = getattr(self, attr_name)
+				if key_value is None:
+					continue
+
+				if key_value != getattr(entry, attr_name):
+					return False
+
+			return True
+
+	class Entry(KeyOrEntryBase):
+		def __init__(self, type, *args, raw = None, **kwargs):
+			self._type = type
+			self.raw = raw
+
+			self.initialize(type.entry_fields, *args, **kwargs)
+
+		def __str__(self):
+			type = self._type
+			return self.render(type.name, type.display_fields)
+
+		def format(self):
+			if self.raw:
+				return self.raw
+
+			type = self._type
+
+			words = []
+			for attr_name in type.entry_fields:
+				words.append(getattr(self, attr_name) or "")
+
+			return ":".join(words)
+
+	def makeKey(self, *args, **kwargs):
+		return self.Key(self.entryType, *args, **kwargs)
+
+	def makeEntry(self, *args, **kwargs):
+		return self.Entry(self.entryType, *args, **kwargs)
+
+	def entryFromLine(self, raw_line):
+		w = raw_line.split(":")
+		if len(w) != self.entryType.num_entry_fields:
+			print(f"could not parse |{raw_line}|")
+			return
+
+		return self.Entry(self.entryType, raw = raw_line, *w)
+
+class PasswdFile(LinesWithColonFileFormat):
+	file_type = "passwd"
+	entryType = LinesWithColonFileFormat.EntryType("PWENT",
+		key_fields = ["name", "uid"],
+		entry_fields = [ "name", "passwd", "uid", "gid", "gecos", "homedir", "shell", ],
+		display_fields = [ "name", "uid", ])
+
+	class Entry(LinesWithColonFileFormat.Entry):
+		def get_gecos_field(self, index):
+			if not self.gecos:
+				return None
+			fields = self.gecos.split(',')
+			if index >= len(fields):
+				return None
+			return fields[index]
+
+		@property
+		def gecos_fullname(self):
+			return self.get_gecos_field(0)
+
+		@property
+		def gecos_room(self):
+			return self.get_gecos_field(1)
+
+		def shouldReplace(self, entry):
+			return self.name == entry.name
+
+	def parseLineEntry(self, raw_line):
+		# Transparently handle NIS entries
+		if raw_line.startswith("+") or raw_line.startswith("-"):
+			return self.CommentLine(raw_line)
+
+		return self.entryFromLine(raw_line)
+
+class ShadowFile(LinesWithColonFileFormat):
+	file_type = "shadow"
+	entryType = LinesWithColonFileFormat.EntryType("SPWENT",
+		key_fields = ["name"],
+		entry_fields = [ "name", "passwd", "last_change", "min", "max", "warn", "inactive", "expire", ],
+		display_fields = [ "name", "uid", ])
+
+	class Entry(LinesWithColonFileFormat.Entry):
+		def shouldReplace(self, entry):
+			return self.name == entry.name
+
+	def parseLineEntry(self, raw_line):
+		# Transparently handle NIS entries
+		if raw_line.startswith("+") or raw_line.startswith("-"):
+			return self.CommentLine(raw_line)
+
+		return self.entryFromLine(raw_line)
+
+class GroupFile(LinesWithColonFileFormat):
+	file_type = "group"
+	entryType = LinesWithColonFileFormat.EntryType("GRP",
+		key_fields = ["name", "gid"],
+		entry_fields = [ "name", "passwd", "gid", "mem" ],
+		display_fields = [ "name", "gid", ])
+
+	class Entry(LinesWithColonFileFormat.Entry):
+		def shouldReplace(self, entry):
+			return self.name == entry.name
+
+	def parseLineEntry(self, raw_line):
+		# Transparently handle NIS entries
+		if raw_line.startswith("+") or raw_line.startswith("-"):
+			return self.CommentLine(raw_line)
+
+		return self.entryFromLine(raw_line)
