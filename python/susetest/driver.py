@@ -198,6 +198,8 @@ class Driver:
 		# group (which is the default otherwise)
 		self.resourceManager.zapCleanups()
 
+		self._update_hosts_files()
+
 		self.info("Setup complete")
 		self.info("")
 
@@ -417,6 +419,34 @@ class Driver:
 	def _set_os_resources(self):
 		for node in self.targets:
 			self.resourceManager.loadPlatformResources(node, node.resource_files)
+
+	def _update_hosts_files(self):
+		entries = []
+		for node in self.targets:
+			if node.ipv4_address:
+				d = {'name': node.name, 'addr': node.ipv4_address}
+				entries.append(d)
+			if node.ipv6_address:
+				d = {'name': node.name, 'addr': node.ipv6_address}
+				entries.append(d)
+
+		if not entries:
+			self.journal.info("None of the nodes has a network address assigned; not updating hosts files")
+			return
+
+		self.journal.info("Trying to update hosts file on all nodes with all known addresses")
+		for node in self.targets:
+			hosts = node.requireFile("system-hosts")
+			node.logInfo(f"Updating hosts file {hosts.path}")
+			editor = hosts.createEditor()
+			editor.beginRewrite()
+
+			for d in entries:
+				editor.addOrReplaceEntry(**d)
+
+			# Sometimes, the build process will leave behind a stale hosts entry for "build"
+			editor.removeEntry(name = "build")
+			editor.commit()
 
 	def addPostTestHook(self, fn):
 		self._hooks_end_test.append(fn)
