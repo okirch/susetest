@@ -115,6 +115,7 @@ import curly
 import sys
 import re
 import crypt
+from .files import FileFormatRegistry
 
 class Resource:
 	STATE_INACTIVE = 0
@@ -771,6 +772,24 @@ class FileResource(PackageBackedResource):
 	def detect(self):
 		st = self.target.run("test -a '%s'" % self.path, user = "root")
 		return bool(st)
+
+	# FUTURE: implement a backup() method that copies the file to .bak,
+	# and register a cleanup function that restores the original file at
+	# the end of a test case/test group
+
+	# FileEditors provide a facility to modify structured files,
+	# by iterating/looking up/adding/removing/replacing entries
+	def createEditor(self):
+		if self.path is None:
+			raise ValueError(f"{self}: unable to create editor - no file path")
+		if self.format is None:
+			raise ValueError(f"{self}: unable to create editor - undefined format")
+
+		editor = FileFormatRegistry.createEditor(self.target, self.format, self.path)
+		if not editor:
+			raise ValueError(f"{self}: unable to create editor - no editor for format {self.format}")
+
+		return editor
 
 	@classmethod
 	def createDefaultInstance(klass, node, resourceName):
