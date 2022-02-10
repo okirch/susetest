@@ -407,6 +407,9 @@ class Target(twopence.Target):
 
 				time.sleep(1)
 
+			if send is None:
+				continue
+
 			self.logInfo("Sending response \"%s\"" % send)
 			chat.send(send + "\r")
 
