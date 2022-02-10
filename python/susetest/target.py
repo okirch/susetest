@@ -382,7 +382,7 @@ class Target(twopence.Target):
 		cmd = self._buildCommand(cmd, **kwargs)
 		return super().chat(cmd)
 
-	def runChatScript(self, cmd, chat_script, **kwargs):
+	def runChatScript(self, cmd, chat_script, timeoutOkay = False, **kwargs):
 		# if not explicitly set to False by the caller, this defaults to True
 		if 'tty' not in kwargs:
 			kwargs['tty'] = True
@@ -391,13 +391,20 @@ class Target(twopence.Target):
 
 		for expect, send in chat_script:
 			susetest.say("Waiting for \"%s\"" % expect)
-			if not chat.expect(expect):
-				self.logFailure("Timed out waiting for prompt")
+
+			try:
+				errcode = chat.expect(expect)
+			except twopence.Exception as e:
+				if timeoutOkay and e.code == twopence.CHAT_TIMEOUT_ERROR:
+					self.logInfo(f"Caught non-fatal exception: {e}")
+				else:
+					self.logFailure(f"Caught exception: {e}")
 				self.logInfo("consumed: %s" % chat.consumed)
 				st = chat.wait()
-				print(st)
-				print(st.stdout)
-				return
+				if st is not None:
+					self.logInfo(f"command status: {st.message}")
+					self.journal.recordStdout(st.stdout);
+				return twopence.Status(error = e.code)
 
 			self.logInfo("consumed: %s" % chat.consumed)
 			self.logInfo("found prompt: \"%s\"" % chat.found)
