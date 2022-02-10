@@ -185,15 +185,16 @@ class FileRewriter(FileReader):
 		for e in self.format.entries(inputBuffer):
 			writeEntry = e
 
-			if isinstance(e, CommentOrOtherFluff):
-				pass
-			elif removeMatchFunc(e):
+			if removeMatchFunc(e):
 				# print(f"Replacing {writeEntry} with {newEntry}")
 				writeEntry = newEntry
 				newEntry = None
 
 			if writeEntry:
 				self.format.output(writeEntry, outputBuffer)
+
+		if newEntry:
+			self.format.output(newEntry, outputBuffer)
 
 		if self.data != outputBuffer:
 			self.data = outputBuffer
@@ -308,6 +309,9 @@ class HostsFile(LineOrientedFileFormat):
 			return f"Host({self.addr}, {self.name})"
 
 		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
 			if self.name and self.name != entry.name:
 				return False
 			if self.addr and self.addr != entry.addr:
@@ -330,6 +334,9 @@ class HostsFile(LineOrientedFileFormat):
 			return " ".join(words)
 
 		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
 			if self.addr == entry.addr:
 				return True
 
@@ -411,6 +418,9 @@ class LinesWithColonFileFormat(LineOrientedFileFormat):
 			return self.render(type.name, type.key_fields)
 
 		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
 			for attr_name in self._type.key_fields:
 				key_value = getattr(self, attr_name)
 				if key_value is None:
@@ -483,6 +493,9 @@ class PasswdFile(LinesWithColonFileFormat):
 			return self.get_gecos_field(1)
 
 		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
 			return self.name == entry.name
 
 	def parseLineEntry(self, raw_line):
@@ -501,6 +514,9 @@ class ShadowFile(LinesWithColonFileFormat):
 
 	class Entry(LinesWithColonFileFormat.Entry):
 		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
 			return self.name == entry.name
 
 	def parseLineEntry(self, raw_line):
@@ -519,6 +535,9 @@ class GroupFile(LinesWithColonFileFormat):
 
 	class Entry(LinesWithColonFileFormat.Entry):
 		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
 			return self.name == entry.name
 
 	def parseLineEntry(self, raw_line):
@@ -527,3 +546,68 @@ class GroupFile(LinesWithColonFileFormat):
 			return self.CommentLine(raw_line)
 
 		return self.entryFromLine(raw_line)
+
+class LinesWithKeyValueFileFormat(LineOrientedFileFormat):
+	class Key:
+		def __init__(self, name = None):
+			if not name:
+				raise ValueError(f"refusing to create empty key")
+			self.name = name
+
+		def __str__(self):
+			return f"Key({self.name})"
+
+		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			return self.name == entry.name
+
+	class Entry:
+		def __init__(self, name = None, value = None, raw = None):
+			self.name = name
+			self.value = value
+			self.raw = raw
+
+		def __str__(self):
+			return f"Entry({self.name}, {self.value})"
+
+		def format(self):
+			if self.raw:
+				return self.raw
+			return f"{self.name} {self.value}"
+
+		def shouldReplace(self, entry):
+			if isinstance(entry, LineOrientedFileFormat.CommentLine):
+				# Check if the line is a commented out entry for this keyword, as in
+				#    #Foobar value yadda yadda
+				line = entry.line
+				if line.startswith("#"):
+					words = line[1:].split()
+					if words and words[0] == self.name:
+						return True
+
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			return self.name == entry.name
+
+	def parseLineEntry(self, raw_line):
+		if raw_line == "" or raw_line.isspace() or raw_line.startswith("#"):
+			return self.CommentLine(raw_line)
+
+		i = raw_line.find('#')
+		if i >= 0:
+			line = raw_line[:i]
+		else:
+			line = raw_line
+
+		w = line.split(maxsplit = 1)
+		if len(w) < 2:
+			print(f"could not parse |{raw_line}|")
+			return
+
+		return self.Entry(raw = raw_line, *w)
+
+class SSHConfigFile(LinesWithKeyValueFileFormat):
+	file_type = "ssh-config-file"
