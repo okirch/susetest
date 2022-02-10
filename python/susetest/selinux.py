@@ -495,7 +495,7 @@ class SELinux(Feature):
 
 		expected = self.checkContext(process_ctx, type = res.selinux_process_domain)
 		if expected:
-			node.logFailure("command is running with wrong SELinux context");
+			node.logFailure(f"Command \"{cmdline}\" is running with wrong SELinux context");
 			node.logInfo("  expected %s" % expected)
 			node.logInfo("  actual context %s" % process_ctx)
 			return False
