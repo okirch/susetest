@@ -671,13 +671,41 @@ class ServiceResource(PackageBackedResource):
 	def running(self):
 		return self.systemctlForAllUnits("status")
 
-	def allUnitsPresent(self, node):
+	def checkUnitStatus(self, node):
+		if not self.systemd_activate:
+			return None
+
+		loaded = True
+		active = True
+		running = True
+
 		for unit in self.systemd_activate:
-			st = node.run(f"systemctl show --property UnitFileState {unit}", stdout = bytearray())
-			if not st or st.stdoutString.strip() == "UnitFileState=":
-				susetest.say(f"Unit file {unit} is missing")
-				return False
-		return True
+			st = node.run(f"systemctl show --property UnitFileState,ActiveState,SubState,LoadState {unit}", quiet = True)
+			if not st:
+				susetest.say(f"systemctl show {unit} failed: {st.message}")
+				return None
+
+			for line in st.stdoutString.split('\n'):
+				if "=" not in line:
+					continue
+				(key, value) = line.split("=", maxsplit = 1)
+				if key == "UnitFileState" and not value:
+					susetest.say(f"Unit file {unit} is missing")
+					return None
+				elif key == "LoadState" and value != "loaded":
+					loaded = False
+				elif key == "ActiveState" and value != "active":
+					active = False
+				elif key == "SubState" and value != "running":
+					running = False
+
+		if running:
+			return "running"
+		if active:
+			return "enabled"
+		if loaded:
+			return "disabled"
+		return "need-reload"
 
 	# Called from PackageBackedResource.acquire
 	def detect(self):
@@ -686,12 +714,29 @@ class ServiceResource(PackageBackedResource):
 		if not node.is_systemd:
 			raise NotImplementedError("Unable to start service %s: SUT does not use systemd" % self.name)
 
-		if not self.allUnitsPresent(self.target):
+		state = self.checkUnitStatus(node)
+
+		node.logInfo(f"Service {self.name} state={state}")
+		if state == "need-reload":
+			self.systemctl("reload-daemon")
+			state = self.checkUnitStatus(node)
+
+		if not state:
+			# Units missing
 			return False
+
+		if state == "running":
+			return True
+
+		if state != "enabled":
+			for unit in self.systemd_activate:
+				node.logInfo("enabling service %s" % (unit))
+				if not self.systemctl("enable", unit) or not self.systemctl("start", unit):
+					return False
 
 		for unit in self.systemd_activate:
 			node.logInfo("activating service %s" % (unit))
-			if not self.systemctl("enable", unit) or not self.systemctl("start", unit):
+			if not self.systemctl("start", unit):
 				return False
 
 		return True
