@@ -22,6 +22,8 @@ from .testdef import TestDefinition
 # make it available this way.
 from twopence import Command
 
+from twopence import Exception as TwopenceException
+
 def say(msg):
 	print(msg)
 	sys.stdout.flush()
@@ -42,6 +44,9 @@ class BasiliqaError(Exception):
 
 	def __str__(self):
 		return repr(self.code)
+
+class CriticalResourceMissingError(TwopenceException):
+	pass
 
 # finish the junit report.
 def finish(journal):
