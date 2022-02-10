@@ -147,11 +147,11 @@ def getTargetForTemplate(driver, nodeName):
 	if nodeName is None:
 		nodes = list(driver.targets)
 		if len(nodes) == 1:
-			node = nodes[0]
+			return nodes[0]
 	else:
-		node = getattr(driver, nodeName, None)
+		return getattr(driver, nodeName, None)
 
-	return node
+	return None
 
 
 def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
