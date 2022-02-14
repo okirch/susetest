@@ -346,6 +346,8 @@ class Driver:
 		self._set_targets()
 		self._set_os_resources()
 
+		self._publish_properties()
+
 	def _set_targets(self):
 		self._targets = {}
 
@@ -364,6 +366,7 @@ class Driver:
 
 			target.defineStringResource("ipv4_loopback", "127.0.0.1")
 			target.defineStringResource("ipv6_loopback", "::1")
+
 
 		# Require test-user resource for all nodes
 		self.requireUser("test-user")
@@ -412,10 +415,6 @@ class Driver:
 		susetest.say("Writing journal to %s" % self.journal_path)
 		self.journal = suselog.Journal(self.name, path = self.journal_path);
 
-		# Record all parameters that were set at global level
-		for key, value in self._parameters.items():
-			self.journal.addProperty(key, value)
-
 	def _set_os_resources(self):
 		for node in self.targets:
 			self.resourceManager.loadPlatformResources(node, node.resource_files)
@@ -447,6 +446,19 @@ class Driver:
 			# Sometimes, the build process will leave behind a stale hosts entry for "build"
 			editor.removeEntry(name = "build")
 			editor.commit()
+
+	def _publish_properties(self):
+		# Record all parameters that were set at global level
+		for key, value in self._parameters.items():
+			self.journal.addProperty(f"parameter:{key}", value)
+
+		# Record per-node information
+		for node in self.targets:
+			for attr_name in ('ipv4_address', 'ipv6_address', 'os_release'):
+				value = getattr(node, attr_name, None)
+				if value is not None:
+					key = f"{node.name}:{attr_name}".replace('_', '-')
+					self.journal.addProperty(key, value)
 
 	def addPostTestHook(self, fn):
 		self._hooks_end_test.append(fn)
