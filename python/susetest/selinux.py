@@ -308,13 +308,13 @@ class SELinux(Feature):
 			filter.removeCheck(fn)
 
 	# Handle expected SELinux violations
-	# We return a TempExpectedFailure object to the caller. As long as the
+	# We return a ExpectedSELinuxViolation object to the caller. As long as the
 	# caller holds a reference to this object, the filter is active.
 	# Once its deleted (or once the owner calls its .done() method), we
 	# stop filtering for this event
 	class ExpectedSELinuxViolation(susetest.ExpectedCommandFailure):
-		def __init__(self, selinux, target, command):
-			super().__init__(target, command)
+		def __init__(self, selinux, command):
+			super().__init__(command)
 
 			self.selinux = selinux
 			self.func = None
@@ -334,7 +334,7 @@ class SELinux(Feature):
 			self.done()
 
 		def verify(self, st):
-			audit = self.target.getResource("audit", "audit")
+			audit = st.target.getResource("audit", "audit")
 			audit.auditSettle()
 			self.done()
 
@@ -342,7 +342,7 @@ class SELinux(Feature):
 				return False
 
 			if not self.hit:
-				self.target.logFailure(f"Expected {self.cmdname} to violate SELinux policy... but we did not see it in the audit log")
+				st.target.logFailure(f"Expected {self.cmdname} to violate SELinux policy... but we did not see it in the audit log")
 				return False
 
 			return True
@@ -352,8 +352,8 @@ class SELinux(Feature):
 				self.selinux.removeMessageFilter(self.func)
 				self.func = None
 
-	def expectViolation(self, target, command):
-		return self.ExpectedSELinuxViolation(self, target, command)
+	def expectViolation(self, command):
+		return self.ExpectedSELinuxViolation(self, command)
 
 	def resourceVerifyPolicy(self, node, resourceType, resourceName):
 		if 'selinux' not in node.features:

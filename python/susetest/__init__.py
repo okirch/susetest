@@ -49,25 +49,28 @@ class CriticalResourceMissingError(TwopenceException):
 	pass
 
 class ExpectedCommandResult:
-	def __init__(self, target, cmdname):
-		self.target = target
+	def __init__(self, cmdname):
 		self.cmdname = cmdname
 
 class ExpectedCommandSuccess(ExpectedCommandResult):
 	def verify(self, st):
+		node = st.target
+
 		if not st:
-			self.target.logFailure(f"{self.cmdname} command failed: {st.message}")
+			node.logFailure(f"{self.cmdname} command failed: {st.message}")
 			return False
 
 		return True
 
 class ExpectedCommandFailure(ExpectedCommandResult):
 	def verify(self, st):
+		node = st.target
+
 		if st:
-			self.target.logFailure(f"{self.cmdname} command succeeded (expected error)")
+			node.logFailure(f"{self.cmdname} command succeeded (expected error)")
 			return False
 
-		self.target.logInfo(f"{self.cmdname} command failed as expected: {st.message}")
+		node.logInfo(f"{self.cmdname} command failed as expected: {st.message}")
 		return True
 
 # finish the junit report.
