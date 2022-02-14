@@ -41,6 +41,7 @@ class SELinuxMessageFilter(MessageFilter):
 			self.scontext = None
 			self.tcontext = None
 			self.tclass = None
+			self.permissive = None
 			self.src = None
 
 		# Two violations are considered to originate from the same process iff the following
@@ -95,8 +96,8 @@ class SELinuxMessageFilter(MessageFilter):
 				target.logInfo("SELinux policy violation (ignored)")
 			else:
 				target.logFailure("SELinux policy violation")
-			target.logInfo("  by %s (pid=%s; context=%s)" % (
-						violation.comm, violation.pid, violation.scontext))
+			target.logInfo("  by %s (pid=%s; context=%s; permissive=%s)" % (
+						violation.comm, violation.pid, violation.scontext, violation.permissive))
 
 		# ioctls will also have ioctlcmd=0xNNNN
 		if violation.tclass in self.selinux_file_classes:
@@ -172,7 +173,7 @@ def pamTally2ConsideredHarmless(violation):
 	return None
 
 def twopenceConsideredHarmless(violation):
-	if violation.comm == "twopence_test_s":
+	if violation.comm == "twopence_test_s" and violation.permissive == "1":
 		return "info"
 	return None
 
