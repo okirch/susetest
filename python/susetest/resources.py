@@ -893,7 +893,7 @@ class AuditResource(LogResource):
 		node = self.target
 		self.mon = node.monitor("audit", self.handleAuditMessage)
 
-		# driver.addPostTestHook(self.auditSettle)
+		driver.addPostTestHook(self.auditSettle)
 		return True
 
 	def handleAuditMessage(self, seq, type, formatted):
@@ -922,7 +922,8 @@ class AuditResource(LogResource):
 	# and waits for that message to appear in the message stream from
 	# audispd
 	def auditSettle(self):
-		pass
+		# self.target.logInfo("audit settle")
+		self.mon.settle(timeout = 5)
 
 class JournalResource(LogResource):
 	resource_type = "journal"
