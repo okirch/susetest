@@ -48,6 +48,28 @@ class BasiliqaError(Exception):
 class CriticalResourceMissingError(TwopenceException):
 	pass
 
+class ExpectedCommandResult:
+	def __init__(self, target, cmdname):
+		self.target = target
+		self.cmdname = cmdname
+
+class ExpectedCommandSuccess(ExpectedCommandResult):
+	def verify(self, st):
+		if not st:
+			self.target.logFailure(f"{self.cmdname} command failed: {st.message}")
+			return False
+
+		return True
+
+class ExpectedCommandFailure(ExpectedCommandResult):
+	def verify(self, st):
+		if st:
+			self.target.logFailure(f"{self.cmdname} command succeeded (expected error)")
+			return False
+
+		self.target.logInfo(f"{self.cmdname} command failed as expected: {st.message}")
+		return True
+
 # finish the junit report.
 def finish(journal):
 	journal.writeReport()
