@@ -825,6 +825,11 @@ class FileResource(PackageBackedResource):
 	# FileEditors provide a facility to modify structured files,
 	# by iterating/looking up/adding/removing/replacing entries
 	def createEditor(self):
+		editor = self.createReader()
+		editor.beginRewrite()
+		return editor
+
+	def createReader(self):
 		if self.path is None:
 			raise ValueError(f"{self}: unable to create editor - no file path")
 		if self.format is None:

@@ -438,7 +438,6 @@ class Driver:
 			hosts = node.requireFile("system-hosts")
 			node.logInfo(f"Updating hosts file {hosts.path}")
 			editor = hosts.createEditor()
-			editor.beginRewrite()
 
 			for d in entries:
 				editor.addOrReplaceEntry(**d)
