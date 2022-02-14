@@ -631,3 +631,54 @@ class SSHConfigFile(LinesWithKeyValueFileFormat):
 
 class ShadowLoginDefsFile(LinesWithKeyValueFileFormat):
 	file_type = "shadow-login-defs"
+
+##################################################################
+# Files that contain lines with a single value on it, such as
+# /etc/shells
+##################################################################
+class ListFileFormat(LineOrientedFileFormat):
+	file_type = "list-file"
+
+	class Key:
+		def __init__(self, name = None):
+			if not name:
+				raise ValueError(f"refusing to create empty key")
+			self.name = name
+
+		def __str__(self):
+			return f"Key({self.name})"
+
+		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			return self.name == entry.name
+
+	class Entry:
+		def __init__(self, name = None, raw = None):
+			self.name = name
+			self.raw = raw
+
+		def __str__(self):
+			return f"Entry({self.name})"
+
+		def invalidate(self):
+			self.raw = None
+
+		def format(self):
+			if self.raw:
+				return self.raw
+			return f"{self.name}"
+
+		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			return self.name == entry.name
+
+	def parseLineEntry(self, raw_line):
+		if raw_line == "" or raw_line.isspace() or raw_line.startswith("#"):
+			return self.CommentLine(raw_line)
+
+		return self.Entry(raw = raw_line, name = raw_line)
+
