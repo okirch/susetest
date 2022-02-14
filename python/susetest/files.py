@@ -628,3 +628,6 @@ class LinesWithKeyValueFileFormat(LineOrientedFileFormat):
 
 class SSHConfigFile(LinesWithKeyValueFileFormat):
 	file_type = "ssh-config-file"
+
+class ShadowLoginDefsFile(LinesWithKeyValueFileFormat):
+	file_type = "shadow-login-defs"
