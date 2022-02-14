@@ -134,6 +134,10 @@ class FileEditor(object):
 
 		if entry is None:
 			entry = self.makeEntry(**kwargs)
+		else:
+			# zap the cached representation of the entry; force
+			# a rebuild
+			entry.invalidate()
 
 		# print(f"addOrReplaceEntry({entry})")
 		self.rewriter.replaceEntry(entry)
@@ -327,6 +331,9 @@ class HostsFile(LineOrientedFileFormat):
 		def __str__(self):
 			return f"Host({self.addr}, {self.name}, aliases = {self.aliases})"
 
+		def invalidate(self):
+			self.raw = None
+
 		def format(self):
 			if self.raw:
 				return self.raw
@@ -442,6 +449,9 @@ class LinesWithColonFileFormat(LineOrientedFileFormat):
 			type = self._type
 			return self.render(type.name, type.display_fields)
 
+		def invalidate(self):
+			self.raw = None
+
 		def format(self):
 			if self.raw:
 				return self.raw
@@ -473,7 +483,7 @@ class PasswdFile(LinesWithColonFileFormat):
 	entryType = LinesWithColonFileFormat.EntryType("PWENT",
 		key_fields = ["name", "uid"],
 		entry_fields = [ "name", "passwd", "uid", "gid", "gecos", "homedir", "shell", ],
-		display_fields = [ "name", "uid", ])
+		display_fields = [ "name", "uid", "shell",])
 
 	class Entry(LinesWithColonFileFormat.Entry):
 		def get_gecos_field(self, index):
@@ -491,6 +501,10 @@ class PasswdFile(LinesWithColonFileFormat):
 		@property
 		def gecos_room(self):
 			return self.get_gecos_field(1)
+
+		@property
+		def gecos_home_phone(self):
+			return self.get_gecos_field(3)
 
 		def shouldReplace(self, entry):
 			if isinstance(entry, CommentOrOtherFluff):
@@ -571,6 +585,9 @@ class LinesWithKeyValueFileFormat(LineOrientedFileFormat):
 
 		def __str__(self):
 			return f"Entry({self.name}, {self.value})"
+
+		def invalidate(self):
+			self.raw = None
 
 		def format(self):
 			if self.raw:
