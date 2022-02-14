@@ -233,13 +233,30 @@ class SELinux(Feature):
 				raise ValueError("Cannot determine default Linux user")
 			linuxUser = user.login
 
-		node.logInfo("Updating user %s to use SELinux user/role %s" % (linuxUser, selinuxUser))
+		if node.run(f"grep -q '^{linuxUser}:{selinuxUser}:' /etc/selinux/{selinuxPolicy}/seusers", quiet = True):
+			node.logInfo(f"User {linuxUser} already mapped to SELinux user {selinuxUser}")
+			return True
 
+		node.logInfo("Updating user %s to use SELinux user/role %s" % (linuxUser, selinuxUser))
+		semanage = node.optionalExecutable("semanage")
+		if semanage is None:
+			node.logInfo("semanage not found, doing it manually")
+			return
+			self.updateSEUserManually(node, linuxUser, selinuxPolicy, selinuxUser)
+
+		st = semanage.run(f"login --add -s {selinuxUser} {linuxUser}")
+		if not st:
+			node.logError(f"Unable to define {linuxUser} as SELinux user {selinuxUser}: {st.message}")
+			return False
+
+		return True
+
+	def updateSEUserManually(self, node, linuxUser, selinuxPolicy, selinuxUser):
 		path = "/etc/selinux/%s/seusers" % selinuxPolicy
 		node.logInfo("Editing %s" % path)
 		content = node.recvbuffer(path, user = 'root')
 		if not content:
-			node.logError("Unable to define %s as SELinux user %s" % (linuxUser, selinuxUser))
+			node.logError(f"Unable to define {linuxUser} as SELinux user {selinuxUser}")
 			return False
 
 		replace = "%s:%s:s0-s0:c0.c1023" % (linuxUser, selinuxUser)
@@ -337,10 +354,12 @@ class SELinux(Feature):
 			self.verifyService(node, res)
 			tested = True
 		elif isinstance(res, SubsystemResource):
+			susetest.say(f"\n### SELinux: verifying subsystem {res.name} ###")
 			for package in res.packages:
 				self.resourceVerifyPolicy(node, "package", package)
 				tested = True
 		elif isinstance(res, PackageResource):
+			susetest.say(f"\n*** SELinux: verifying package {res.name} ***")
 			# First, verify services, then everything else
 			ordered = []
 			for desc in res.children:
