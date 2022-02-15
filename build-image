@@ -1,0 +1,79 @@
+#!/bin/bash
+#
+# Build a silver image
+#
+
+: ${WORKSPACE:=~/susetest/build}
+
+main_options="--workspace $WORKSPACE"
+build_options=""
+
+function get_build_result_name {
+
+	base_platform=
+	features=
+
+	while [ $# -gt 0 ]; do
+		opt=$1; shift
+		case $opt in
+		--base-platform)
+			build_options+=" $opt $1"
+			base_platform=$1
+			shift;;
+
+		--feature)
+			build_options+=" $opt $1"
+			features+="-$1"; shift;;
+
+		--debug)
+			main_options+=" $opt";;
+
+		*)	echo "Cannot handle argument $1" >&2
+			exit 1;;
+		esac
+	done
+
+	if [ -z "$features" ]; then
+		features="-silver"
+	fi
+
+	declare -g output_platform
+	output_platform="$base_platform$features"
+}
+
+function do_build {
+
+	if ! twopence provision $main_options init; then
+		return 1
+	fi
+
+	twopence provision $main_options build $build_options $output_platform
+	return $?
+}
+
+get_build_result_name "$@"
+
+cat <<EOF
+Output plaform:		$output_platform
+Build commands:
+   twopence provision $main_options init
+   twopence provision $main_options build $build_options $output_platform
+   twopence provision $main_options destroy --zap
+EOF
+
+exitcode=0
+if ! do_build; then
+	exitcode=$?
+fi
+
+twopence provision $main_options destroy --zap
+
+if [ $exitcode -ne 0 ]; then
+	cat <<-EOF
+
+	 *** BUILD FAILED ***
+
+EOF
+fi
+
+exit $exitcode
