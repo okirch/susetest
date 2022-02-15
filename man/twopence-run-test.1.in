@@ -93,13 +93,20 @@ session as user \fBvagrant\fP, from which you have access to a root
 shell using \fBsudo bash\fP.
 .TP
 .B After the test run:
-Re-run your test script manually (useful for debugging the script
-itself), like this:
+If you are debugging a test script, it can be useful to re-run the script
+after modifying it. There are two ways to do this. One is to run the
+script manually, but the more convenient way is to type the
+\fBrerun\fI command at the interactive prompt.
+.P
+To run your test script manually, type something like this:
 .IP
 .BI "  ./run --config ~/susetest/work/" TESTCASE "/status.conf
 .IP
 where \fITESTCASE\fP is the name of the test case as provided in the
-test's config file.
+test's config file. In addition, you can restrict which test cases get
+executed, by supplying command line options like
+.BR "--only selinux.*" ", " or "--only shadow.chfn" .
+The names supplied to this option specify a group/test combination.
 .RE
 .TP
 .BI --quiet

@@ -551,13 +551,10 @@ class TestDefinition:
 
 		(opts, args) = p.parse_args()
 
-		if args:
-			p.error("Extra arguments on command line - don't know what to do with them")
-
 		if opts.twopence_debug:
 			twopence.setDebugLevel(1)
 
-		return opts
+		return opts, args
 
 
 	@staticmethod
@@ -565,14 +562,16 @@ class TestDefinition:
 		printed = False
 
 		print()
-		print("=== Test definition summary ===")
+		print(f"=== Test definition summary for test script \"{suite.name}\" ===")
+		print()
 
 		for group in suite.groups:
 			if group.empty:
 				continue
 
 			if not printed:
-				print("This test suite defines these groups and test cases")
+				print("This test script defines the following groups and test cases")
+				print()
 				printed = True
 
 			print("  Group %s%s" % (group.name, group.skip and "; SKIPPED" or ""))
@@ -589,6 +588,8 @@ class TestDefinition:
 		if not printed:
 			print("This test suite does not define any test cases")
 
+		print()
+
 	# Called by the user at the end of a test script, like this
 	#
 	#  if __name__ == '__main__':
@@ -599,9 +600,17 @@ class TestDefinition:
 	#
 	@staticmethod
 	def perform():
-		opts = TestDefinition.parseArgs()
+		opts, args = TestDefinition.parseArgs()
 
-		suite = TestsuiteInfo._instance
+		suite = TestsuiteInfo.instance()
+		if args:
+			for action in args:
+				if action == 'info':
+					TestDefinition.print_pre_run_summary(suite)
+				else:
+					raise ValueError(f"Unknown action \"{action}\" on the command line")
+			exit(0)
+
 		if not suite or suite.empty:
 			raise ValueError("susetest.perform() invoked, but the script does not seem to define any test cases")
 

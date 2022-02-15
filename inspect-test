@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+#
+# Inspect a test and display information on what it does
+#
+
+from susetest.executor import Inspector
+
+inspector = Inspector()
+inspector.perform()

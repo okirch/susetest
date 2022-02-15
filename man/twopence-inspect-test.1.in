@@ -1,0 +1,17 @@
+.\" Process this file with
+.\" groff -man -Tascii twopence.3
+.\"
+.\"
+.TH TWOPENCE-INSPECT-TEST "3" "@DATE@" "@SUSETEST_VERSION@" "inspect a test case"
+.SH NAME
+twopence inspect test \- helper application for displaying information about a test
+.SH SYNOPSIS
+.BI "twopence inspect-test " test1 test2 ...
+.SH DESCRIPTION
+This command loads a test script and display information about what it does.
+.SH OPTIONS
+This command takes no options.
+.SH SEE ALSO
+.BR twopence-run-test (1),
+.BR twopence-provision (1).
+

@@ -92,6 +92,10 @@ class Interaction(object):
 		'''continue: proceed to next step'''
 		raise ContinueTestcase()
 
+	def inspect(self, testcase, *args):
+		'''inspect: display information on the test case'''
+		testcase.inspect()
+
 	def finish(self, testcase, *args):
 		'''finish: finish the test case non-interactively'''
 		raise FinishTestcase()
@@ -142,7 +146,10 @@ class InteractionPostProvisioning(Interaction):
 			testcase.runProvisioner("login", name)
 
 class InteractionPostTestRun(InteractionPostProvisioning):
-	pass
+	def rerun(self, testcase, *args):
+		'''rerun: re-run the test script'''
+		testcase.runScript(rerun = True)
+
 
 class Console:
 	BANNER = '''
@@ -348,8 +355,10 @@ class Testcase:
 	def displayClusterStatus(self):
 		self.runProvisioner("status")
 
-	def runScript(self):
-		if not self.is_provisioned:
+	def runScript(self, rerun = False):
+		if rerun and self.is_test_complete:
+			pass
+		elif not self.is_provisioned:
 			info("unable to run script; nodes not yet provisioned")
 			return
 
@@ -449,6 +458,10 @@ class Testcase:
 	def interactPostTestrun(self):
 		msg = "Test run %s complete, ready to destroy cluster" % self.name
 		self.interact(InteractionPostTestRun(self, msg))
+
+	def inspect(self):
+		if self.runCommand(self.testScript, "info") != 0:
+			info("Test script return non-zero exit status")
 
 class Runner:
 	def __init__(self):
@@ -599,3 +612,26 @@ class Runner:
 
 		return parser
 
+class Inspector:
+	def __init__(self):
+		parser = self.build_arg_parser()
+		args = parser.parse_args()
+
+		self.testcases = []
+		for name in args.testcase:
+			test = Testcase(name, workspace = None)
+			test.validate()
+			self.testcases.append(test)
+
+	def perform(self):
+		info("Inspecting test cases")
+		for test in self.testcases:
+			test.inspect()
+
+	def build_arg_parser(self):
+		import argparse
+
+		parser = argparse.ArgumentParser(description = 'Inspect tests.')
+		parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
+			help = 'name of the test cases to inspect')
+		return parser
