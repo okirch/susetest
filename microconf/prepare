@@ -25,6 +25,17 @@ function uc_debug {
 }
 
 ##################################################################
+# Reset state before doing anything else
+##################################################################
+function uc_clean_slate {
+
+	rm -f "$__uc_scriptdir/sedscript"
+	if [ -d "$uc_sourcedir/.git" ]; then
+		echo "sedscript" > "$__uc_scriptdir/.gitignore"
+	fi
+}
+
+##################################################################
 # Run all scripts belonging to a certain stage
 ##################################################################
 function uc_run_stage {
@@ -32,6 +43,7 @@ function uc_run_stage {
 	stage=$1
 
 	for module in "$__uc_scriptdir/$stage/"*-*; do
+		test -f $module || continue
 		uc_debug "Loading $stage/$(basename $module)"
 		. $module
 	done
@@ -75,6 +87,7 @@ function uc_maybe_call_post_hook {
 function uc_define_version {
 
 	varname=$1
+	: ${varname:=version}
 
 	. $uc_sourcedir/RELEASE
 
@@ -91,6 +104,24 @@ function uc_define_version {
 	if [ -n "$minor" ]; then
 		export uc_${varname}_minor="$minor"
 	fi
+}
+
+##################################################################
+# Define a date variable
+##################################################################
+function uc_define_date {
+
+	varname=$1
+	: ${varname:=date}
+
+	. $uc_sourcedir/RELEASE
+
+	if [ -z "$DATE" ]; then
+		DATE=$(date +"%B %Y")
+	fi
+
+	export uc_$varname="$DATE"
+	export uc_date="$DATE"
 }
 
 ##################################################################
@@ -117,6 +148,8 @@ function uc_show_help {
 #  - register all options
 #  - parse all options
 ##################################################################
+uc_clean_slate
+
 uc_run_stage stage1
 
 if ! getopt -Q -l "$__uc_long_options" -o "dv" -- "$@"; then
