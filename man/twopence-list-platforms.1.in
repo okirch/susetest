@@ -1,0 +1,28 @@
+.\" Process this file with
+.\" groff -man -Tascii twopence.3
+.\"
+.\"
+.TH TWOPENCE-LIST-PLATFORMS "3" "@DATE@" "@SUSETEST_VERSION@" "list twopence platforms"
+.SH NAME
+twopence list-platforms \- helper application for displaying available platforms
+.SH SYNOPSIS
+.B twopence list-platforms
+.SH DESCRIPTION
+This command display a list of all available platforms for twopence provisioning.
+These include the "base platforms" as well as local derived builds.
+.P
+A base platform is usually an image provided by the OS vendor or project, which
+can be used directly for provisioning a node. Right now,
+.BR twopence-provision (1)
+only supports vagrant based provisioning, hence these base platforms are
+configured to use a vagrant image provided by on vagrantcloud.
+.P
+A derived build is a platform image built from one of the available
+base image, with additional configuration. Currently, the base images
+for CentOS and SLES provide build options that can be used to create
+a derived image with SELinux and/or FIPS 140-2 mode enabled.
+.SH OPTIONS
+This command takes no options.
+.SH SEE ALSO
+.BR twopence-run-test (1),
+.BR twopence-provision (1).

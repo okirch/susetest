@@ -1,0 +1,130 @@
+.\" Process this file with
+.\" groff -man -Tascii twopence.3
+.\"
+.\"
+.TH TWOPENCE-RUN-TEST "3" "@DATE@" "@SUSETEST_VERSION@" "twopence test runner"
+.SH NAME
+twopence run-test \- helper application for running twopence based tests
+.SH SYNOPSIS
+.BI "twopence run-test --platform " PLATFORM " [ " options " ] " "test1 test2 ...
+.SH DESCRIPTION
+This utility runs a twopence based test case, taking care of provisioning
+the required nodes with the desired platform. It relies on
+.BR twopence-provision (1)
+for managing the bring-up and teardown of the SUT nodes.
+.P
+A test case is a configuration file that describes the test topology, and a
+.B run
+script that contains the actual code that performs the test. In its simplest
+form, the configuration file provides the name of the test case, and a list
+of SUTs to be configured:
+.P
+.nf
+.in +2
+\fB
+testcase        "shadow";
+node client {
+        install "twopence-test-server",
+                "farthings-utils-shadow";
+        start   "twopence-test-server";
+}
+\fR
+.in
+.fi
+.P
+While the test topology is provisioned, and during the execution of the
+test script, temporary files are stored in a \fIworkspace\fP directory.
+The default location is
+.BR ~/susetest/work .
+.P
+When the test case is complete, a test report is written to the \fIlogspace\fP
+directory. This test report is an XML file that loosely follows the JUnit
+schema. This allows further automated processing of the test results, such
+as fingerprinting of failures (is this a known failure, or a new one?),
+aggregation (computing pass/fail rate), or comparison (are there regressions
+versus a previous release?).
+.P
+The default location of the test report is
+.BR ~/susetest/logs/\fITESTCASE\fP/junit-results.xml .
+.SH OPTIONS
+.TP
+.BI --platform " PLATFORM
+This option specifies the platform with which to provision the SUT nodes.
+Use
+.BR "twopence list-platforms
+to display a list of all available platforms.
+.TP
+.BI "--parameter " name = value
+Provide additional parameters to the test run. For example, when executing
+a test case with SELinux enabled, the test user can be assigned to different
+SELinux user profiles. This can be achieved by running the same test case
+several times, with different values for the
+.B selinux-testuser
+parameter (such as
+.BR staff_u ", " user_u ", etc.)
+.TP
+.BI --dry-run
+Do not execute anything, but display the commands that would be executed.
+This is helpful 
+.TP
+.BI --interactive
+In interactive mode,
+.BR run-test
+will pause after each step. This is mostly useful when developing new
+test cases, or diagnosing failed tests.
+.IP
+After each step, the user is prompted for a command. Typing
+.B help
+will display the list of available commands. Command history and
+completion is available.
+.IP
+Typical use cases of interactive mode:
+.RS +8
+.TP
+.B Before provisioning:
+Manually tweak \fBtestrun.conf\fP in the workspace directory.
+.TP
+.B After provisioning:
+Log into one of the SUTs. Simply typing
+.BI ssh " nodname"
+at the prompt will start a shell session on the indicated SUT.
+For vagrant based provisioning, for instance, this will open a
+session as user \fBvagrant\fP, from which you have access to a root
+shell using \fBsudo bash\fP.
+.TP
+.B After the test run:
+Re-run your test script manually (useful for debugging the script
+itself), like this:
+.IP
+.BI "  ./run --config ~/susetest/work/" TESTCASE "/status.conf
+.IP
+where \fITESTCASE\fP is the name of the test case as provided in the
+test's config file.
+.RE
+.TP
+.BI --quiet
+By default, \fBrun-test\fP displays the output of provisioning and test execution
+commands, which is useful for monitoring progress. In order to suppress this, you
+can invoke the test runner with the
+.BR --quiet
+option.
+.TP
+.BI --workspace " WORKSPACE
+Specify an alternative workspace directory.
+The default location is
+.BR ~/susetest/work .
+.TP
+.BI --logspace " LOGSPACE
+Specify an alternative directory for storing test reports.
+The default location is
+.BR ~/susetest/logs .
+.TP
+.BI --testrun " TESTRUN
+Specify a name for a test run, ie a group of test cases that belong together.
+When specifying this option, test reports are stored as
+.BI "" TESTRUN / TESTCASE /junit-results.xml
+below the logspace directory.
+.SH SEE ALSO
+.BR twopence-provision (1),
+.BR twopence-list-platforms (1),
+.BR twopence-build-image (1).

@@ -1,0 +1,38 @@
+.\" Process this file with
+.\" groff -man -Tascii twopence.3
+.\"
+.\"
+.TH TWOPENCE-BUILD-IMAGE "3" "@DATE@" "@SUSETEST_VERSION@" "build silver image for twopence"
+.SH NAME
+twopence build-image \- helper application for building derived images
+.SH SYNOPSIS
+.BR "twopence list-platforms --base-platform " PLATFORM " [ --feature " FEATURE "... ]
+.SH DESCRIPTION
+This utility builds a derived platforms for twopence based testing.
+.P
+A platform consists of a configuration file that describes the platform in some
+detail - where to get image(s) from, the actual OS image, SSH keys, which repositories
+have been activated, etc.
+.P
+.B twopence-build-image
+works by provisioning a node with the specified base platform,
+optionally applying the requested build features, such as
+.BR selinux " or " fips .
+When done, the node is taken down again, and the result is saved as a new platform below
+the user's
+.B ~/.twopence
+directory.
+.P
+The name of the new platform is constructed from the name of the base platform, plus
+the list of features enabled. For example, when invoked like this:
+.PP
+.B "  twopence build-image --base-platform leap-15.3 --feature selinux
+.PP
+the resulting platform is stored as
+.BR leap-15.3-selinux .
+For builds without any features, the resulting platform is called
+.BI "" base-platform -silver
+in order to distinguish it from the actual base platform.
+.SH SEE ALSO
+.BR twopence-provision (1),
+.BR twopence-list-platforms (1).

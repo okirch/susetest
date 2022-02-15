@@ -40,6 +40,7 @@ uc_define_post_hook platform twopence_platform_hook
 # Get version from RELEASE file
 ##################################################################
 uc_define_version susetest_version
+uc_define_date
 
 ##################################################################
 # Now run all the checks we've lined up
