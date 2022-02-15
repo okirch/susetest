@@ -47,3 +47,7 @@ function uc_subst {
 		chmod --reference=$input $output
 	done
 }
+
+if [ $(basename $0) = "subst" ]; then
+	uc_subst "$@"
+fi
