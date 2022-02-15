@@ -21,6 +21,8 @@ A derived build is a platform image built from one of the available
 base image, with additional configuration. Currently, the base images
 for CentOS and SLES provide build options that can be used to create
 a derived image with SELinux and/or FIPS 140-2 mode enabled.
+.SS Fun Facts
+This command is an alias for \fBtwopence provision platforms\fP.
 .SH OPTIONS
 This command takes no options.
 .SH SEE ALSO
