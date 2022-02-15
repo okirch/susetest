@@ -71,43 +71,10 @@ This is helpful
 In interactive mode,
 .BR run-test
 will pause after each step. This is mostly useful when developing new
-test cases, or diagnosing failed tests.
-.IP
-After each step, the user is prompted for a command. Typing
-.B help
-will display the list of available commands. Command history and
-completion is available.
-.IP
-Typical use cases of interactive mode:
-.RS +8
-.TP
-.B Before provisioning:
-Manually tweak \fBtestrun.conf\fP in the workspace directory.
-.TP
-.B After provisioning:
-Log into one of the SUTs. Simply typing
-.BI ssh " nodname"
-at the prompt will start a shell session on the indicated SUT.
-For vagrant based provisioning, for instance, this will open a
-session as user \fBvagrant\fP, from which you have access to a root
-shell using \fBsudo bash\fP.
-.TP
-.B After the test run:
-If you are debugging a test script, it can be useful to re-run the script
-after modifying it. There are two ways to do this. One is to run the
-script manually, but the more convenient way is to type the
-\fBrerun\fI command at the interactive prompt.
-.P
-To run your test script manually, type something like this:
-.IP
-.BI "  ./run --config ~/susetest/work/" TESTCASE "/status.conf
-.IP
-where \fITESTCASE\fP is the name of the test case as provided in the
-test's config file. In addition, you can restrict which test cases get
-executed, by supplying command line options like
-.BR "--only selinux.*" ", " or "--only shadow.chfn" .
-The names supplied to this option specify a group/test combination.
-.RE
+test cases, or diagnosing failed tests. More information on interactive mode
+can be found in section
+.B Interactive Mode
+below.
 .TP
 .BI --quiet
 By default, \fBrun-test\fP displays the output of provisioning and test execution
@@ -131,6 +98,59 @@ Specify a name for a test run, ie a group of test cases that belong together.
 When specifying this option, test reports are stored as
 .BI "" TESTRUN / TESTCASE /junit-results.xml
 below the logspace directory.
+.SS Interactive Mode
+In interactive mode, the user is prompted for a command after each provisioning step.
+Typing
+.B help
+will display the list of available commands. Command history and
+completion is available. Note that the list of available commands depends
+at which stage of execution we are.
+.P
+Typical use cases of interactive mode include:
+.TP
+.B Before provisioning:
+Manually tweak \fBtestrun.conf\fP in the workspace directory.
+.TP
+.B After provisioning:
+Log into one of the SUTs. Simply typing
+.BI ssh " nodname"
+at the prompt will start a shell session on the indicated SUT.
+For vagrant based provisioning, for instance, this will open a
+session as user \fBvagrant\fP, from which you have access to a root
+shell using \fBsudo bash\fP.
+.TP
+.B After the test run:
+If you are debugging a test script, it can be useful to re-run the script
+after modifying it. There are two ways to do this. One is to run the
+script manually, but the more convenient way is to type the
+\fBrerun\fP command at the interactive prompt.
+.IP
+To run your test script manually, type something like this:
+.IP
+.BI "  ./run --config ~/susetest/work/" TESTCASE "/status.conf
+.IP
+where \fITESTCASE\fP is the name of the test case as provided in the
+test's config file. In addition, you can restrict which test cases get
+executed, by supplying command line options like
+.BR "--only selinux.*" ", " or "--only shadow.chfn" .
+The names supplied to this option specify a group/test combination.
+.P
+The following commands are available at any stage:
+.TP
+.B help
+Display help message, and list of available commands.
+.TP
+.B continue
+Proceed to the next step. Pressing Ctrl-D does the same thing.
+.TP
+.B abort
+Abort the test run and clean up the workspace.
+.TP
+.B finish
+Process all remaining stages of the test run non-interactively.
+.TP
+.B inspect
+Display information on the test case being executed.
 .SH SEE ALSO
 .BR twopence-provision (1),
 .BR twopence-list-platforms (1),
