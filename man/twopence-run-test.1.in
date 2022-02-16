@@ -63,9 +63,14 @@ several times, with different values for the
 parameter (such as
 .BR staff_u ", " user_u ", etc.)
 .TP
+.BI "--matrix " MATRIX
+Run the test case repeatedly, with different parameters as specified by
+the test matrix. See
+.BR twopence-testmatrix (5)
+for details.
+.TP
 .BI --dry-run
 Do not execute anything, but display the commands that would be executed.
-This is helpful 
 .TP
 .BI --interactive
 In interactive mode,

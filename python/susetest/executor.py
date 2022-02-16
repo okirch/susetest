@@ -7,6 +7,7 @@
 #
 ##################################################################
 
+import twopence
 import argparse
 import os
 import curly
@@ -16,8 +17,8 @@ import atexit
 def info(msg):
 	print("== %s" % msg)
 
-class InvalidTestcase(Exception):
-	pass
+def error(msg):
+	print(f"Error: {msg}")
 
 class AbortedTestcase(Exception):
 	pass
@@ -246,8 +247,77 @@ Type 'continue' or Ctrl-D to exit interactive shell and proceed.
 		testcase = self.interactions.testcase
 		return cmd.getCompletion(testcase, tokens, nth)
 
-class Testcase:
-	rootdir = "/usr/lib/twopence"
+class TestThing:
+	def __init__(self, name):
+		self.info = None
+		self.name = name
+
+	@property
+	def description(self):
+		return f"{self.type_string} {self.name}"
+
+	def validateCompatibility(self, features):
+		if not self.info:
+			error(f"Cannot validate compatibility of {self.description}: no info object")
+			return False
+
+		if not self.info.validateFeatureCompatibility(features, msgfunc = info):
+			info(f"Skipping incompatible {self.description}")
+			return False
+
+		return True
+
+class Context:
+	def __init__(self, workspace, logspace, parameters = [], dryrun = False, debug = False, quiet = False, platformFeatures = None, platform = None):
+		self.workspace = workspace
+		self.logspace = logspace
+		self.platform = platform
+
+		self.parameters = []
+		if parameters:
+			self.parameters += parameters
+
+		self.dryrun = dryrun
+		self.debug = debug
+		self.quiet = quiet
+
+		self.platformFeatures = set()
+		if platformFeatures:
+			self.platformFeatures = platformFeatures
+		elif platform:
+			self.platformFeatures = self.getPlatformFeatures(platform)
+
+	def getPlatformFeatures(self, platform):
+		import twopence.provision
+
+		return twopence.provision.queryPlatformFeatures(platform) or set()
+
+	def validateMatrix(self, matrix):
+		# print(f"### CHECKING FEATURE COMPAT of {matrix.description} vs {self.platformFeatures}")
+		return matrix.validateCompatibility(self.platformFeatures)
+
+	def createSubContext(self, extra_path, extra_parameters = []):
+		return Context(
+			workspace = os.path.join(self.workspace, *extra_path),
+			logspace = os.path.join(self.logspace, *extra_path),
+			dryrun = self.dryrun, debug = self.debug, quiet = self.quiet,
+			platform = self.platform,
+			platformFeatures = self.platformFeatures,
+			parameters = self.parameters + extra_parameters)
+
+	def createWorkspaceFor(self, name):
+		return self._makedir(os.path.join(self.workspace, name))
+
+	def createLogspaceFor(self, name):
+		return self._makedir(os.path.join(self.logspace, name))
+
+	def _makedir(self, path):
+		if not os.path.isdir(path):
+			os.makedirs(path)
+		return path
+
+class Testcase(TestThing):
+	type_string = "test case"
 
 	STAGE_LARVAL		= "larval"
 	STAGE_INITIALIZED	= "initialized"
@@ -255,14 +325,16 @@ class Testcase:
 	STAGE_TEST_COMPLETE	= "complete"
 	STAGE_DESTROYED		= "destroyed"
 
-	def __init__(self, name, workspace, logspace = None, dryrun = False, debug = False, quiet = False):
-		self.name = name
-		self.dryrun = dryrun
-		self.debug = debug
-		self.quiet = quiet
-		self.workspace = workspace
-		self.logspace = logspace
-		self.path = os.path.join(self.rootdir, name)
+	def __init__(self, name, context):
+		super().__init__(name)
+
+		self.workspace = context.createWorkspaceFor(name)
+		self.logspace = context.createLogspaceFor(name)
+		self.dryrun = context.dryrun
+		self.debug = context.debug
+		self.quiet = context.quiet
+
+		self.isCompatible = True
 
 		self.testConfig = None
 		self.testScript = None
@@ -292,19 +364,15 @@ class Testcase:
 		return self.stage == self.STAGE_DESTROYED
 
 	def validate(self):
-		if not os.path.isdir(self.path):
-			raise InvalidTestcase("test directory %s does not exist" % self.path)
+		info = twopence.TestBase().findTestCase(self.name)
+		if info is None:
+			error(f"could not find {self.description}")
+			return False
 
-		self.testConfig = self.validateTestfile("testcase.conf")
-		self.testScript = self.validateTestfile("run", executable = True)
-
-	def validateTestfile(self, filename, executable = False):
-		path = os.path.join(self.path, filename)
-		if not os.path.isfile(path):
-			raise InvalidTestcase("test directory %s does not contain %s" % (self.path, filename))
-		if executable and not (os.stat(path).st_mode & 0o111):
-			raise InvalidTestcase("%s is not executable" % path)
-		return path
+		self.info = info
+		self.testConfig = info.config
+		self.testScript = info.script
+		return True
 
 	def perform(self, testrunConfig, console = None):
 		self.console = console
@@ -463,18 +531,182 @@ class Testcase:
 		if self.runCommand(self.testScript, "info") != 0:
 			info("Test script return non-zero exit status")
 
+class Testsuite(TestThing):
+	type_string = "test suite"
+
+	def __init__(self, name):
+		super().__init__(name)
+		self.testcases = None
+
+		self.info = twopence.TestBase().findTestSuite(name)
+
+	def validate(self):
+		if self.testcases is not None:
+			return True
+
+		if not self.info or not self.info.validate():
+			error(f"Cannot find {self.description}")
+			return False
+
+		self.testcases = self.info.open().get_values("testcases")
+
+		info(f"Loaded test suite {self.name}")
+		if not self.testcases:
+			error(f"{self.description} does not define any test cases")
+			return False
+
+		info("    consisting of " + ", ".join(self.testcases))
+		return True
+
+class TestMatrixColumn(TestThing):
+	type_string = "test matrix column"
+
+	def __init__(self, name, matrix_name, config):
+		self.name = name
+		self.matrix_name = matrix_name
+
+		self.config = config
+		self.parameters = config.get_values("parameters")
+
+	def buildContext(self, context):
+		info(f"Processing next column of test matrix {self.matrix_name}: {self.name}")
+		return context.createSubContext(
+				extra_path = [self.matrix_name, self.name],
+				extra_parameters = self.parameters)
+
+class Testmatrix(TestThing):
+	type_string = "test matrix"
+
+	def __init__(self, name, args):
+		super().__init__(name)
+		self.args = args
+		self.columns = None
+
+		self.info = twopence.TestBase().findTestMatrix(name)
+
+	def validate(self):
+		if self.columns is not None:
+			return True
+
+		if not self.info.validate():
+			error(f"Cannot find test matrix {self.name}")
+			return False
+
+		self.columns = self.load()
+
+		info(f"Loaded {self.description} from {self.info.path}")
+		if not self.columns:
+			error(f"test matrix {self.name} does not define any columns")
+			return False
+
+		info(f"Test matrix {self.name} defines these columns")
+		for column in self.columns:
+			print(f"    {column.name}")
+			for param in column.parameters:
+				print(f"        {param}")
+
+		return True
+
+	def load(self):
+		result = []
+
+		config = self.info.open()
+		for child in config:
+			if child.type != 'column':
+				continue
+
+			column = TestMatrixColumn(child.name, self.name, child)
+			result.append(column)
+
+		return result
+
+class Pipeline:
+	def __init__(self, context):
+		self.context = context
+
+		self.testcases = []
+		self.valid = True
+
+	def addTestcases(self, names):
+		for name in names:
+			if name not in self.testcases:
+				self.testcases.append(name)
+
+	def addTestsuites(self, names):
+		for name in names:
+			suite = Testsuite(name)
+			if not suite.validate():
+				self.valid = False
+				continue
+
+			self.addTestcases(suite.testcases)
+
+	def start(self, context = None):
+		if context is None:
+			context = self.context
+
+		testcases = []
+
+		for name in self.testcases:
+			test = Testcase(name, context)
+
+			if not test.validate():
+				self.valid = False
+
+			if not test.validateCompatibility(context.platformFeatures):
+				test.isCompatible = False
+
+			testcases.append(test)
+
+		if not self.valid:
+			error("Detected one or more invalid test cases")
+			return None
+
+		if not testcases:
+			error("No test cases defined")
+			return None
+
+		if not any(_.isCompatible for _ in testcases):
+			error("All test cases are incompatible with the base platform")
+			return None
+
+		return testcases
+
 class Runner:
-	def __init__(self):
+	MODE_TESTS = 0
+	MODE_SUITES = 1
+
+	def __init__(self, mode = MODE_TESTS):
+		self.mode = mode
+
 		parser = self.build_arg_parser()
 		args = parser.parse_args()
 
 		self.valid = False
 		self.platform = args.platform
+		self.matrix = None
+
+		self.buildTestContext(args)
+
+		self.pipeline = Pipeline(self.context)
+		if self.mode == self.MODE_TESTS:
+			self.pipeline.addTestcases(args.testcase)
+		elif self.mode == self.MODE_SUITES:
+			self.pipeline.addTestsuites(args.testsuite)
+		else:
+			raise ValueError(f"invalid mode {self.mode}")
+
+		if args.matrix:
+			self.matrix = Testmatrix(args.matrix, args)
+
+		self.console = None
+		if args.interactive:
+			self.console = Console()
+
+	def buildTestContext(self, args):
 		self.testrun = args.testrun
 		self.workspace = args.workspace
 		self.logspace = args.logspace
-		self.parameters = args.parameter
-		self.testcases = []
 
 		if self.workspace is None:
 			self.workspace = os.path.expanduser("~/susetest/work")
@@ -485,33 +717,17 @@ class Runner:
 			self.workspace = os.path.join(self.workspace, self.testrun)
 			self.logspace = os.path.join(self.logspace, self.testrun)
 
-		if not os.path.isdir(self.workspace):
-			os.makedirs(self.workspace)
-		info("Workspace is %s" % self.workspace)
-
-		if not os.path.isdir(self.logspace):
-			os.makedirs(self.logspace)
-		info("Logspace is %s" % self.logspace)
-
-		for name in args.testcase:
-			test = Testcase(name,
-					workspace = os.path.join(self.workspace, name),
-					logspace = os.path.join(self.logspace, name),
-					dryrun = args.dry_run,
-					debug = args.debug)
-			self.testcases.append(test)
-
-		self.console = None
-		if args.interactive:
-			self.console = Console()
+		self.context = Context(self.workspace, self.logspace,
+				platform = args.platform,
+				parameters = args.parameter,
+				dryrun = args.dry_run,
+				debug = args.debug)
+		return
 
 	def validate(self):
 		if not self.valid:
-			if not self._validate():
-				print("Fatal: refusing to run any tests due to above error(s)")
-				exit(1)
+			self.valid = self._validate()
 
-			self.valid = True
 		return self.valid
 
 	def _validate(self):
@@ -521,13 +737,6 @@ class Runner:
 			print("Error: no default platform specified; please specify one using --platform")
 			valid = False
 
-		for test in self.testcases:
-			try:
-				test.validate()
-			except InvalidTestcase as e:
-				print("Error: %s" % e)
-				valid = False
-
 		if not os.path.isdir(self.workspace):
 			print("Error: workspace %s does not exist, or is not a directory" % self.workspace)
 			valid = False
@@ -535,28 +744,63 @@ class Runner:
 			print("Error: logspace %s does not exist, or is not a directory" % self.logspace)
 			valid = False
 
-		self.valid = valid
 		return valid
 
 	def perform(self):
-		self.validate()
+		if not self.validate():
+			print("Fatal: refusing to run any tests due to above error(s)")
+			exit(1)
 
-		testrunConfig = self.createTestrunConfig()
-		for test in self.testcases:
+		if not self.matrix:
+			self._perform(self.context)
+		else:
+			matrix = self.matrix
+
+			if not matrix.validate() or not self.context.validateMatrix(matrix):
+				error(f"Matrix is not compatible with base platform {self.platform}")
+				print("Fatal: refusing to run any tests due to above error(s)")
+				exit(1)
+
+			for column in matrix.columns:
+				context = column.buildContext(self.context)
+				if not self._perform(context):
+					info("Aborting test matrix")
+					break
+
+	def _perform(self, context):
+		testcases = self.pipeline.start(context)
+		if testcases is None:
+			print("Fatal: refusing to run any tests due to above error(s)")
+			exit(1)
+
+		okayToContinue = True
+
+		testrunConfig = self.createTestrunConfig(context)
+		for test in testcases:
+			if not test.isCompatible:
+				info(f"Skipping {test.description} because it's not compatible with the plaform's feature set")
+				# FIXME: generate a test report that says all tests we skipped
+				continue
+
 			info("About to perform %s" % test.name)
+			info(f" Workspace is {test.workspace}")
+			info(f" Logspace is {test.logspace}")
 			try:
 				test.perform(testrunConfig, self.console)
 			except AbortedTestcase:
 				print("Test %s was aborted, trying to clean up" % test.name)
 				test.destroyCluster()
+				okayToContinue = False
 				break
 
 			if test.testReport:
 				info(f"Test report can be found in {test.testReport}")
 
 		os.remove(testrunConfig)
+		return okayToContinue
 
-	def createTestrunConfig(self):
+	# could be moved to Context
+	def createTestrunConfig(self, context):
 		path = os.path.join(self.workspace, "testrun.conf")
 		info("Creating %s" % path)
 
@@ -564,12 +808,12 @@ class Runner:
 		tree = config.tree()
 
 		node = tree.add_child("role", "default")
-		node.set_value("platform", self.platform)
+		node.set_value("platform", context.platform)
 		node.set_value("repositories", ["twopence", ])
 
-		if self.parameters:
+		if context.parameters:
 			child = tree.add_child("parameters")
-			for paramString in self.parameters:
+			for paramString in context.parameters:
 				words = paramString.split('=', maxsplit = 1)
 				if len(words) != 2:
 					raise ValueError("argument to --parameter must be in the form name=value, not \"%s\"" % s)
@@ -599,6 +843,8 @@ class Runner:
 			help = 'the directory to use as logspace')
 		parser.add_argument('--parameter', action = 'append',
 			help = 'Parameters to be passed to the test suite, in name=value format')
+		parser.add_argument('--matrix',
+			help = 'Name of a test matrix to be applied to the test cases')
 		parser.add_argument('--dry-run', default = False, action = 'store_true',
 			help = 'Do not run any commands, just show what would be done')
 		parser.add_argument('--debug', default = False, action = 'store_true',
@@ -607,8 +853,14 @@ class Runner:
 			help = 'Do not show output of provisioning and test script')
 		parser.add_argument('--interactive', default = False, action = 'store_true',
 			help = 'Run tests interactively, stopping after each step.')
-		parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
-			help = 'name of the test cases to run')
+
+		if self.mode == self.MODE_TESTS:
+			parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
+				help = 'name of the test cases to run')
+		elif self.mode == self.MODE_SUITES:
+			parser.add_argument('testsuite', metavar='TESTSUITE', nargs='+',
+				help = 'name of the test suites to run')
+
 
 		return parser
 
