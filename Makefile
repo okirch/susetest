@@ -31,6 +31,7 @@ build-man: $(MAN1PAGES)
 install-man: $(MAN1PAGES) $(MAN5PAGES)
 	install -d -m755 $(DESTDIR)$(MANDIR)/man1
 	install -m444 $(MAN1PAGES) $(DESTDIR)$(MANDIR)/man1
+	install -d -m755 $(DESTDIR)$(MANDIR)/man5
 	install -m444 $(MAN5PAGES) $(DESTDIR)$(MANDIR)/man5
 
 clean-man:
