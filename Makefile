@@ -13,6 +13,7 @@ ifeq ($(INSTALL_MANPAGES),true)
   BUILD += build-man
 endif
 MAN1PAGES= $(patsubst %,man/twopence-%.1,$(HELPERS))
+MAN5PAGES= $(patsubst %.in,%,$(wildcard man/*.5.in))
 
 all install clean distclean::
 	set -e; for dir in $(SUBDIRS); do make -C $$dir $@; done
@@ -27,13 +28,14 @@ install-helpers:
 
 build-man: $(MAN1PAGES)
 
-install-man: $(MAN1PAGES)
+install-man: $(MAN1PAGES) $(MAN5PAGES)
 	install -d -m755 $(DESTDIR)$(MANDIR)/man1
 	install -m444 $(MAN1PAGES) $(DESTDIR)$(MANDIR)/man1
+	install -m444 $(MAN5PAGES) $(DESTDIR)$(MANDIR)/man5
 
 clean-man:
 	rm -f man/*.[1-9]
 
-man/%.1: man/%.1.in
+man/%: man/%.in microconf/subst microconf/sedscript
 	rm -f $@
 	./microconf/subst $@

@@ -1,0 +1,71 @@
+.\" Process this file with
+.\" groff -man -Tascii $FILENAME
+.\"
+.\"
+.TH TWOPENCE-TEST-MATRIX "5" "@DATE@" "@SUSETEST_VERSION@" "twopence test matrix definition"
+.SH NAME
+testmatrix \- format of twopence test matrix file
+.SH SYNOPSIS
+.BI @LIBDIR@/twopence/matrix/*.conf
+.SH DESCRIPTION
+A test matrix describes how a single test, or an entire test suite, should
+be executed repeatedly with different parameters.
+.P
+A typical example is the test matrix for SELinux testing:
+.P
+.nf
+.in +2
+\fB
+compatibility features {
+        requires        selinux;
+};
+
+column unconfined {
+        # no parameters - leave the selinuxuser unchanged
+}
+
+column staff {
+        parameters      "selinux-testuser=staff_u";
+}
+
+column user {
+        parameters      "selinux-testuser=user_u";
+}
+
+column guest {
+        parameters      "selinux-testuser=guest_u";
+}
+\fR
+.in
+.fi
+.P
+Each \fBcolumn\fP group defines one column of the test matrix (with
+the test cases forming the rows of the matrix). \fBparameters\fP is
+a list of strings in \fIkey\fB=\fIvalue\fR format.
+.P
+The \fBcompatibility\fP section is optional, and can be used to
+restrict the type of platform a test matrix can be used with. The
+\fBrequires\fP attribute specifies a list of platform features that
+must be present. The \fBconflicts\fP attributes specifies a list of
+platform features that must be abset, respectively. In this
+example, it states that the test matrix is only applicable when the
+test platform has the \fBselinux\fP feature, i.e. it has been configured
+with SELinux enabled.
+.P
+To apply this matrix to a given test suite, you would execute
+.BR twopence-run-suite (1)
+like this:
+.P
+.B twopence run-suite --platform \fIplatform\fP network --matrix selinux
+.P
+This would execute the test suite \fBnetwork\fP four times, each time
+with a different parameter for
+.B selinux-testuser .
+The test reports for each run would be placed in subdirectories of
+the logspace, namely
+.BI "" matrix-name / column-name / testcase-name \fR.
+.SH SEE ALSO
+.BR twopence-platform (5),
+.BR twopence-run-test (1),
+.BR twopence-run-suite (1),
+.BR twopence-list-platforms (1).
