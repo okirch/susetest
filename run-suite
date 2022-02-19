@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+#
+# Run a test, including the provisioning and teardown of all nodes
+#
+
+from susetest.executor import Runner
+
+runner = Runner(mode = Runner.MODE_SUITES)
+runner.perform()

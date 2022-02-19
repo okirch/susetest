@@ -1,0 +1,41 @@
+.\" Process this file with
+.\" groff -man -Tascii $FILENAME
+.\"
+.\"
+.TH TWOPENCE-RUN-SUITE "3" "@DATE@" "@SUSETEST_VERSION@" "twopence test suite runner"
+.SH NAME
+twopence run-suite \- helper application for running twopence based test suites
+.SH SYNOPSIS
+.BI "twopence run-suite --platform " PLATFORM " [ " options " ] " "suite1 suite2 ...
+.SH DESCRIPTION
+This utility runs a twopence based test suites, taking care of provisioning
+the required nodes with the desired platform. It relies on
+.BR twopence-provision (1)
+for managing the bring-up and teardown of the SUT nodes.
+.P
+A test suite is basically a list of names, referring to test cases as described
+in
+.BR twopence-run-test "(1) and
+.BR twopence-test-case (5).
+A sample test suite description looks like this:
+.P
+.nf
+.in +2
+\fB
+testcases
+        "at",
+        "coreutils",
+        "cron";
+\fR
+.in
+.fi
+.P
+.B Twopence-run-suite
+shares most of the code with, and accepts the same command line options as
+.B twopence-run-test (1).
+.SH SEE ALSO
+.BR twopence-provision (1),
+.BR twopence-run-test (1),
+.BR twopence-list-platforms (1),
+.BR twopence-build-image (1).
+
