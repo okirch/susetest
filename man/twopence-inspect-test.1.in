@@ -1,8 +1,8 @@
 .\" Process this file with
-.\" groff -man -Tascii twopence.3
+.\" groff -man -Tascii $FILENAME
 .\"
 .\"
-.TH TWOPENCE-INSPECT-TEST "3" "@DATE@" "@SUSETEST_VERSION@" "inspect a test case"
+.TH TWOPENCE-INSPECT-TEST "1" "@DATE@" "@SUSETEST_VERSION@" "inspect a test case"
 .SH NAME
 twopence inspect test \- helper application for displaying information about a test
 .SH SYNOPSIS

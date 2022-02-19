@@ -1,8 +1,8 @@
 .\" Process this file with
-.\" groff -man -Tascii twopence.3
+.\" groff -man -Tascii $FILENAME
 .\"
 .\"
-.TH TWOPENCE-BUILD-IMAGE "3" "@DATE@" "@SUSETEST_VERSION@" "build silver image for twopence"
+.TH TWOPENCE-BUILD-IMAGE "1" "@DATE@" "@SUSETEST_VERSION@" "build silver image for twopence"
 .SH NAME
 twopence build-image \- helper application for building derived images
 .SH SYNOPSIS

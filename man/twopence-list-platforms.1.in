@@ -1,8 +1,8 @@
 .\" Process this file with
-.\" groff -man -Tascii twopence.3
+.\" groff -man -Tascii $FILENAME
 .\"
 .\"
-.TH TWOPENCE-LIST-PLATFORMS "3" "@DATE@" "@SUSETEST_VERSION@" "list twopence platforms"
+.TH TWOPENCE-LIST-PLATFORMS "1" "@DATE@" "@SUSETEST_VERSION@" "list twopence platforms"
 .SH NAME
 twopence list-platforms \- helper application for displaying available platforms
 .SH SYNOPSIS

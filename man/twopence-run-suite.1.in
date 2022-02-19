@@ -2,7 +2,7 @@
 .\" groff -man -Tascii $FILENAME
 .\"
 .\"
-.TH TWOPENCE-RUN-SUITE "3" "@DATE@" "@SUSETEST_VERSION@" "twopence test suite runner"
+.TH TWOPENCE-RUN-SUITE "1" "@DATE@" "@SUSETEST_VERSION@" "twopence test suite runner"
 .SH NAME
 twopence run-suite \- helper application for running twopence based test suites
 .SH SYNOPSIS
