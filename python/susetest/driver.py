@@ -164,7 +164,7 @@ class Driver:
 
 		for node in self.targets:
 			for feature in node.features:
-				group.beginTest(f"{node.name}-enable-{feature}")
+				group.beginTest(name = f"{node.name}-enable-{feature}")
 				self.enableFeature(node, feature)
 				group.endTest()
 
@@ -198,7 +198,7 @@ class Driver:
 		# active test case, most of the logging would otherwise
 		# go to the bit bucket.
 		if self.resourceManager.pending:
-			group.beginTest("setup-resources")
+			group.beginTest(name = "setup-resources")
 
 			# Perform any postponed resource changes,
 			# allow future resource changes to be executed right away
@@ -397,7 +397,7 @@ class Driver:
 			self.logInfo("None of the nodes has a network address assigned; not updating hosts files")
 			return
 
-		self.beginTest("update-hosts")
+		self.beginTest(name = "update-hosts", description = "update hosts file on all nodes with all known addresses")
 		self.logInfo("Trying to update hosts file on all nodes with all known addresses")
 		for node in self.targets:
 			hosts = node.requireFile("system-hosts")
