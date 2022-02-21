@@ -83,7 +83,7 @@ class SELinuxMessageFilter(MessageFilter):
 			violation = None
 
 		if violation is None:
-			target.logFailure("SELinux policy violation (unable to parse)")
+			target.logInfo("SELinux policy violation (unable to parse)")
 			target.logInfo(m.message)
 			return
 
@@ -95,7 +95,7 @@ class SELinuxMessageFilter(MessageFilter):
 			if rating == "info":
 				target.logInfo("SELinux policy violation (ignored)")
 			else:
-				target.logFailure("SELinux policy violation")
+				target.logInfo("SELinux policy violation")
 			target.logInfo("  by %s (pid=%s; context=%s; permissive=%s)" % (
 						violation.comm, violation.pid, violation.scontext, violation.permissive))
 
