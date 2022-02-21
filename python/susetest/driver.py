@@ -15,28 +15,8 @@ import time
 
 from .resources import Resource, ResourceManager
 from .feature import Feature
+from .logger import Logger
 import susetest
-
-class Group:
-	def __init__(self, name, journal, global_resources = None):
-		self.name = name
-		self.journal = journal
-		self.global_resources = global_resources
-
-		self._active = False
-
-	def __del__(self):
-		self.end()
-
-	def begin(self):
-		if not self._active:
-			self.journal.beginGroup(self.name)
-			self._active = True
-
-	def end(self):
-		if self._active:
-			self.journal.finishGroup()
-			self._active = False
 
 class Driver:
 	def __init__(self, name = None, config_path = None):
@@ -46,18 +26,13 @@ class Driver:
 		self._config = None
 		self._caller_frame = inspect.stack()[-1]
 
-		self._current_group = None
 		self._setup_complete = False
 
 		self._features = {}
 		self._targets = None
 		self.workspace = None
 		self.journal_path = None
-		self.journal = None
 		self._parameters = {}
-
-		self._in_test_case = False
-		self._hooks_end_test = []
 
 		self.resourceManager = ResourceManager(self)
 
@@ -93,26 +68,24 @@ class Driver:
 		return self._targets.values()
 
 	def fatal(self, msg):
-		susetest.say("FATAL " + msg)
-		self.journal.fatal(msg)
+		self._logger.logFatal(msg)
 
 	def info(self, msg):
-		self.journal.info(msg)
+		self._logger.logInfo(msg)
 
 	def logInfo(self, msg):
-		self.journal.info(msg)
+		self._logger.logInfo(msg)
 
 	def testFailure(self, msg):
-		self.journal.failure(msg)
+		self._logger.logFailure(msg)
 
 	def testError(self, msg):
-		self.journal.error(msg)
+		self._logger.logError(msg)
 
 	def close(self):
-		if self.journal:
-			self.journal.writeReport()
-			self.journal.close()
-			self.journal = None
+		if self._logger:
+			self._logger.close()
+			self._logger = None
 
 	# requireResource, optionalResource:
 	#  resourceType is the name of the resource class (eg executable)
@@ -176,30 +149,31 @@ class Driver:
 	def getParameter(self, name):
 		return self._parameters.get(name)
 
-	@property
-	def setupComplete(self):
-		return self._setup_complete
-
 	def setup(self):
 		if self._setup_complete:
 			raise Exception("Duplicate call to setup()")
 
-		# as part of the beginGroup call, we acquire all the resources
-		# that have been requested so far.
-		if not self._beginGroup("setup"):
+		# As part of the beginGroup call, we acquire all the resources
+		# that have been requested so far - see the _groupBeginCallback
+		# defined below
+		group = self.beginGroup("setup")
+
+		# FIXME: check for any failures in this group
+		if False:
 			self.fatal("Failures during test suite setup, giving up")
 
 		for node in self.targets:
 			for feature in node.features:
+				group.beginTest(f"{node.name}-enable-{feature}")
 				self.enableFeature(node, feature)
+				group.endTest()
+
+		self._update_hosts_files()
 
 		# Any resources that were brought up at this stage
 		# shall not be cleaned up automatically when done with this
 		# group (which is the default otherwise)
 		self.resourceManager.zapCleanups()
-
-		self._update_hosts_files()
-
 		self.info("Setup complete")
 		self.info("")
 
@@ -207,36 +181,30 @@ class Driver:
 
 		self._setup_complete = True
 
+	@property
+	def currentGroupLogger(self):
+		return self._logger.currentGroup
+
+	@property
+	def currentTestLogger(self):
+		return self._logger.currentTest
+
 	def beginGroup(self, name):
-		if not self._beginGroup(name):
-			if self.resourceManager.pendingCleanups:
-				susetest.say("resource setup failed; cleaning up")
-				self.resourceManager.cleanup()
+		return self._logger.beginGroup(name)
 
-			susetest.say("Skipping group %s" % name)
-			return False
-
-		return True
-
-	def _beginGroup(self, name):
-		if self._current_group is not None:
-			self.endGroup()
-
-		self._current_group = Group(name, self.journal)
-		self._current_group.begin()
-
+	def _groupBeginCallback(self, group):
 		# If we have pending resource activations, start
 		# a test case for these specifically. Without an
 		# active test case, most of the logging would otherwise
 		# go to the bit bucket.
 		if self.resourceManager.pending:
-			self.beginTest("setup-resources")
+			group.beginTest("setup-resources")
 
 			# Perform any postponed resource changes,
 			# allow future resource changes to be executed right away
 			self.resourceManager.unplug()
 
-			self.endTest()
+			group.endTest()
 		else:
 			# This doesn't do anything except change the status
 			# from plugged to unplugged.
@@ -245,47 +213,31 @@ class Driver:
 		return True
 
 	def endGroup(self):
-		self.endTest()
+		group = self.currentGroupLogger
+		if group:
+			group.end()
 
-		if self._current_group is not None:
-			if not self._setup_complete:
-				# We're done executing the setup stage
-				self.resourceManager.zapCleanups()
-				self._setup_complete = True
-
-			self.resourceManager.cleanup()
-
-			self._current_group.end()
-			self._current_group = None
-
-			self.resourceManager.plug()
-			# self.resourceManager.zapPending()
+	def _groupEndCallback(self, group):
+		self.resourceManager.cleanup()
+		self.resourceManager.plug()
 
 	def beginTest(self, *args, **kwargs):
-		self.endTest()
+		group = self.currentGroupLogger
+		if not group:
+			raise ValueError("beginTest called outside of a test group")
 
-		self.journal.beginTest(*args, **kwargs)
-		self._in_test_case = True
-
+		return group.beginTest(*args, **kwargs)
 
 	def skipTest(self, *args, **kwargs):
-		if not self._in_test_case:
-			self.beginTest(*args, **kwargs)
+		test = self.currentTestLogger
+		if not test:
+			test = self.beginTest(*args, **kwargs)
 
-		# mark the test as being skipped
-		self.journal.skipped()
-
-		self._in_test_case = False
+		test.skip()
 
 	def endTest(self):
-		if self._in_test_case:
-			self.runPostTestHooks()
-
-			# If the test failed or errored, the following call to success() will
-			# not do anything.
-			if self.journal.status == "running":
-				self.journal.success()
-			self._in_test_case = False
+		if self.currentGroupLogger:
+			self.currentGroupLogger.endTest()
 
 	# Support for parameterized tests
 	# Parameters are referenced using @node:variable syntax
@@ -359,7 +311,7 @@ class Driver:
 		for name in tree.get_children("node"):
 			target_config = tree.get_child("node", name)
 			target = susetest.Target(name, target_config,
-						journal = self.journal,
+						logger = self._logger,
 						resource_manager = self.resourceManager)
 			self._targets[name] = target
 			setattr(self, name, target)
@@ -412,8 +364,9 @@ class Driver:
 		if not self.journal_path:
 			self.journal_path = os.path.join(self.workspace, "junit-results.xml")
 
-		susetest.say("Writing journal to %s" % self.journal_path)
-		self.journal = suselog.Journal(self.name, path = self.journal_path);
+		self._logger = Logger(self.name, self.journal_path)
+		self._logger.addGroupBeginHook(self._groupBeginCallback)
+		self._logger.addGroupEndHook(self._groupEndCallback)
 
 	def _set_os_resources(self):
 		for node in self.targets:
@@ -430,10 +383,11 @@ class Driver:
 				entries.append(d)
 
 		if not entries:
-			self.journal.info("None of the nodes has a network address assigned; not updating hosts files")
+			self.logInfo("None of the nodes has a network address assigned; not updating hosts files")
 			return
 
-		self.journal.info("Trying to update hosts file on all nodes with all known addresses")
+		self.beginTest("update-hosts")
+		self.logInfo("Trying to update hosts file on all nodes with all known addresses")
 		for node in self.targets:
 			hosts = node.requireFile("system-hosts")
 			node.logInfo(f"Updating hosts file {hosts.path}")
@@ -449,7 +403,7 @@ class Driver:
 	def _publish_properties(self):
 		# Record all parameters that were set at global level
 		for key, value in self._parameters.items():
-			self.journal.addProperty(f"parameter:{key}", value)
+			self._logger.addProperty(f"parameter:{key}", value)
 
 		# Record per-node information
 		for node in self.targets:
@@ -457,12 +411,14 @@ class Driver:
 				value = getattr(node, attr_name, None)
 				if value is not None:
 					key = f"{node.name}:{attr_name}".replace('_', '-')
-					self.journal.addProperty(key, value)
+					self._logger.addProperty(key, value)
+
+	def addGroupBeginHook(self, fn):
+		self._logger.addGroupBeginHook(fn)
+
+	def addGroupEndHook(self, fn):
+		self._logger.addGroupEndHook(fn)
 
 	def addPostTestHook(self, fn):
-		self._hooks_end_test.append(fn)
-
-	def runPostTestHooks(self):
-		for fn in self._hooks_end_test:
-			fn()
+		self._logger.addPostTestHook(fn)
 

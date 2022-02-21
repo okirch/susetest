@@ -16,7 +16,7 @@ import sys
 from .resources import ConcreteExecutableResource, ConcreteStringValuedResource, StringValuedResource
 
 class Target(twopence.Target):
-	def __init__(self, name, node_config, journal = None, resource_manager = None):
+	def __init__(self, name, node_config, logger = None, resource_manager = None):
 		spec = node_config.get_value("target")
 		if spec is None:
 			raise ValueError("Cannot connect to node %s: config doesn't specify a target" % name)
@@ -25,12 +25,8 @@ class Target(twopence.Target):
 		self.connectionDead = False
 
 		self.node_config = node_config
-		self.journal = journal
+		self.logger = logger
 		self.resourceManager = resource_manager
-
-		# backward compat cruft
-		if self.journal is None:
-			self.journal = config.journal
 
 		self.defaultUser = None
 
@@ -249,13 +245,22 @@ class Target(twopence.Target):
 		return True
 
 	def logInfo(self, message):
-		self.journal.info(self.name + ": " + message)
+		self.logger.logInfo(self.name + ": " + message)
+
+	def _logInfo(self, message):
+		self.logger.logInfo(message)
 
 	def logFailure(self, message):
-		self.journal.failure(self.name + ": " + message)
+		self.logger.logFailure(self.name + ": " + message)
+
+	def _logFailure(self, message):
+		self.logger.logFailure(message)
 
 	def logError(self, message):
-		self.journal.error(self.name + ": " + message)
+		self.logger.logError(self.name + ": " + message)
+
+	def _logError(self, message):
+		self.logger.logError(message)
 
 	def describeException(self):
 		import traceback
@@ -283,7 +288,7 @@ class Target(twopence.Target):
 
 	def handleException(self, operation, exc):
 		self.logError("%s failed: %s" % (operation, exc))
-		self.journal.info(self.describeException().strip())
+		self._logInfo(self.describeException().strip())
 
 		if exc.code in (twopence.OPEN_SESSION_ERROR, ):
 			self.logError("this is a fatal error; all future communication on this node will fail");
@@ -307,7 +312,7 @@ class Target(twopence.Target):
 			self.handleException("command execution", e)
 
 			t1 = time.time()
-			self.journal.info("Command ran for %u seconds" % (t1 - t0))
+			self._logInfo("Command ran for %u seconds" % (t1 - t0))
 
 			status = twopence.Status(256, bytearray(), bytearray())
 
@@ -345,7 +350,7 @@ class Target(twopence.Target):
 		else:
 			info = ""
 
-		self.journal.info(self.name + ": " + cmd.commandline + info)
+		self.logInfo(cmd.commandline + info)
 
 		return cmd
 
@@ -369,9 +374,9 @@ class Target(twopence.Target):
 			else:
 				self.logInfo(msg)
 
-		self.journal.recordStdout(status.stdout);
+		self.logger.recordStdout(status.stdout);
 		if status.stdout != status.stderr:
-			self.journal.recordStderr(status.stderr);
+			self.logger.recordStderr(status.stderr);
 
 		return status
 
@@ -403,7 +408,7 @@ class Target(twopence.Target):
 				st = chat.wait()
 				if st is not None:
 					self.logInfo(f"command status: {st.message}")
-					self.journal.recordStdout(st.stdout);
+					self.logger.recordStdout(st.stdout);
 				return twopence.Status(error = e.code)
 
 			self.logInfo("consumed: %s" % chat.consumed)
@@ -445,9 +450,9 @@ class Target(twopence.Target):
 		else:
 			self.logInfo("backgrounded command \"" + cmd.commandline + "\" finished")
 
-		self.journal.recordStdout(status.stdout);
+		self.logger.recordStdout(status.stdout);
 		if status.stdout != status.stderr:
-			self.journal.recordStderr(status.stderr);
+			self.logger.recordStderr(status.stderr);
 
 		return status
 
@@ -460,7 +465,7 @@ class Target(twopence.Target):
 			status = super(Target, self).sendfile(remotefile, user = user, **kwargs)
 		except:
 			self.logError("upload failed with exception")
-			self.journal.info(self.describeException())
+			self._logInfo(self.describeException())
 			return None
 
 		if not status:
@@ -477,7 +482,7 @@ class Target(twopence.Target):
 			status = super(Target, self).recvfile(remotefile, user = user, **kwargs)
 		except:
 			self.logError("download failed with exception")
-			self.journal.info(self.describeException())
+			self._logInfo(self.describeException())
 			return None
 
 		if not status:
@@ -501,7 +506,7 @@ class Target(twopence.Target):
 			status = super(Target, self).recvfile(xfer)
 		except:
 			self.logError("download failed with exception")
-			self.journal.info(self.describeException())
+			self._logInfo(self.describeException())
 
 			return None
 
@@ -535,7 +540,7 @@ class Target(twopence.Target):
 			return super(Target, self).sendfile(xfer)
 		except:
 			self.logError("upload failed with exception")
-			self.journal.info(self.describeException())
+			self._logInfo(self.describeException())
 
 			return twopence.Status(256)
 
