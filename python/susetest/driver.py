@@ -235,6 +235,17 @@ class Driver:
 
 		test.skip()
 
+	def predictTestResult(self, resource):
+		test = self.currentTestLogger
+		if not test:
+			raise ValueError("predictTestResult called outside of a test case")
+
+		prediction = resource.predictOutcome(self)
+		if prediction is None:
+			return
+
+		test.setPredictedOutcome(prediction.status, prediction.reason)
+
 	def endTest(self):
 		if self.currentGroupLogger:
 			self.currentGroupLogger.endTest()
