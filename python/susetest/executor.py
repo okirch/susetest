@@ -737,11 +737,11 @@ class Runner:
 			print("Error: no default platform specified; please specify one using --platform")
 			valid = False
 
-		if not os.path.isdir(self.workspace):
-			print("Error: workspace %s does not exist, or is not a directory" % self.workspace)
+		if os.path.exists(self.workspace) and not os.path.isdir(self.workspace):
+			print(f"Error: workspace {self.workspace} exists, but is not a directory")
 			valid = False
-		if not os.path.isdir(self.logspace):
-			print("Error: logspace %s does not exist, or is not a directory" % self.logspace)
+		if os.path.exists(self.logspace) and not os.path.isdir(self.logspace):
+			print(f"Error: logspace {self.logspace} exists, but is not a directory")
 			valid = False
 
 		return valid
