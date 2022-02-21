@@ -1,0 +1,33 @@
+.\" Process this file with
+.\" groff -man -Tascii $FILENAME
+.\"
+.\"
+.TH TWOPENCE-TABULATE-RESULTS-PLATFORMS "1" "@DATE@" "@SUSETEST_VERSION@" "tabulate results of test runs"
+.SH NAME
+twopence tabulate-results \- helper application for tabulating results of test suite/matrix runs
+.SH SYNOPSIS
+.B twopence tabulate-results
+.SH DESCRIPTION
+Each set of tests run by
+.BR twopence-run-test "(1) or
+.BR twopence-run-suite (1)
+produces a summary document named
+.BR results.xml
+in the logspace directory.  This file can be read and processed by other tools, such as
+.BR twopece-tabulate-results (1).
+.P
+This command tabulates the results of such a run, in human readable form.
+.SH OPTIONS
+.TP
+.BI --logspace " directory
+Specify the logspace of a previous test run.
+.TP
+.BI --testrun " name
+Specify the name of the previous test run.
+.TP
+.BI --terse
+Do not display the full set of results, only those that failed and/or resulted in an
+error.
+.SH SEE ALSO
+.BR twopence-run-test (1),
+.BR twopence-run-suite (1).

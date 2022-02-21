@@ -2,7 +2,7 @@ include Make.defs
 
 SUBDIRS	= python
 
-HELPERS	= build-image run-test run-suite list-platforms
+HELPERS	= build-image run-test run-suite list-platforms tabulate-results
 
 INSTALL	= install-helpers
 CLEAN	=

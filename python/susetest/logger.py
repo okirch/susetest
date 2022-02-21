@@ -8,6 +8,10 @@
 
 import suselog
 import susetest
+from .xmltree import XMLTree
+
+def error(msg):
+	print(f"Error: {msg}")
 
 class TestLoggerHooks:
 	def __init__(self):
@@ -294,3 +298,247 @@ class Logger:
 
 	def addProperty(self, name, value):
 		self._journal.addProperty(name, value)
+
+class LogParser:
+	class Info:
+		def __init__(self, node, **kwargs):
+			self._schema = kwargs
+			for name, type in kwargs.items():
+				value = node.attrib.get(name)
+				if value is not None:
+					try:
+						value = type(value)
+					except: pass
+
+				setattr(self, name, value)
+
+		def __str__(self):
+			list = []
+			for name in self._schema.keys():
+				list.append(f"{name} = {getattr(self, name)}")
+			args = ", ".join(list)
+			return f"{self.__class__.__name__}({args})"
+
+		def __eq__(self, other):
+			if self.__class__ != other.__class__:
+				return False
+
+			for name in self._schema.keys():
+				if getattr(self, name) != getattr(other, name):
+					return False
+
+			return True
+
+	class Stats(Info):
+		def __init__(self, node, **kwargs):
+			super().__init__(node,
+				time =		float,
+				tests =		int,
+				failures =	int,
+				disabled =	int,
+				skipped =	int,
+				errors =	int,
+				**kwargs)
+
+	class ReportStats(Stats):
+		def __init__(self, node):
+			super().__init__(node,
+				name =		str,
+				)
+
+	class TestsuiteStats(Stats):
+		def __init__(self, node):
+			super().__init__(node,
+				package =	str,
+				timestamp =	str,
+				hostname =	str,
+				)
+
+	# The way we store test id and description is currently rather odd
+	# because we tried to shoehorn it onto the junit schema.
+	class TestResult(Info):
+		def __init__(self, node):
+			super().__init__(node,
+				classname =	str,
+				name =		str,
+				time =		float,
+				status =	str,
+				)
+
+		@property
+		def id(self):
+			return self.classname
+
+		@property
+		def description(self):
+			return self.name
+
+	class TestsuiteInfo:
+		def __init__(self, node):
+			self.stats = LogParser.TestsuiteStats(node)
+			# print(self.stats)
+
+			self.properties = {}
+			self.tests = []
+
+			for child in node:
+				if child.tag == 'properties':
+					self.processProperties(child)
+				elif child.tag == 'testcase':
+					self.tests.append(LogParser.TestResult(child))
+
+		def processProperties(self, node):
+			pass
+
+	def __init__(self, path):
+		self.stats = None
+		self.groups = []
+
+		if not self.load(path):
+			error(f"{path} does not look like a test report we understand")
+
+	@property
+	def name(self):
+		if not self.stats:
+			return None
+		return self.stats.name
+
+	def load(self, path):
+		import xml.etree.ElementTree as ET
+
+		# susetest.say(f"Loading journal from {path}")
+		try:
+			tree = ET.parse(path)
+		except Exception as e:
+			error(f"Unable to parse test report {path}: {e}")
+			return False
+
+		root = tree.getroot()
+		if root.tag != "testsuites":
+			error(f"Unexpected root node <{root.tag}>")
+			return False
+
+		self.stats = self.ReportStats(root)
+		# print(self.stats)
+
+		for child in root:
+			if child.tag != 'testsuite':
+				continue
+
+			self.groups.append(self.TestsuiteInfo(child))
+
+		return True
+
+class ResultsIO:
+	class GenericObject:
+		pass
+
+	class NodeIO:
+		def __init__(self, node):
+			self._node = node
+
+		def setName(self, name):
+			self._node.setAttributes(name = name)
+
+		@property
+		def name(self):
+			return self._node.attrib.get('name')
+
+		def addParameters(self, parameters):
+			if not parameters:
+				return
+
+			node = self._node.createChild("parameters")
+			for name, value in parameters.items():
+				child = node.createChild("parameter")
+				child.setAttributes(name = name, value = value)
+
+		@property
+		def parameters(self):
+			d = {}
+
+			node = self._node.find("parameters")
+			if node is not None:
+				for child in node.findall("parameter"):
+					name = child.attrib.get("name")
+					value = child.attrib.get("value")
+					if name is None or value is None:
+						continue
+					d[name] = value
+
+			return d
+
+		def addResults(self, results):
+			assert(self._node)
+			for test in results:
+				node = self._node.createChild("test")
+				node.setAttributes(id = test.id,
+						status = test.status,
+						description = test.description)
+
+		@property
+		def results(self):
+			ret = []
+			for child in self._node:
+				if child.tag != "test":
+					continue
+
+				res = ResultsIO.GenericObject()
+				for name, value in child.attrib.items():
+					setattr(res, name, value)
+				ret.append(res)
+			return ret
+
+	class DocumentIO(NodeIO):
+		@property
+		def type(self):
+			return self._node.attrib.get('type')
+
+		def createColumn(self, name = None):
+			node = self._node.createChild("vector")
+			if name:
+				node.setAttributes(name = name)
+
+			return ResultsIO.NodeIO(node)
+
+		@property
+		def columns(self):
+			if self._node is not None:
+				for node in self._node:
+					if node.tag == "vector":
+						yield ResultsIO.NodeIO(node)
+
+	class DocumentWriter(DocumentIO):
+		def __init__(self, type):
+			self._tree = XMLTree("results")
+
+			super().__init__(self._tree.root)
+			self._node.setAttributes(type = type)
+
+		def save(self, path):
+			self._tree.write(path)
+
+	class DocumentReader(DocumentIO):
+		def __init__(self, path):
+			import xml.etree.ElementTree as ET
+
+			try:
+				self._tree = ET.parse(path)
+			except Exception as e:
+				raise ValueError(f"{path}: cannot parse XML document: {e}")
+
+			super().__init__(self._tree.getroot())
+
+			if self._node.tag != "results":
+				raise ValueError(f"{path}: unexpected root node <{root.tag}>")
+
+class ResultsMatrixWriter(ResultsIO.DocumentWriter):
+	def __init__(self):
+		super().__init__("matrix")
+
+class ResultsVectorWriter(ResultsIO.DocumentWriter):
+	def __init__(self):
+		super().__init__("vector")
+
+def ResultsParser(path):
+	return ResultsIO.DocumentReader(path)

@@ -1,0 +1,11 @@
+#!/usr/bin/python3
+#
+# Inspect and tabulate the results of a previous test run
+#
+
+from susetest.results import Tabulator
+
+tabulator = Tabulator()
+tabulator.perform()
+
+

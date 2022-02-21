@@ -13,6 +13,8 @@ import os
 import curly
 import readline
 import atexit
+from .logger import LogParser
+from .results import ResultsVector, ResultsMatrix
 
 def info(msg):
 	print("== %s" % msg)
@@ -268,10 +270,11 @@ class TestThing:
 		return True
 
 class Context:
-	def __init__(self, workspace, logspace, parameters = [], dryrun = False, debug = False, quiet = False, platformFeatures = None, platform = None):
+	def __init__(self, workspace, logspace, parameters = [], dryrun = False, debug = False, quiet = False, clobber = False, platformFeatures = None, platform = None, results = None):
 		self.workspace = workspace
 		self.logspace = logspace
 		self.platform = platform
+		self.results = results
 
 		self.parameters = []
 		if parameters:
@@ -280,6 +283,7 @@ class Context:
 		self.dryrun = dryrun
 		self.debug = debug
 		self.quiet = quiet
+		self.clobber = clobber
 
 		self.platformFeatures = set()
 		if platformFeatures:
@@ -297,19 +301,39 @@ class Context:
 		return matrix.validateCompatibility(self.platformFeatures)
 
 	def createSubContext(self, extra_path, extra_parameters = []):
+		if self.results:
+			assert(isinstance(self.results, ResultsMatrix))
+			column_name = extra_path[-1]
+			results = self.results.createColumn(column_name, extra_parameters)
+		else:
+			results = None
+
 		return Context(
 			workspace = os.path.join(self.workspace, *extra_path),
 			logspace = os.path.join(self.logspace, *extra_path),
-			dryrun = self.dryrun, debug = self.debug, quiet = self.quiet,
+			dryrun = self.dryrun, debug = self.debug, quiet = self.quiet, clobber = self.clobber,
 			platform = self.platform,
 			platformFeatures = self.platformFeatures,
+			results = results,
 			parameters = self.parameters + extra_parameters)
+
+	def mergeTestReport(self, testReport):
+		if self.results is not None:
+			for group in testReport.groups:
+				for test in group.tests:
+					self.results.add(test.id, test.status, test.description)
+
+			self.results.save()
 
 	def createWorkspaceFor(self, name):
 		return self._makedir(os.path.join(self.workspace, name))
 
 	def createLogspaceFor(self, name):
 		return self._makedir(os.path.join(self.logspace, name))
+
+	def attachResults(self, results):
+		results.attachToLogspace(self.logspace, clobber = self.clobber)
+		self.results = results
 
 	def _makedir(self, path):
 		if not os.path.isdir(path):
@@ -568,6 +592,18 @@ class TestMatrixColumn(TestThing):
 		self.config = config
 		self.parameters = config.get_values("parameters")
 
+	def parametersAsDict(self):
+		result = {}
+		for paramString in self.parameters:
+			words = paramString.split('=', maxsplit = 1)
+			if len(words) != 2:
+				raise ValueError("argument to --parameter must be in the form name=value, not \"%s\"" % s)
+
+			key, value = words
+			result[key] = value
+
+		return result
+
 	def buildContext(self, context):
 		info(f"Processing next column of test matrix {self.matrix_name}: {self.name}")
 		return context.createSubContext(
@@ -617,6 +653,14 @@ class Testmatrix(TestThing):
 
 			column = TestMatrixColumn(child.name, self.name, child)
 			result.append(column)
+
+		# The name attribute is useful for later stages that don't know which matrix
+		# the test run was based on
+		name = config.get_value("name")
+		if name is None:
+			raise ValueError(f"{self.info.path} does not define a name attribute")
+		if name != self.name:
+			raise ValueError(f"{self.info.path} specifies name = {name} (expected {self.name}")
 
 		return result
 
@@ -721,7 +765,8 @@ class Runner:
 				platform = args.platform,
 				parameters = args.parameter,
 				dryrun = args.dry_run,
-				debug = args.debug)
+				debug = args.debug,
+				clobber = args.clobber)
 		return
 
 	def validate(self):
@@ -752,6 +797,7 @@ class Runner:
 			exit(1)
 
 		if not self.matrix:
+			self.context.attachResults(ResultsVector())
 			self._perform(self.context)
 		else:
 			matrix = self.matrix
@@ -761,6 +807,7 @@ class Runner:
 				print("Fatal: refusing to run any tests due to above error(s)")
 				exit(1)
 
+			self.context.attachResults(ResultsMatrix(matrix.name))
 			for column in matrix.columns:
 				context = column.buildContext(self.context)
 				if not self._perform(context):
@@ -795,6 +842,9 @@ class Runner:
 
 			if test.testReport:
 				info(f"Test report can be found in {test.testReport}")
+
+				report = LogParser(test.testReport)
+				context.mergeTestReport(report)
 
 		os.remove(testrunConfig)
 		return okayToContinue
@@ -841,6 +891,8 @@ class Runner:
 			help = 'the directory to use as workspace')
 		parser.add_argument('--logspace',
 			help = 'the directory to use as logspace')
+		parser.add_argument('--clobber', default = False, action = 'store_true',
+			help = 'Clobber existing test results')
 		parser.add_argument('--parameter', action = 'append',
 			help = 'Parameters to be passed to the test suite, in name=value format')
 		parser.add_argument('--matrix',
