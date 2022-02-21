@@ -94,8 +94,6 @@ class SELinuxMessageFilter(MessageFilter):
 			rating = self.rateViolation(violation)
 			if rating == "info":
 				target.logInfo("SELinux policy violation (ignored)")
-			elif rating == "expected":
-				target.logInfo("SELinux policy violation (expected)")
 			else:
 				target.logFailure("SELinux policy violation")
 			target.logInfo("  by %s (pid=%s; context=%s; permissive=%s)" % (
@@ -127,11 +125,6 @@ class SELinuxMessageFilter(MessageFilter):
 
 	def addCheck(self, fn):
 		self._checks.append(fn)
-
-	def removeCheck(self, fn):
-		try:
-			self._checks.remove(fn)
-		except: pass
 
 	def rateViolation(self, violation):
 		for fn in self._checks:
@@ -291,69 +284,9 @@ class SELinux(Feature):
 
 		return True
 
-	def userCanRun(self, command):
-		if self.policy == 'targeted':
-			if self.default_seuser in ('user_u', 'guest_u', 'xguest_u'):
-				if command in ('chsh', 'chfn', 'su', 'sudo'):
-					return False
-
-		return True
-
 	def addMessageFilter(self, fn):
 		for filter in self._filters:
 			filter.addCheck(fn)
-
-	def removeMessageFilter(self, fn):
-		for filter in self._filters:
-			filter.removeCheck(fn)
-
-	# Handle expected SELinux violations
-	# We return a ExpectedSELinuxViolation object to the caller. As long as the
-	# caller holds a reference to this object, the filter is active.
-	# Once its deleted (or once the owner calls its .done() method), we
-	# stop filtering for this event
-	class ExpectedSELinuxViolation(susetest.ExpectedCommandFailure):
-		def __init__(self, selinux, command):
-			super().__init__(command)
-
-			self.selinux = selinux
-			self.func = None
-			self.hit = False
-
-			theFailure = self
-			def checkSpanishInquisition(violation):
-				if violation.comm == command:
-					theFailure.hit = True
-					return "expected"
-				return None
-
-			self.func = checkSpanishInquisition
-			selinux.addMessageFilter(self.func)
-
-		def __del__(self):
-			self.done()
-
-		def verify(self, st):
-			audit = st.target.getResource("audit", "audit")
-			audit.auditSettle()
-			self.done()
-
-			if not super().verify(st):
-				return False
-
-			if not self.hit:
-				st.target.logFailure(f"Expected {self.cmdname} to violate SELinux policy... but we did not see it in the audit log")
-				return False
-
-			return True
-
-		def done(self):
-			if self.func:
-				self.selinux.removeMessageFilter(self.func)
-				self.func = None
-
-	def expectViolation(self, command):
-		return self.ExpectedSELinuxViolation(self, command)
 
 	def resourceVerifyPolicy(self, node, resourceType, resourceName):
 		if 'selinux' not in node.features:
