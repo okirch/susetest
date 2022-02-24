@@ -142,7 +142,7 @@ def define_parameterized(testfn, *args):
 		_args = driver.expandArguments(args)
 		if _args is None:
 			driver.logInfo("argument list %s expanded to None" % (args,))
-			driver.journal.skipped()
+			driver.skipTest()
 			return
 
 		testfn(driver, _args)
