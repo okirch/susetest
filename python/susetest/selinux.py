@@ -405,8 +405,11 @@ class SELinux(Feature):
 			node.logInfo("good, %s has expected SELinux label %s" % (path, expected_label));
 
 	def verifyExecutableProcessDomain(self, node, res):
-		print("Checking executable's process context (expecting %s)" % res.selinux_process_domain)
+		if self.default_setype == 'unconfined_t':
+			node.logInfo("Not checking executable's process context for unconfined user")
+			return True
 
+		node.logInfo(f"Checking executable's process context (expecting {res.selinux_process_domain})")
 		if res.selinux_test_service:
 			return self.verifyExecutableProcessDomainService(node, res)
 		else:
