@@ -270,26 +270,38 @@ class TestThing:
 		return True
 
 class Context:
-	def __init__(self, workspace, logspace, parameters = [], dryrun = False, debug = False, quiet = False, clobber = False, platformFeatures = None, platform = None, results = None):
+	def __init__(self, workspace, logspace, parent = None,
+			parameters = [],
+			dryrun = False, debug = False, quiet = False, clobber = False,
+			platform = None, platformFeatures = None,
+			results = None):
+
 		self.workspace = workspace
 		self.logspace = logspace
-		self.platform = platform
 		self.results = results
+
+		if parent:
+			self.platform = parent.platform
+			self.platformFeatures = parent.platformFeatures
+
+			self.dryrun = parent.dryrun
+			self.debug = parent.debug
+			self.quiet = parent.quiet
+			self.clobber = parent.clobber
+		else:
+			self.platform = platform
+			self.dryrun = dryrun
+			self.debug = debug
+			self.quiet = quiet
+			self.clobber = clobber
+
+			if not platformFeatures and platform:
+				platformFeatures = self.getPlatformFeatures(platform)
+			self.platformFeatures = platformFeatures or set()
 
 		self.parameters = []
 		if parameters:
 			self.parameters += parameters
-
-		self.dryrun = dryrun
-		self.debug = debug
-		self.quiet = quiet
-		self.clobber = clobber
-
-		self.platformFeatures = set()
-		if platformFeatures:
-			self.platformFeatures = platformFeatures
-		elif platform:
-			self.platformFeatures = self.getPlatformFeatures(platform)
 
 	def getPlatformFeatures(self, platform):
 		import twopence.provision
@@ -309,11 +321,9 @@ class Context:
 			results = None
 
 		return Context(
+			parent = self,
 			workspace = os.path.join(self.workspace, *extra_path),
 			logspace = os.path.join(self.logspace, *extra_path),
-			dryrun = self.dryrun, debug = self.debug, quiet = self.quiet, clobber = self.clobber,
-			platform = self.platform,
-			platformFeatures = self.platformFeatures,
 			results = results,
 			parameters = self.parameters + extra_parameters)
 
