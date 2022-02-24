@@ -273,7 +273,7 @@ class Context:
 	def __init__(self, workspace, logspace, parent = None,
 			parameters = [],
 			dryrun = False, debug = False, quiet = False, clobber = False,
-			platform = None, platformFeatures = None,
+			platform = None, platformFeatures = None, requestedFeatures = None,
 			results = None):
 
 		self.workspace = workspace
@@ -283,6 +283,7 @@ class Context:
 		if parent:
 			self.platform = parent.platform
 			self.platformFeatures = parent.platformFeatures
+			self.requestedFeatures = parent.requestedFeatures
 
 			self.dryrun = parent.dryrun
 			self.debug = parent.debug
@@ -298,6 +299,10 @@ class Context:
 			if not platformFeatures and platform:
 				platformFeatures = self.getPlatformFeatures(platform)
 			self.platformFeatures = platformFeatures or set()
+
+			self.requestedFeatures = requestedFeatures or set()
+
+		self.requestedFeatures.difference_update(self.platformFeatures)
 
 		self.parameters = []
 		if parameters:
@@ -367,6 +372,7 @@ class Testcase(TestThing):
 		self.dryrun = context.dryrun
 		self.debug = context.debug
 		self.quiet = context.quiet
+		self.provisionFeatures = context.requestedFeatures
 
 		self.isCompatible = True
 
@@ -771,12 +777,21 @@ class Runner:
 			self.workspace = os.path.join(self.workspace, self.testrun)
 			self.logspace = os.path.join(self.logspace, self.testrun)
 
+		requestedFeatures = set(args.feature)
+
+		# We always add 'twopence' because our tests use twopence.
+		# If the build always has the twopence SUT infrastructure installed,
+		# great. If it does not, we'll add it.
+		requestedFeatures.add('twopence')
+
 		self.context = Context(self.workspace, self.logspace,
 				platform = args.platform,
 				parameters = args.parameter,
 				dryrun = args.dry_run,
 				debug = args.debug,
-				clobber = args.clobber)
+				clobber = args.clobber,
+				requestedFeatures = requestedFeatures)
+
 		return
 
 	def validate(self):
@@ -870,6 +885,8 @@ class Runner:
 		node = tree.add_child("role", "default")
 		node.set_value("platform", context.platform)
 		node.set_value("repositories", ["twopence", ])
+		if context.requestedFeatures:
+			node.set_value("build", list(context.requestedFeatures))
 
 		if context.parameters:
 			child = tree.add_child("parameters")
@@ -913,6 +930,8 @@ class Runner:
 			help = 'Enable debugging output from the provisioner')
 		parser.add_argument('--quiet', default = False, action = 'store_true',
 			help = 'Do not show output of provisioning and test script')
+		parser.add_argument('--feature', default = [], action = 'append',
+			help = 'Specify features you want the deployed image to provide')
 		parser.add_argument('--interactive', default = False, action = 'store_true',
 			help = 'Run tests interactively, stopping after each step.')
 

@@ -53,6 +53,14 @@ This option specifies the platform with which to provision the SUT nodes.
 Use
 .BR "twopence list-platforms
 to display a list of all available platforms.
+Use
+.BR "twopence list-platforms
+to display a list of all available platforms.
+.TP
+.BI --feature " BUILDOPTION
+This instructs the provisioner to enable \fIBUILDOPTION\fP on all SUT
+nodes. Typical build options would be \fBselinux\fP or \fBfips\fP, for
+instance.
 .TP
 .BI "--parameter " name = value
 Provide additional parameters to the test run. For example, when executing
