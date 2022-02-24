@@ -27,6 +27,8 @@ class Target(twopence.Target):
 		self.node_config = node_config
 		self.logger = logger
 		self.resourceManager = resource_manager
+		self.serviceManager = None
+		self.packageManager = None
 
 		self.defaultUser = None
 
@@ -58,6 +60,15 @@ class Target(twopence.Target):
 		self._desktop = None
 		self._build = None
 		self._hostname = None
+
+
+	def setServiceManager(self, serviceManager):
+		susetest.say(f"Setting service manager {serviceManager}")
+		self.serviceManager = serviceManager
+
+	def setPackageManager(self, packageManager):
+		susetest.say(f"Setting package manager {packageManager}")
+		self.packageManager = packageManager
 
 	# family 42.1 , 12.2 etc
 	@property

@@ -37,7 +37,7 @@ class Feature(object):
 
 	@staticmethod
 	def isSupportedFeature(name):
-		return name in ('selinux', )
+		return name in ('selinux', 'systemd', 'dnf', 'zypper')
 
 	@staticmethod
 	def createFeature(name):
@@ -45,6 +45,21 @@ class Feature(object):
 			from .selinux import SELinux
 
 			return SELinux()
+
+		if name == 'systemd':
+			from .servicemgr import ServiceManagerSystemd
+
+			return ServiceManagerSystemd()
+
+		if name == 'zypper':
+			from .packagemgr import PackageManagerZypper
+
+			return PackageManagerZypper()
+
+		if name == 'dnf':
+			from .packagemgr import PackageManagerDNF
+
+			return PackageManagerDNF()
 
 		# raise ValueError("Feature %s not yet implemented" % name)
 		return UnsupportedFeature(name)

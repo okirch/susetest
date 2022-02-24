@@ -284,27 +284,18 @@ class PackageResource(Resource):
 	def release(self, driver):
 		return True
 
-	def checkPackage(self, node, package):
-		if node.os_vendor in ("suse", "redhat"):
-			cmd = f"rpm -q {package}";
-		else:
-			node.logError(f"Don't know how to check for presence of a package on this platform (vendor={node.os_vendor})")
-			return False
+	@property
+	def packageManager(self):
+		packageManager = self.target.packageManager
+		if packageManager is None:
+			raise NotImplementedError(f"{self.name}: node {self.target.name} does not have a package manager")
+		return packageManager
 
-		st = node.run(cmd, user = "root")
-		return bool(st)
+	def checkPackage(self, node, package):
+		return self.packageManager.checkPackage(node, package)
 
 	def installPackage(self, node, package):
-		if node.os_vendor == "suse":
-			cmd = f"zypper in -y {package}"
-		elif node.os_vendor == "redhat":
-			cmd = f"dnf -y install {package}"
-		else:
-			node.logError(f"Don't know how to install a package on this platform (vendor={node.os_vendor})")
-			return False
-
-		st = node.run(cmd, user = "root")
-		return bool(st)
+		return self.packageManager.installPackage(node, package)
 
 class PackageBackedResource(Resource):
 	package = None
@@ -637,7 +628,6 @@ class ServiceResource(PackageBackedResource):
 
 	executable = None
 	daemon_path = None
-	systemctl_path = "/usr/bin/systemctl"
 	systemd_activate = []
 
 	def __init__(self, *args, **kwargs):
@@ -666,149 +656,44 @@ class ServiceResource(PackageBackedResource):
 	def describe(self):
 		return "service(%s)" % self.name
 
-	# We inherit PackageBackedResource.acquire(), which calls .detect() to
-	# check whether the resource in the desired state (active)
-	def release(self, driver):
-		node = self.target
-
-		if not node.is_systemd:
-			raise NotImplementedError("Unable to stop service %s: SUT does not use systemd" % self.name)
-
-		for unit in self.systemd_activate:
-			node.logInfo("deactivating service %s" % (unit))
-			if not self.systemctl("stop", unit) or not self.systemctl("disable", unit):
-				return False
-
-		return True
-
-	def start(self):
-		return self.systemctlForAllUnits("start")
-
-	def restart(self):
-		return self.systemctlForAllUnits("restart")
-
-	def reload(self):
-		return self.systemctlForAllUnits("reload")
-
-	def stop(self):
-		return self.systemctlForAllUnits("stop")
-
-	def running(self):
-		return self.systemctlForAllUnits("status")
-
-	def checkUnitStatus(self, node):
-		if not self.systemd_activate:
-			return None
-
-		loaded = True
-		active = True
-		running = True
-
-		for unit in self.systemd_activate:
-			st = node.run(f"systemctl show --property UnitFileState,ActiveState,SubState,LoadState {unit}", quiet = True)
-			if not st:
-				susetest.say(f"systemctl show {unit} failed: {st.message}")
-				return None
-
-			for line in st.stdoutString.split('\n'):
-				if "=" not in line:
-					continue
-				(key, value) = line.split("=", maxsplit = 1)
-				if key == "UnitFileState" and not value:
-					susetest.say(f"Unit file {unit} is missing")
-					return None
-				elif key == "LoadState" and value != "loaded":
-					loaded = False
-				elif key == "ActiveState" and value != "active":
-					active = False
-				elif key == "SubState" and value != "running":
-					running = False
-
-		if running:
-			return "running"
-		if active:
-			return "enabled"
-		if loaded:
-			return "disabled"
-		return "need-reload"
+	@property
+	def serviceManager(self):
+		serviceManager = self.target.serviceManager
+		if serviceManager is None:
+			raise NotImplementedError(f"{self.name}: node {self.target.name} does not have a service manager")
+		return serviceManager
 
 	# Called from PackageBackedResource.acquire
 	def detect(self):
-		node = self.target
+		return self.serviceManager.tryToActivate(self)
 
-		if not node.is_systemd:
-			raise NotImplementedError("Unable to start service %s: SUT does not use systemd" % self.name)
+	# We inherit PackageBackedResource.acquire(), which calls .detect() to
+	# check whether the resource in the desired state (active)
+	def release(self, driver):
+		return self.serviceManager.tryToDeactivate(self)
 
-		state = self.checkUnitStatus(node)
+	def start(self):
+		return self.serviceManager.start(self)
 
-		node.logInfo(f"Service {self.name} state={state}")
-		if state == "need-reload":
-			self.systemctl("reload-daemon")
-			state = self.checkUnitStatus(node)
+	def restart(self):
+		return self.serviceManager.restart(self)
 
-		if not state:
-			# Units missing
-			return False
+	def reload(self):
+		return self.serviceManager.reload(self)
 
-		if state == "running":
-			return True
+	def stop(self):
+		return self.serviceManager.stop(self)
 
-		if state != "enabled":
-			for unit in self.systemd_activate:
-				node.logInfo("enabling service %s" % (unit))
-				if not self.systemctl("enable", unit) or not self.systemctl("start", unit):
-					return False
-
-		for unit in self.systemd_activate:
-			node.logInfo("activating service %s" % (unit))
-			if not self.systemctl("start", unit):
-				return False
-
-		return True
-
-	def systemctlForAllUnits(self, verb):
-		for unit in self.systemd_activate:
-			if not self.systemctl(verb, unit):
-				return False
-
-		return True
-
-	def systemctl(self, verb, unit):
-		cmd = "%s %s %s" % (self.systemctl_path, verb, unit)
-		return self.target.runOrFail(cmd)
+	def running(self):
+		return self.serviceManager.running(self)
 
 	@property
 	def pid(self):
-		if not self.is_active:
-			return None
-
-		status = self.systemctl("show --property MainPID", self.systemd_unit)
-
-		if not(status) or len(status.stdout) == 0:
-			return None
-
-		for line in status.stdoutString.split("\n"):
-			if line.startswith("MainPID="):
-				pid = line[8:]
-				if pid.isdecimal():
-					return pid
-
-		return None
+		return self.serviceManager.getServicePID(self)
 
 	@property
 	def user(self):
-		pid = self.pid
-
-		if pid is None:
-			return None
-
-		status = self.target.run("/bin/ps hup " + pid);
-		if not(status) or len(status.stdout) == 0:
-			self.target.logFailure("ps did not find %s process" % self.name);
-			return None
-
-		# the first column of the ps output is the user name
-		return status.stdoutString.split(None, 1)[0]
+		return self.serviceManager.getServiceUser(self)
 
 class FileResource(PackageBackedResource):
 	resource_type = "file"
