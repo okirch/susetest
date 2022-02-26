@@ -150,7 +150,12 @@ class Resource:
 			self.status = status
 			self.conditionalName = conditionalName
 			self.conditional = conditional
-			self.reason = f"conditional {conditionalName}"
+
+		@property
+		def reason(self):
+			if self.conditional.reason:
+				return self.conditional.reason
+			return f"conditional {conditionalName}"
 
 		def __str__(self):
 			return f"predicted outcome = {self.status} because of {self.reason}"
@@ -1147,7 +1152,7 @@ class ResourceConditional:
 	class OneOf:
 		def __init__(self, name, values):
 			self.name = name
-			self.values = values
+			self.values = [_.lower() for _ in values]
 
 		def dump(self):
 			return f"{self.name} in {self.values}"
@@ -1215,10 +1220,11 @@ class ResourceConditional:
 			return not self.term.eval(context)
 
 
-	def __init__(self, name, origin, term):
+	def __init__(self, name, origin, term, reason = None):
 		self.name = name
 		self.origin = origin
 		self.term = term
+		self.reason = reason
 
 	def __str__(self):
 		return f"{self.__class__.__name__}({self.name} = [{self.term.dump()}])"
@@ -1230,7 +1236,10 @@ class ResourceConditional:
 	def fromConfig(node, termClass = AND):
 		term = termClass()
 		for attr in node.attributes:
-			if attr.name == 'feature':
+			if attr.name == 'reason':
+				# This is handled in the caller
+				pass
+			elif attr.name == 'feature':
 				term.add(ResourceConditional.FeatureTest(attr.value))
 			elif attr.name == 'parameter':
 				test = ResourceConditional.resourceConditionalBuildParameterTest(attr.values)
@@ -1291,7 +1300,7 @@ class TargetEvalContext:
 		return actual in values
 
 	def testValues(self, name, values):
-		actual = self.variables.get(name)
+		actual = self.variables.get(name).lower()
 
 		# print(f"   testParameter({name}={actual}, values={values})")
 		if name is None:
@@ -1372,11 +1381,11 @@ class ResourceLoader:
 		def getResourceConditional(self, name):
 			return self._conditionals.get(name)
 
-		def createResourceConditional(self, name, origin, term):
+		def createResourceConditional(self, name, origin, term, reason = None):
 			if self._conditionals.get(name):
 				raise ResourceLoader.BadConditional(node.name, node.origin, f"duplicate definition of resource conditional {name}")
 
-			cond = ResourceConditional(name, origin, term)
+			cond = ResourceConditional(name, origin, term, reason)
 			self._conditionals[name] = cond
 			return term
 
@@ -1516,7 +1525,7 @@ class ResourceLoader:
 
 	def loadConditional(self, descGroup, path, node):
 		term = ResourceConditional.fromConfig(node)
-		descGroup.createResourceConditional(node.name, node.origin, term)
+		descGroup.createResourceConditional(node.name, node.origin, term, node.get_value("reason"))
 
 	def loadResource(self, descGroup, path, node):
 		type = node.type
@@ -1587,12 +1596,12 @@ class ResourceLoader:
 								attr.name, attr_name, klass.__name__))
 
 		for child in config:
-			if child.type == 'expected-failure':
+			if child.type in ('expected-failure', 'expected-error'):
 				term = ResourceConditional.fromConfig(child)
-				desc.addPrediction(Resource.Prediction('failure', child.name, term))
-			elif child.type == 'expected-error':
-				term = ResourceConditional.fromConfig(child)
-				desc.addPrediction(Resource.Prediction('error', child.name, term))
+				conditional = ResourceConditional(child.name, child.origin, term, child.get_value("reason"))
+
+				outcome = child.type[9:]
+				desc.addPrediction(Resource.Prediction(outcome, child.name, conditional))
 			else:
 				raise ResourceLoader.BadResource(desc, f"unknown child {child.type} {child.name}")
 

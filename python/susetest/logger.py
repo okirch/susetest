@@ -107,6 +107,8 @@ class TestLogger:
 			self.noun = noun
 			self.log = logfn
 
+			self.reason = None
+
 		def __str__(self):
 			return self.noun
 
@@ -135,7 +137,7 @@ class TestLogger:
 
 		if self._journal.status == "running":
 			if self._predict and not self._predictionArrived:
-				self._journal.failure(f"*** Expected {self._predict.noun} did not arrive")
+				self._journal.failure(f"*** Expected {self._predict.noun} ({self._predict.reason}) - but the test apparently succeeded")
 			else:
 				self._journal.success()
 
@@ -187,7 +189,8 @@ class TestLogger:
 			self.logError(f"Cassandra is confused: conflicting predictions {self._predict} vs {status}")
 			return
 
-		self.logInfo(f"*** Setting the predicted outcome of this test case to {status} because of {reason}")
+		self.logInfo(f"*** Setting the predicted outcome of this test case to {status}: {reason}")
+		outcome.reason = reason
 		self._predict = outcome
 
 class Logger:
