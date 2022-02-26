@@ -743,7 +743,7 @@ class Runner:
 		args = parser.parse_args()
 
 		self.valid = False
-		self.platform = args.platform
+		self.platform = self.findPlatform(args)
 		self.matrix = None
 
 		self.buildTestContext(args)
@@ -762,6 +762,45 @@ class Runner:
 		self.console = None
 		if args.interactive:
 			self.console = Console()
+
+	def findPlatform(self, args):
+		import twopence.provision
+
+		if args.platform:
+			if args.os:
+				raise ValueError(f"You cannot specify both --os and --platform")
+			return args.platform
+
+		if not args.os:
+			raise ValueError(f"Unable to identify platform")
+
+		requestedFeatures = set(args.feature)
+
+		osName = args.os.lower()
+		bestMatch = None
+		bestScore = -1
+
+		for platformInfo in twopence.provision.locatePlatformFiles():
+			for platform in platformInfo.platforms:
+				if platform.os is None or platform.os.lower() != osName:
+					continue
+
+				score = 2 * len(requestedFeatures.intersection(set(platform.features)))
+				if 'twopence' in platform.features:
+					score += 1
+
+				print(f"{platform.name} scores {score}")
+				print(requestedFeatures.intersection(set(platform.features)))
+				if score >= bestScore:
+					bestMatch = platform
+					bestScore = score
+
+		if bestMatch is None:
+			error(f"Could not find a platform for OS {args.os}")
+			return None
+
+		print(f"The best match for OS {args.os} and the requested feature set is {bestMatch.name}")
+		return bestMatch.name
 
 	def buildTestContext(self, args):
 		self.testrun = args.testrun
@@ -785,7 +824,7 @@ class Runner:
 		requestedFeatures.add('twopence')
 
 		self.context = Context(self.workspace, self.logspace,
-				platform = args.platform,
+				platform = self.platform,
 				parameters = args.parameter,
 				dryrun = args.dry_run,
 				debug = args.debug,
@@ -804,14 +843,14 @@ class Runner:
 		valid = True
 
 		if self.platform is None:
-			print("Error: no default platform specified; please specify one using --platform")
+			error("no default platform specified; please specify one using --platform or --os")
 			valid = False
 
 		if os.path.exists(self.workspace) and not os.path.isdir(self.workspace):
-			print(f"Error: workspace {self.workspace} exists, but is not a directory")
+			error("workspace {self.workspace} exists, but is not a directory")
 			valid = False
 		if os.path.exists(self.logspace) and not os.path.isdir(self.logspace):
-			print(f"Error: logspace {self.logspace} exists, but is not a directory")
+			error("logspace {self.logspace} exists, but is not a directory")
 			valid = False
 
 		return valid
@@ -912,6 +951,8 @@ class Runner:
 		parser = argparse.ArgumentParser(description = 'Provision and run tests.')
 		parser.add_argument('--platform',
 			help = 'specify the OS platform to use for all nodes and roles')
+		parser.add_argument('--os',
+			help = 'specify the OS to use for all nodes and roles')
 		parser.add_argument('--testrun',
 			help = 'the testrun this test case is part of')
 		parser.add_argument('--workspace',

@@ -7,6 +7,7 @@
 twopence run-test \- helper application for running twopence based tests
 .SH SYNOPSIS
 .BI "twopence run-test --platform " PLATFORM " [ " options " ] " "test1 test2 ...
+.BI "twopence run-test --os " OS " [ " options " ] " "test1 test2 ...
 .SH DESCRIPTION
 This utility runs a twopence based test case, taking care of provisioning
 the required nodes with the desired platform. It relies on
@@ -23,14 +24,15 @@ of SUTs to be configured:
 .in +2
 \fB
 testcase        "shadow";
-node client {
-        install "twopence-test-server",
-                "farthings-utils-shadow";
-        start   "twopence-test-server";
-}
+node client {}
 \fR
 .in
 .fi
+.P
+Optionally, a \fBnode\fP statement can contain additional configuration, such as
+extra test packages to be installed.
+For multi-node tests, the configuration file would contain several \fBnode\fP
+statements.
 .P
 While the test topology is provisioned, and during the execution of the
 test script, temporary files are stored in a \fIworkspace\fP directory.
@@ -46,21 +48,63 @@ versus a previous release?).
 .P
 The default location of the test report is
 .BR ~/susetest/logs/\fITESTCASE\fP/junit-results.xml .
+.SS Selecting the Operating System
+The operating system plus its configuration plus a set of configurable options
+are called a \fIplatform\fP throughout this documentation. Using the
+.BR "twopence build-image
+copmmand, it is possible to create silver images of an operating system
+with some features already pre-provisioned.
+You can list all available platforms using the
+.BR "twopence list-platforms
+command.
+.P
+.B Run-test
+supports two approaches for selecting the platform to install on the SUTs.
+The more direct approach is to specify the desired platform using the
+\fB--platform\fP option. In addition, you can specify one or more build
+options via the \fB--feature\fP command line option; these will then be
+applied while provisioning the SUT.
+.P
+Alternatively, you can select the underlying operating system using the
+\fB--os\fP option, plus the list of desired build options via \fB--feature\fP.
+This will scan all available platforms and select the one that (a) matches
+the requested OS, and (b) provides the largest subset of the requested
+features. If there is a platform that matches exactly, then it's used as-is
+to provision the SUTs. If the platform lacks one or more of the requested
+features, these will be applied while provisioning the SUT.
+.P
+In consequence, the following two invocations will achieve exactly the same
+result:
+.P
+.nf
+.in +2
+\fB
+# twopence run-test --platform leap-15.4-selinux-twopence shadow
+# twopence run-test --os Leap-15.4 --feature selinux shadow
+\fR
+.in
+.fi
+.P
+The latter is slightly more flexible because it will also work in the case
+where there's no silver image that already has selinux enabled.
 .SH OPTIONS
 .TP
 .BI --platform " PLATFORM
 This option specifies the platform with which to provision the SUT nodes.
-Use
-.BR "twopence list-platforms
-to display a list of all available platforms.
-Use
-.BR "twopence list-platforms
-to display a list of all available platforms.
+See the previous section for a discussion.
+.TP
+.BI --os " OS
+This option specifies the platform with which to provision the SUT nodes.
+See the previous section for a discussion.
 .TP
 .BI --feature " BUILDOPTION
 This instructs the provisioner to enable \fIBUILDOPTION\fP on all SUT
 nodes. Typical build options would be \fBselinux\fP or \fBfips\fP, for
 instance.
+.IP
+Note that \fBrun-test\fP will silently append \fBtwopence\fP to the
+build options, which instructs the provisioner to install the twopence
+SUT infrastrucutre on the node.
 .TP
 .BI "--parameter " name = value
 Provide additional parameters to the test run. For example, when executing
