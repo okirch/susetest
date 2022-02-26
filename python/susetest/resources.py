@@ -146,10 +146,10 @@ class Resource:
 		return None
 
 	class Prediction:
-		def __init__(self, status, conditionalName):
+		def __init__(self, status, conditionalName, conditional = None):
 			self.status = status
 			self.conditionalName = conditionalName
-			self.conditional = None
+			self.conditional = conditional
 			self.reason = f"conditional {conditionalName}"
 
 		def __str__(self):
@@ -1382,6 +1382,13 @@ class ResourceLoader:
 		def resolveConditionals(self):
 			for desc in self.resources:
 				for prediction in desc.predictions:
+					if prediction.conditional is not None:
+						# this conditional was specified inline, eg
+						#   predicted-failure blabla {
+						#	feature "fips";
+						#   }
+						continue
+
 					conditional = self.getResourceConditional(prediction.conditionalName)
 					if conditional is None:
 						raise ResourceLoader.BadResource(desc, f"unable to resolve conditional {prediction.conditionalName}")
@@ -1541,12 +1548,12 @@ class ResourceLoader:
 				desc.override = value.lower() in ('on', 'yes', 'true', '1')
 				continue
 
-			if attr_name == 'failif':
+			if attr_name == 'failif' or attr_name == 'expected-failure':
 				for name in attr.values:
 					desc.addPrediction(Resource.Prediction('failure', name))
 				continue
 
-			if attr_name == 'errorif':
+			if attr_name == 'errorif' or attr_name == 'expected-error':
 				for name in attr.values:
 					desc.addPrediction(Resource.Prediction('error', name))
 				continue
@@ -1554,6 +1561,16 @@ class ResourceLoader:
 			if attr_name not in klass.attributes:
 				raise ResourceLoader.BadResource(desc, "unknown attribute %s (%s is not a class attribute of %s)" % (
 								attr.name, attr_name, klass.__name__))
+
+		for child in config:
+			if child.type == 'expected-failure':
+				term = ResourceConditional.fromConfig(child)
+				desc.addPrediction(Resource.Prediction('failure', child.name, term))
+			elif child.type == 'expected-error':
+				term = ResourceConditional.fromConfig(child)
+				desc.addPrediction(Resource.Prediction('error', child.name, term))
+			else:
+				raise ResourceLoader.BadResource(desc, f"unknown child {child.type} {child.name}")
 
 	# This iterates over all resource descriptions and adds
 	# corresponding resources to a ResourceRegistry
