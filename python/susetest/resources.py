@@ -1224,8 +1224,8 @@ class ResourceConditional:
 		return self.term.eval(context)
 
 	@staticmethod
-	def fromConfig(node):
-		term = ResourceConditional.AND()
+	def fromConfig(node, termClass = AND):
+		term = termClass()
 		for attr in node.attributes:
 			if attr.name == 'feature':
 				term.add(ResourceConditional.FeatureTest(attr.value))
@@ -1237,6 +1237,15 @@ class ResourceConditional:
 				term.add(test)
 			else:
 				raise ResourceLoader.BadConditional(node.name, node.origin, f"don't know how to handle condition {attr.name}")
+
+		for child in node:
+			if child.type == 'or':
+				term.add(ResourceConditional.fromConfig(child, ResourceConditional.OR))
+			elif child.type == 'not':
+				test = ResourceConditional.fromConfig(child)
+				term.add(ResourceConditional.NOT(test))
+			else:
+				raise ResourceLoader.BadConditional(child.name, child.origin, f"don't know how to handle conditional {child.type}")
 
 		# print("Parsed conditional %s: %s" % (node.name, term.dump()))
 		return term
