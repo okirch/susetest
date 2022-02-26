@@ -1208,8 +1208,11 @@ class ResourceConditional:
 		def __init__(self, term):
 			self.term = term
 
+		def dump(self):
+			return f"NOT ({self.term.dump()})"
+
 		def eval(self, context):
-			return not term.eval(context)
+			return not self.term.eval(context)
 
 
 	def __init__(self, name, origin, term):
