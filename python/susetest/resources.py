@@ -1223,6 +1223,40 @@ class ResourceConditional:
 	def eval(self, context):
 		return self.term.eval(context)
 
+	@staticmethod
+	def fromConfig(node):
+		term = ResourceConditional.AND()
+		for attr in node.attributes:
+			if attr.name == 'feature':
+				term.add(ResourceConditional.FeatureTest(attr.value))
+			elif attr.name == 'parameter':
+				test = ResourceConditional.resourceConditionalBuildParameterTest(attr.values)
+				if test is None:
+					raise ResourceLoader.BadConditional(node.name, node.origin, "unable to parse parameter test")
+
+				term.add(test)
+			else:
+				raise ResourceLoader.BadConditional(node.name, node.origin, f"don't know how to handle condition {attr.name}")
+
+		# print("Parsed conditional %s: %s" % (node.name, term.dump()))
+		return term
+
+	@staticmethod
+	def resourceConditionalBuildParameterTest(kvpairs):
+		param = None
+		values = []
+		for kv in kvpairs:
+			if '=' not in kv:
+				return None
+			key, value = kv.split('=', maxsplit = 1)
+			if param is None:
+				param = key
+			elif param != key:
+				return None
+
+			values.append(value)
+		return ResourceConditional.ParameterTest(param, values)
+
 class TargetEvalContext:
 	def __init__(self, driver, target):
 		self.driver = driver
@@ -1450,37 +1484,8 @@ class ResourceLoader:
 			desc.setAttribute("package", packageName)
 
 	def loadConditional(self, descGroup, path, node):
-		term = ResourceConditional.AND()
-		for attr in node.attributes:
-			if attr.name == 'feature':
-				term.add(ResourceConditional.FeatureTest(attr.value))
-			elif attr.name == 'parameter':
-				test = self.resourceConditionalBuildParameterTest(attr.values)
-				if test is None:
-					raise ResourceLoader.BadConditional(node.name, node.origin, "unable to parse parameter test")
-
-				term.add(test)
-			else:
-				raise ResourceLoader.BadConditional(node.name, node.origin, f"don't know how to handle condition {attr.name}")
-
-		# print("Parsed conditional %s: %s" % (node.name, term.dump()))
-
+		term = ResourceConditional.fromConfig(node)
 		descGroup.createResourceConditional(node.name, node.origin, term)
-
-	def resourceConditionalBuildParameterTest(self, kvpairs):
-		param = None
-		values = []
-		for kv in kvpairs:
-			if '=' not in kv:
-				return None
-			key, value = kv.split('=', maxsplit = 1)
-			if param is None:
-				param = key
-			elif param != key:
-				return None
-
-			values.append(value)
-		return ResourceConditional.ParameterTest(param, values)
 
 	def loadResource(self, descGroup, path, node):
 		type = node.type
