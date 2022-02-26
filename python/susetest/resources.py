@@ -159,9 +159,9 @@ class Resource:
 			assert(self.conditional)
 			return self.conditional.eval(context)
 
-	def predictOutcome(self, driver):
+	def predictOutcome(self, driver, variables):
 		if self.predictions:
-			context = TargetEvalContext(driver, self.target)
+			context = TargetEvalContext(driver, self.target, variables)
 			for prediction in self.predictions:
 				if prediction.applies(context):
 					return prediction
@@ -1142,7 +1142,7 @@ class ResourceConditional:
 			return f"{self.name} == {self.value}"
 
 		def eval(self, context):
-			return context.checkValue(self.name, self.value)
+			return context.testValue(self.name, self.value)
 
 	class OneOf:
 		def __init__(self, name, values):
@@ -1153,7 +1153,7 @@ class ResourceConditional:
 			return f"{self.name} in {self.values}"
 
 		def eval(self, context):
-			return context.checkValues(self.name, self.values)
+			return context.testValues(self.name, self.values)
 
 	class FeatureTest:
 		def __init__(self, name):
@@ -1236,7 +1236,9 @@ class ResourceConditional:
 
 				term.add(test)
 			else:
-				raise ResourceLoader.BadConditional(node.name, node.origin, f"don't know how to handle condition {attr.name}")
+				# all other tests refer to user supplied variables
+				test = ResourceConditional.OneOf(attr.name, attr.values)
+				term.add(test)
 
 		for child in node:
 			if child.type == 'or':
@@ -1267,9 +1269,10 @@ class ResourceConditional:
 		return ResourceConditional.ParameterTest(param, values)
 
 class TargetEvalContext:
-	def __init__(self, driver, target):
+	def __init__(self, driver, target, variables = {}):
 		self.driver = driver
 		self.target = target
+		self.variables = variables
 
 	def testFeature(self, name):
 		# print(f"   testFeature({name})")
@@ -1280,6 +1283,15 @@ class TargetEvalContext:
 
 		# print(f"   testParameter({name}={actual}, values={values})")
 		if actual is None:
+			return False
+
+		return actual in values
+
+	def testValues(self, name, values):
+		actual = self.variables.get(name)
+
+		# print(f"   testParameter({name}={actual}, values={values})")
+		if name is None:
 			return False
 
 		return actual in values
