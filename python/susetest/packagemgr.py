@@ -36,9 +36,13 @@ class PackageManagerRPM(PackageManager):
 		return self.run(node, f"rpm -q {packageName}")
 
 class PackageManagerZypper(PackageManagerRPM):
+	name = "zypper"
+
 	def installPackage(self, node, packageName):
 		return self.run(node, f"zypper install -y {packageName}")
 
 class PackageManagerDNF(PackageManagerRPM):
+	name = "dnf"
+
 	def installPackage(self, node, packageName):
 		return self.run(node, f"dnf -y install {packageName}")

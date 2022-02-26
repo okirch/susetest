@@ -26,6 +26,7 @@ class ServiceManager(Feature):
 		node.setServiceManager(self)
 
 class ServiceManagerSystemd(ServiceManager):
+	name = "systemd"
 	systemctl_path = "/usr/bin/systemctl"
 
 	def start(self, service):
