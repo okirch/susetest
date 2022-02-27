@@ -84,7 +84,6 @@ class ResultsVector(ResultsCollection):
 		return sorted(self._results.values(), key = lambda r: r.id)
 
 	def serialize(self, writer):
-		writer = writer.createColumn(self._name)
 		writer.addParameters(self._parameters)
 		writer.addResults(self.results)
 
