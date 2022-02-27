@@ -22,8 +22,8 @@ class PackageManager(Feature):
 	def enableFeature(self, driver, node):
 		node.setPackageManager(self)
 
-	def run(self, node, cmd):
-		st = node.run(cmd, user = "root")
+	def run(self, node, cmd, **kwargs):
+		st = node.run(cmd, user = "root", **kwargs)
 		if not st:
 			node.logInfo(f"{cmd} failed: {st.message}")
 		return bool(st)
@@ -39,10 +39,10 @@ class PackageManagerZypper(PackageManagerRPM):
 	name = "zypper"
 
 	def installPackage(self, node, packageName):
-		return self.run(node, f"zypper install -y {packageName}")
+		return self.run(node, f"zypper install -y {packageName}", timeout = 120)
 
 class PackageManagerDNF(PackageManagerRPM):
 	name = "dnf"
 
 	def installPackage(self, node, packageName):
-		return self.run(node, f"dnf -y install {packageName}")
+		return self.run(node, f"dnf -y install {packageName}", timeout = 120)

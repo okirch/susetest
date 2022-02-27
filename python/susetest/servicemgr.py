@@ -32,16 +32,16 @@ class ServiceManagerSystemd(ServiceManager):
 	def start(self, service):
 		return self.systemctlForAllUnits("start", service)
 
-	def restart(self):
+	def restart(self, service):
 		return self.systemctlForAllUnits("restart", service)
 
-	def reload(self):
+	def reload(self, service):
 		return self.systemctlForAllUnits("reload", service)
 
-	def stop(self):
+	def stop(self, service):
 		return self.systemctlForAllUnits("stop", service)
 
-	def running(self):
+	def running(self, service):
 		return self.systemctlForAllUnits("status", service)
 
 	def checkUnitStatus(self, service):
@@ -122,8 +122,9 @@ class ServiceManagerSystemd(ServiceManager):
 		return True
 
 	def systemctlForAllUnits(self, verb, service):
+		node = service.target
 		for unit in service.systemd_activate:
-			if not self.systemctl(service, verb, unit):
+			if not self.systemctl(node, verb, unit):
 				return False
 
 		return True
@@ -132,7 +133,6 @@ class ServiceManagerSystemd(ServiceManager):
 		cmd = "%s %s %s" % (self.systemctl_path, verb, unit)
 		return node.runOrFail(cmd)
 
-	@property
 	def getServicePID(self, service):
 		if not service.is_active:
 			return None
@@ -150,7 +150,6 @@ class ServiceManagerSystemd(ServiceManager):
 
 		return None
 
-	@property
 	def getServiceUser(self, service):
 		pid = service.pid
 
