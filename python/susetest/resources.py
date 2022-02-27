@@ -1574,23 +1574,22 @@ class ResourceLoader:
 
 		# Check for spelling mistakes or unknown attributes in the config file
 		for attr in config.attributes:
-			attr_name = attr.name.replace('-', '_')
-
-			if attr_name == 'override':
+			if attr.name == 'override':
 				value = attr.value
 				desc.override = value.lower() in ('on', 'yes', 'true', '1')
 				continue
 
-			if attr_name == 'failif' or attr_name == 'expected-failure':
+			if attr.name == 'failif' or attr.name == 'expected-failure':
 				for name in attr.values:
 					desc.addPrediction(Resource.Prediction('failure', name))
 				continue
 
-			if attr_name == 'errorif' or attr_name == 'expected-error':
+			if attr.name == 'errorif' or attr.name == 'expected-error':
 				for name in attr.values:
 					desc.addPrediction(Resource.Prediction('error', name))
 				continue
 
+			attr_name = attr.name.replace('-', '_')
 			if attr_name not in klass.attributes:
 				raise ResourceLoader.BadResource(desc, "unknown attribute %s (%s is not a class attribute of %s)" % (
 								attr.name, attr_name, klass.__name__))
