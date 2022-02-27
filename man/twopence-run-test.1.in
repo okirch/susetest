@@ -87,6 +87,29 @@ result:
 .P
 The latter is slightly more flexible because it will also work in the case
 where there's no silver image that already has selinux enabled.
+.P
+In addition,
+.BR twopence-run-test
+provides a set of options that let you run multi-node tests with a mix of
+different operating systems:
+.BR --role-os ,
+.BR --role-platform ", and 
+.BR --role-feature ", respectively.
+These options apply to all nodes of the same role, rather than to all nodes in general.
+.P
+A multinode testcase can specify a role for each node that it uses. If not specified
+explicitly, a node's role name is set to the node's name, i.e. a node named
+\fBserver\fP has the role \fBserver\fP, by default.
+.P
+You can specify the requested OS for given role (say, \fBclient\fP) by using
+.BR --role-os client=Centos-8.3 .
+The following invocation provisions the client node(s) with Centos-8.3 and the
+server with Leap-15.4, enabling SELinux on both client and server:
+.P
+.in +2
+.B "twopence run-test --os Leap-15.4 --role-os client=Centos-8.3 --feature selinux ssh
+.in
+.P
 .SH OPTIONS
 .TP
 .BI --platform " PLATFORM

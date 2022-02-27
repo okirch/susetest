@@ -273,7 +273,7 @@ class Context:
 	def __init__(self, workspace, logspace, parent = None,
 			parameters = [],
 			dryrun = False, debug = False, quiet = False, clobber = False,
-			platform = None, platformFeatures = None, requestedFeatures = None,
+			roles = {},
 			results = None):
 
 		self.workspace = workspace
@@ -281,28 +281,18 @@ class Context:
 		self.results = results
 
 		if parent:
-			self.platform = parent.platform
-			self.platformFeatures = parent.platformFeatures
-			self.requestedFeatures = parent.requestedFeatures
+			self.roles = parent.roles
 
 			self.dryrun = parent.dryrun
 			self.debug = parent.debug
 			self.quiet = parent.quiet
 			self.clobber = parent.clobber
 		else:
-			self.platform = platform
+			self.roles = roles
 			self.dryrun = dryrun
 			self.debug = debug
 			self.quiet = quiet
 			self.clobber = clobber
-
-			if not platformFeatures and platform:
-				platformFeatures = self.getPlatformFeatures(platform)
-			self.platformFeatures = platformFeatures or set()
-
-			self.requestedFeatures = requestedFeatures or set()
-
-		self.requestedFeatures.difference_update(self.platformFeatures)
 
 		self.parameters = []
 		if parameters:
@@ -315,7 +305,11 @@ class Context:
 
 	def validateMatrix(self, matrix):
 		# print(f"### CHECKING FEATURE COMPAT of {matrix.description} vs {self.platformFeatures}")
-		return matrix.validateCompatibility(self.platformFeatures)
+		for role in self.roles.values():
+			if not matrix.validateCompatibility(role.features):
+				return False
+
+		return True
 
 	def createSubContext(self, extra_path, extra_parameters = []):
 		if self.results:
@@ -372,7 +366,6 @@ class Testcase(TestThing):
 		self.dryrun = context.dryrun
 		self.debug = context.debug
 		self.quiet = context.quiet
-		self.provisionFeatures = context.requestedFeatures
 
 		self.isCompatible = True
 
@@ -713,8 +706,9 @@ class Pipeline:
 			if not test.validate():
 				self.valid = False
 
-			if not test.validateCompatibility(context.platformFeatures):
-				test.isCompatible = False
+			for role in context.roles.values():
+				if not test.validateCompatibility(role.platformFeatures):
+					test.isCompatible = False
 
 			testcases.append(test)
 
@@ -736,6 +730,27 @@ class Runner:
 	MODE_TESTS = 0
 	MODE_SUITES = 1
 
+	class RoleSettings:
+		def __init__(self, name, platform = None, os = None, features = None):
+			import twopence.provision
+
+			self.name = name
+			self.platform = platform
+			self.os = None
+			self.features = features or set()
+			self.repositories = []
+
+			self.features.add('twopence')
+
+			self.platformFeatures = twopence.provision.queryPlatformFeatures(self.platform)
+			self.provisionFeatures = self.features.difference(self.platformFeatures)
+
+			if 'twopence' in self.provisionFeatures:
+				self.repositories.append('twopence')
+
+		def __str__(self):
+			return f"Role({self.name}, platform={self.platform})"
+
 	def __init__(self, mode = MODE_TESTS):
 		self.mode = mode
 
@@ -743,9 +758,10 @@ class Runner:
 		args = parser.parse_args()
 
 		self.valid = False
-		self.platform = self.findPlatform(args)
+		self._roles = {}
 		self.matrix = None
 
+		self.definePlatforms(args)
 		self.buildTestContext(args)
 
 		self.pipeline = Pipeline(self.context)
@@ -763,20 +779,59 @@ class Runner:
 		if args.interactive:
 			self.console = Console()
 
-	def findPlatform(self, args):
+	@property
+	def roles(self):
+		return self._roles.values()
+
+	def definePlatforms(self, args):
+		defaultRole = self.defineRoleSettings("default", args.platform, args.os, args.feature)
+
+		def buildDict(what, list):
+			d = {}
+			for option in list:
+				if '=' not in option:
+					error(f"Cannot handle --{what} \"{option}\" - option must be in the form \"role={what}\"")
+					raise ValueError(f"Bad --{what} argument")
+
+				name, value = option.split('=', maxsplit = 1)
+				d[name] = value
+			return d
+
+		platformDict = buildDict('role-platform', args.role_platform)
+		osDict = buildDict('role-os', args.role_os)
+		featureDict = buildDict('role-feature', args.role_feature)
+
+		names = set(platformDict.keys()).union(osDict.keys())
+		for name in names:
+			features = featureDict.get(name)
+			if features is None:
+				features = set()
+			features.update(set(args.feature))
+
+			self.defineRoleSettings(name,
+					platformDict.get(name),
+					osDict.get(name),
+					features)
+
+	def defineRoleSettings(self, roleName, requestedPlatform, requestedOS, requestedFeatures):
+		role = self.findPlatform(roleName, requestedPlatform, requestedOS, requestedFeatures)
+		self._roles[roleName] = role
+		return role
+
+	def findPlatform(self, roleName, requestedPlatform, requestedOS, requestedFeatures):
 		import twopence.provision
 
-		if args.platform:
-			if args.os:
+		if requestedPlatform:
+			if requestedOS:
 				raise ValueError(f"You cannot specify both --os and --platform")
-			return args.platform
+			return self.RoleSettings(roleName, platform = requestedPlatform, features = requestedFeatures)
 
-		if not args.os:
+		if not requestedOS:
 			raise ValueError(f"Unable to identify platform")
 
-		requestedFeatures = set(args.feature)
+		requestedFeatures = set(requestedFeatures)
 
-		osName = args.os.lower()
+		osName = requestedOS.lower()
 		bestMatch = None
 		bestScore = -1
 
@@ -789,18 +844,17 @@ class Runner:
 				if 'twopence' in platform.features:
 					score += 1
 
-				print(f"{platform.name} scores {score}")
-				print(requestedFeatures.intersection(set(platform.features)))
+				# print(f"{platform.name} scores {score}")
 				if score >= bestScore:
 					bestMatch = platform
 					bestScore = score
 
 		if bestMatch is None:
-			error(f"Could not find a platform for OS {args.os}")
+			error(f"Could not find a platform for OS {requestedOS}")
 			return None
 
-		print(f"The best match for OS {args.os} and the requested feature set is {bestMatch.name}")
-		return bestMatch.name
+		# print(f"The best match for OS {requestedOS} and the requested feature set is {bestMatch.name}")
+		return self.RoleSettings(roleName, platform = bestMatch.name, features = requestedFeatures)
 
 	def buildTestContext(self, args):
 		self.testrun = args.testrun
@@ -816,20 +870,12 @@ class Runner:
 			self.workspace = os.path.join(self.workspace, self.testrun)
 			self.logspace = os.path.join(self.logspace, self.testrun)
 
-		requestedFeatures = set(args.feature)
-
-		# We always add 'twopence' because our tests use twopence.
-		# If the build always has the twopence SUT infrastructure installed,
-		# great. If it does not, we'll add it.
-		requestedFeatures.add('twopence')
-
 		self.context = Context(self.workspace, self.logspace,
-				platform = self.platform,
+				roles = self._roles,
 				parameters = args.parameter,
 				dryrun = args.dry_run,
 				debug = args.debug,
-				clobber = args.clobber,
-				requestedFeatures = requestedFeatures)
+				clobber = args.clobber)
 
 		return
 
@@ -842,8 +888,8 @@ class Runner:
 	def _validate(self):
 		valid = True
 
-		if self.platform is None:
-			error("no default platform specified; please specify one using --platform or --os")
+		if not self._roles:
+			error("no platforms specified; please specify one using --platform or --os")
 			valid = False
 
 		if os.path.exists(self.workspace) and not os.path.isdir(self.workspace):
@@ -867,7 +913,7 @@ class Runner:
 			matrix = self.matrix
 
 			if not matrix.validate() or not self.context.validateMatrix(matrix):
-				error(f"Matrix is not compatible with base platform {self.platform}")
+				error(f"Matrix is not compatible with requested platform(s)")
 				print("Fatal: refusing to run any tests due to above error(s)")
 				exit(1)
 
@@ -921,11 +967,13 @@ class Runner:
 		config = curly.Config()
 		tree = config.tree()
 
-		node = tree.add_child("role", "default")
-		node.set_value("platform", context.platform)
-		node.set_value("repositories", ["twopence", ])
-		if context.requestedFeatures:
-			node.set_value("build", list(context.requestedFeatures))
+		for role in context.roles.values():
+			node = tree.add_child("role", role.name)
+			node.set_value("platform", role.platform)
+			if role.repositories:
+				node.set_value("repositories", role.repositories)
+			if role.provisionFeatures:
+				node.set_value("build", list(role.provisionFeatures))
 
 		if context.parameters:
 			child = tree.add_child("parameters")
@@ -976,13 +1024,19 @@ class Runner:
 		parser.add_argument('--interactive', default = False, action = 'store_true',
 			help = 'Run tests interactively, stopping after each step.')
 
+		parser.add_argument('--role-platform', default = [], action = 'append',
+			help = 'specify the OS platform to use for a specific role')
+		parser.add_argument('--role-os', default = [], action = 'append',
+			help = 'specify the OS to use for a specific role')
+		parser.add_argument('--role-feature', default = [], action = 'append',
+			help = 'Specify features you want the deployed image to provide for a specific role')
+
 		if self.mode == self.MODE_TESTS:
 			parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
 				help = 'name of the test cases to run')
 		elif self.mode == self.MODE_SUITES:
 			parser.add_argument('testsuite', metavar='TESTSUITE', nargs='+',
 				help = 'name of the test suites to run')
-
 
 		return parser
 
