@@ -568,7 +568,7 @@ class ExecutableResource(PackageBackedResource):
 		if super().acquire(driver):
 			return True
 
-		node.logInfo("Unable to find %s in PATH=%s" % (executable, self.PATH))
+		self.target.logInfo(f"Unable to find {self} in PATH={self.PATH}")
 		return False
 
 	def detect(self):
