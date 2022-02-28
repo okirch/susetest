@@ -708,11 +708,17 @@ class FileResource(PackageBackedResource):
 		'format'		: str,
 		'package'		: str,
 		'selinux_label_domain'	: str,
+		'dac_user'		: str,
+		'dac_group'		: str,
+		'dac_permissions'	: str,
 	}
 
 	path = None
 	format = None
 	selinux_label_domain = None
+	dac_user = None
+	dac_group = None
+	dac_permissions = None
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
