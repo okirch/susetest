@@ -115,6 +115,7 @@ import curly
 import sys
 import re
 import crypt
+import functools
 from .files import FileFormatRegistry
 
 class Resource:
@@ -738,6 +739,21 @@ class FileResource(PackageBackedResource):
 	def detect(self):
 		st = self.target.run("test -a '%s'" % self.path, user = "root")
 		return bool(st)
+
+	# this is the namedtuple type that the stat() method returns
+	stat = functools.namedtuple('stat', ['user', 'group', 'permissions'])
+
+	def stat(self):
+		assert(self.path)
+
+		cmd = f"stat -c 'user=%U group=%G permissions=%a' {self.path}"
+		st = self.target.run(cmd, user = 'root')
+		if not st:
+			self.logFailure(f"cannot stat {self.path}: {st.message}")
+			return None
+
+		kwargs = dict([s.split('=') for s in st.stdoutString.split()])
+		return self.stat(**kwargs)
 
 	# FUTURE: implement a backup() method that copies the file to .bak,
 	# and register a cleanup function that restores the original file at
