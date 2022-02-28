@@ -165,6 +165,8 @@ def template(name, *args, **kwargs):
 		return templateVerifyExecutable(resourceName, [], *args, **kwargs)
 	elif name == 'verify-executable':
 		return templateVerifyExecutable(*args, **kwargs)
+	elif name == 'verify-file':
+		return templateVerifyFile(*args, **kwargs)
 	else:
 		raise ValueError("unknown template %s" % name)
 
@@ -240,6 +242,61 @@ def templateVerifyExecutable(resourceName, arguments, nodeName = None, **kwargs)
 	tc.addOptionalResource(resourceName)
 
 	TestDefinition.optionalResource("executable", resourceName, nodeName = nodeName)
+
+	return tc
+
+def templateVerifyFile(resourceName, nodeName = None, **kwargs):
+	def verify_file(driver):
+		node = getTargetForTemplate(driver, nodeName)
+		if node is None:
+			driver.testError(f"Cannot verify file {resourceName} - don't know which SUT to pick")
+			return
+
+		user = driver.client.requireUser("test-user")
+		if not user.uid:
+			node.logError("user %s does not seem to exist" % user.login)
+			return
+
+		file = node.requireFile(resourceName)
+		print(f"resource {file} DAC user={file.dac_user} group={file.dac_group} permissions={file.dac_permissions}")
+
+		if not file.dac_user and \
+		   not file.dac_group and \
+		   not file.dac_permissions:
+			node.logInfo(f"resource {file} does not define any DAC information")
+			driver.skipTest()
+			return
+
+		info = file.stat()
+		if info is None:
+			node.logFailure(f"Unable to obtain user/group info for resource {resourceName} (path={file.path})")
+			return
+
+		okay = True
+		if file.dac_user and file.dac_user != info.user:
+			node.logFailure(f"Bad owner for {file.path}: expected {file.dac_user} but found {info.user}")
+			okay = False
+		if file.dac_group and file.dac_group != info.group:
+			node.logFailure(f"Bad group for {file.path}: expected {file.dac_group} but found {info.group}")
+			okay = False
+		if file.dac_permissions and file.dac_permissions != info.permissions:
+			node.logFailure(f"Bad permissions for {file.path}: expected {file.dac_permissions} but found {info.permissions}")
+			okay = False
+
+		if not okay:
+			return
+
+		node.logInfo(f"OK, {file.path} has expected protection")
+
+	testid = resourceName.replace("-", "_")
+
+	f = verify_file
+	f.__doc__ = f"general.{testid}: verify DAC permissions for file resource {resourceName}"
+
+	tc = TestDefinition.defineTestcase(f)
+	tc.addOptionalResource(resourceName)
+
+	TestDefinition.optionalResource("file", resourceName, nodeName = nodeName)
 
 	return tc
 
