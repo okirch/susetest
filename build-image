@@ -6,7 +6,6 @@
 : ${WORKSPACE:=~/susetest/build}
 
 main_options="--workspace $WORKSPACE"
-build_options=""
 
 function get_build_result_name {
 
@@ -17,12 +16,10 @@ function get_build_result_name {
 		opt=$1; shift
 		case $opt in
 		--base-platform)
-			build_options+=" $opt $1"
 			base_platform=$1
 			shift;;
 
 		--feature)
-			build_options+=" $opt $1"
 			features+="-$1"; shift;;
 
 		--debug)
@@ -33,6 +30,11 @@ function get_build_result_name {
 		esac
 	done
 
+	if [ -z "$base_platform" ]; then
+		echo "Required option --base-platform is missing" >&2
+		exit 1
+	fi
+
 	if [ -z "$features" ]; then
 		features="-silver"
 	fi
@@ -41,25 +43,73 @@ function get_build_result_name {
 	output_platform="$base_platform$features"
 }
 
+function prepare_build_conf {
+
+	base_platform=
+	features=
+
+	while [ $# -gt 0 ]; do
+		opt=$1; shift
+		case $opt in
+		--base-platform)
+			base_platform=$1
+			shift;;
+
+		--feature)
+			if [ -z "$features" ]; then
+				features="build \"$1\""
+			else
+				features+=", \"$1\""
+			fi
+			shift;;
+
+		*)	: ;;
+		esac
+	done
+
+	if [ -n "$features" ]; then
+		features+=";"
+	fi
+
+	file=$(mktemp /tmp/twopence-build-XXXXXX.conf)
+	cat >$file <<EOF
+testcase build;
+node build {
+	platform "$base_platform";
+	$features
+}
+EOF
+
+	declare -g build_config
+	build_config=$file
+
+	trap "rm -f $build_config" EXIT
+}
+
 function do_build {
 
-	if ! twopence provision $main_options init; then
+	if ! twopence provision $main_options init --config $build_config; then
 		return 1
 	fi
 
-	twopence provision $main_options build $build_options $output_platform
+	twopence provision $main_options build $output_platform
 	return $?
 }
 
 get_build_result_name "$@"
+prepare_build_conf "$@"
+
 
 cat <<EOF
 Output plaform:		$output_platform
 Build commands:
-   twopence provision $main_options init
-   twopence provision $main_options build $build_options $output_platform
+   twopence provision $main_options init --config $build_config
+   twopence provision $main_options build $output_platform
    twopence provision $main_options destroy --zap
+
+Build config file:
 EOF
+cat $build_config
 
 exitcode=0
 if ! do_build; then
