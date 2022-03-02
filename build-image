@@ -92,7 +92,8 @@ function do_build {
 		return 1
 	fi
 
-	twopence provision $main_options build $output_platform
+	twopence provision $main_options create
+	twopence provision $main_options package $output_platform
 	return $?
 }
 
@@ -104,7 +105,8 @@ cat <<EOF
 Output plaform:		$output_platform
 Build commands:
    twopence provision $main_options init --config $build_config
-   twopence provision $main_options build $output_platform
+   twopence provision $main_options create
+   twopence provision $main_options package $output_platform
    twopence provision $main_options destroy --zap
 
 Build config file:
