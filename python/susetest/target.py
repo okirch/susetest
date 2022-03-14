@@ -409,18 +409,13 @@ class Target(twopence.Target):
 			susetest.say("Waiting for \"%s\"" % expect)
 
 			try:
-				errcode = chat.expect(expect)
+				found = chat.expect(expect)
 			except twopence.Exception as e:
-				if timeoutOkay and e.code == twopence.CHAT_TIMEOUT_ERROR:
-					self.logInfo(f"Caught non-fatal exception: {e}")
-				else:
-					self.logFailure(f"Caught exception: {e}")
-				self.logInfo("consumed: %s" % chat.consumed)
-				st = chat.wait()
-				if st is not None:
-					self.logInfo(f"command status: {st.message}")
-					self.logger.recordStdout(st.stdout);
-				return twopence.Status(error = e.code)
+				self.logFailure(f"Caught exception: {e}")
+				return self._chatScriptFailed(chat, e.code)
+
+			if not found:
+				return self._chatScriptFailed(chat, twopence.CHAT_TIMEOUT_ERROR)
 
 			self.logInfo("consumed: %s" % chat.consumed)
 			self.logInfo("found prompt: \"%s\"" % chat.found)
@@ -441,6 +436,19 @@ class Target(twopence.Target):
 
 		self.logInfo("consumed: %s" % chat.consumed)
 		return st
+
+	def _chatScriptFailed(self, chat, errorCode):
+		self.logInfo(f"consumed: {chat.consumed}")
+
+		try:
+			chat.kill(signal = "KILL")
+		except: pass
+
+		st = chat.wait()
+		if st is not None:
+			self.logInfo(f"command status: {st.message}")
+			self.logger.recordStdout(st.stdout);
+		return twopence.Status(error = errorCode)
 
 	def runBackground(self, cmd, **kwargs):
 		kwargs['background'] = 1;
