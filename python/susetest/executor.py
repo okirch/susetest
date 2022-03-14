@@ -750,9 +750,6 @@ class Runner:
 		def setResolution(self, platform):
 			self.resolution = platform
 			self.provisionOptions = self.buildOptions.difference(platform.applied_build_options)
-			if 'twopence' in self.provisionOptions:
-				if 'twopence' not in self.repositories:
-					self.repositories.append('twopence')
 
 	def __init__(self, mode = MODE_TESTS):
 		self.mode = mode
@@ -766,7 +763,8 @@ class Runner:
 		self.valid = False
 		self._roles = {}
 		self.matrix = None
-		self.backend = args.backend or 'vagrant'
+
+		self.setBackend(args.backend)
 
 		self.definePlatforms(args)
 		self.buildTestContext(args)
@@ -787,6 +785,15 @@ class Runner:
 			self.console = Console()
 
 	@property
+	def backend(self):
+		return self._backend.name
+
+	def setBackend(self, name):
+		import twopence.provision
+
+		self._backend = twopence.provision.createBackend(name)
+
+	@property
 	def roles(self):
 		return self._roles.values()
 
@@ -796,9 +803,8 @@ class Runner:
 
 			# We want to run a test - so always make sure twopene is configured.
 			# If we're using vagrant, we also want to enable twopence-tcp
-			role.buildOptions.add('twopence')
-			if self.backend == 'vagrant':
-				role.buildOptions.add('twopence-tcp')
+			role.buildOptions.update(self._backend.twopenceBuildOptions)
+			role.repositories += self._backend.twopenceRepositories
 
 			self._roles[roleName] = role
 		return self._roles[roleName]
