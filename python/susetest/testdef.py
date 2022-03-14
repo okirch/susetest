@@ -301,6 +301,43 @@ class TestsuiteInfo:
 	def optionalResource(self, resourceType, resourceName, nodeName = None):
 		self._resources.append(ResourceRequirement(resourceType, resourceName, nodeName = nodeName, mandatory = False))
 
+	def requireTestResource(self, test, resourceType, resourceName, nodeName = None):
+		self.addTestResource(test, ResourceRequirement(resourceType, resourceName, nodeName = nodeName, mandatory = True))
+
+	def optionalTestResource(self, test, resourceType, resourceName, nodeName = None):
+		self.addTestResource(test, ResourceRequirement(resourceType, resourceName, nodeName = nodeName, mandatory = False))
+
+	# This function and the next are used to handle ordering of decorators before
+	# test functions. Example:
+	#   @susetest.test
+	#   @susetest.optionalTestResource('executable', 'verify_password')
+	#   def testfunc(driver):
+	#	...
+	# In this case, optionalTestResource is called first, and is supposed to return
+	# a wrapper function. That wrapper function is then invoked with testfunc
+	# as its single argument. So at this point in time, we do not have a TestCaseDefinition
+	# yet to which we could attach the resource requirement. As a stopgap measure,
+	# we add a _twopence_magic_resources member to the function which is used
+	# to hold the resource requirement(s). We then return testfunc to the caller.
+	#
+	# When susetest.test is invokved, it receives the function testfunc,
+	# and does its usual stuff (ie it calls defineTestcase()). At this point
+	# we check for _twopence_magic_resources, and if it exists, we transfer the
+	# stashed requirements to the final TestCaseDefinition.
+	def addTestResource(self, test, requirement):
+		if isinstance(test, TestCaseDefinition):
+			test.resources.append(requirement)
+		else:
+			# This is a function
+			if getattr(test, '_twopence_magic_resources', None) is None:
+				test._twopence_magic_resources = []
+			test._twopence_magic_resources.append(requirement)
+
+	def applyTestResources(self, f, tc):
+		for requirement in getattr(f, '_twopence_magic_resources', []):
+			print(f"Transfer {requirement} to {tc}")
+			tc.resources.append(requirement)
+
 	def defineSetup(self, f):
 		name = f.__module__
 
@@ -315,6 +352,7 @@ class TestsuiteInfo:
 			raise ValueError("Don't know how to handle test defined by %s" % type(f))
 
 		tc = TestCaseDefinition(f)
+		self.applyTestResources(f, tc)
 
 		# print("Defined test case %s" % tc)
 		self.createGroup(tc.group).add(tc)
@@ -528,6 +566,14 @@ class TestDefinition:
 	@staticmethod
 	def optionalResource(*args, **kwargs):
 		TestsuiteInfo.instance().optionalResource(*args, **kwargs)
+
+	@staticmethod
+	def requireTestResource(*args, **kwargs):
+		TestsuiteInfo.instance().requireTestResource(*args, **kwargs)
+
+	@staticmethod
+	def optionalTestResource(*args, **kwargs):
+		TestsuiteInfo.instance().optionalTestResource(*args, **kwargs)
 
 	@staticmethod
 	def defineSetup(*args, **kwargs):
