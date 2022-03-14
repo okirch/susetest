@@ -301,7 +301,7 @@ class Context:
 	def validateMatrix(self, matrix):
 		# print(f"### CHECKING FEATURE COMPAT of {matrix.description} vs {self.platformFeatures}")
 		for role in self.roles.values():
-			if not matrix.validateCompatibility(role.features):
+			if not matrix.validateCompatibility(role.resolution.features):
 				return False
 
 		return True
@@ -702,7 +702,7 @@ class Pipeline:
 				self.valid = False
 
 			for role in context.roles.values():
-				if not test.validateCompatibility(role.platformFeatures):
+				if not test.validateCompatibility(role.resolution.features):
 					test.isCompatible = False
 
 			testcases.append(test)
@@ -726,25 +726,33 @@ class Runner:
 	MODE_SUITES = 1
 
 	class RoleSettings:
-		def __init__(self, name, platform = None, os = None, features = None):
-			import twopence.provision
-
+		def __init__(self, name, platform = None, os = None, buildOptions = None):
 			self.name = name
 			self.platform = platform
-			self.os = None
-			self.features = features or set()
+			self.os = os
+
+			self.buildOptions = set()
+			if buildOptions is not None:
+				self.buildOptions.update(buildOptions)
+
+			self.resolution = None
 			self.repositories = []
+			self.provisionOptions = set()
 
-			self.features.add('twopence')
+		def setOS(self, os):
+			if self.os is not None and self.os != os:
+				raise ValueError(f"Conflicting settings of OS for role {self.name}: {self.os} vs {os}")
+			self.os = os
 
-			self.platformFeatures = twopence.provision.queryPlatformFeatures(self.platform)
-			self.provisionFeatures = self.features.difference(self.platformFeatures)
+		def addBuildOption(self, name):
+			self.buildOptions.add(name)
 
-			if 'twopence' in self.provisionFeatures:
-				self.repositories.append('twopence')
-
-		def __str__(self):
-			return f"Role({self.name}, platform={self.platform})"
+		def setResolution(self, platform):
+			self.resolution = platform
+			self.provisionOptions = self.buildOptions.difference(platform.applied_build_options)
+			if 'twopence' in self.provisionOptions:
+				if 'twopence' not in self.repositories:
+					self.repositories.append('twopence')
 
 	def __init__(self, mode = MODE_TESTS):
 		self.mode = mode
@@ -782,78 +790,103 @@ class Runner:
 	def roles(self):
 		return self._roles.values()
 
-	def definePlatforms(self, args):
-		defaultRole = self.defineRoleSettings("default", args.platform, args.os, args.feature)
+	def createRoleSettings(self, roleName, **kwargs):
+		if roleName not in self._roles:
+			role = self.RoleSettings(roleName, **kwargs)
 
-		def buildDict(what, list):
-			d = {}
+			# We want to run a test - so always make sure twopene is configured.
+			# If we're using vagrant, we also want to enable twopence-tcp
+			role.buildOptions.add('twopence')
+			if self.backend == 'vagrant':
+				role.buildOptions.add('twopence-tcp')
+
+			self._roles[roleName] = role
+		return self._roles[roleName]
+
+	def definePlatforms(self, args):
+		def processRoleOptions(what, list):
 			for option in list:
 				if '=' not in option:
-					error(f"Cannot handle --{what} \"{option}\" - option must be in the form \"role={what}\"")
+					error(f"Cannot handle --{what} \"{option}\" - option must be in the form \"ROLE=NAME\"")
 					raise ValueError(f"Bad --{what} argument")
 
 				name, value = option.split('=', maxsplit = 1)
-				d[name] = value
-			return d
 
-		platformDict = buildDict('role-platform', args.role_platform)
-		osDict = buildDict('role-os', args.role_os)
-		featureDict = buildDict('role-feature', args.role_feature)
+				role = self.createRoleSettings(name)
+				yield role, value
 
-		names = set(platformDict.keys()).union(osDict.keys())
-		for name in names:
-			features = featureDict.get(name)
-			if features is None:
-				features = set()
-			features.update(set(args.feature))
+		defaultRole = self.createRoleSettings('default', platform = args.platform, os = args.os, buildOptions = set(args.feature))
+		for role, name in processRoleOptions('role-os', args.role_os):
+			role.setOS(name)
 
-			self.defineRoleSettings(name,
-					platformDict.get(name),
-					osDict.get(name),
-					features)
+		for role, name in processRoleOptions('role-platform', args.role_platform):
+			role.setPlatform(name)
 
-	def defineRoleSettings(self, roleName, requestedPlatform, requestedOS, requestedFeatures):
-		role = self.findPlatform(roleName, requestedPlatform, requestedOS, requestedFeatures)
-		self._roles[roleName] = role
-		return role
+		for role, name in processRoleOptions('role-feature', args.role_feature):
+			role.addBuildOption(name)
 
-	def findPlatform(self, roleName, requestedPlatform, requestedOS, requestedFeatures):
+		for role in self.roles:
+			if role.platform and role.os:
+				raise ValueError(f"You cannot specify both --role-os and --role-platform")
+			if role.platform is None:
+				if role.os is None:
+					role.platform = defaultRole.platform
+					if role.platform:
+						continue
+					role.os = defaultRole.os
+					if role.os is None:
+						raise ValueError(f"Unable to determine platform for role \"{role.name}\"")
+
+			role.buildOptions.update(defaultRole.buildOptions)
+			self.resolvePlatform(role)
+
+		print("Platform settings for role(s):")
+		for role in self.roles:
+			print(f"{role.name:20} platform {role.resolution.name:40} build {role.provisionOptions}")
+
+	def resolvePlatform(self, role):
 		import twopence.provision
 
-		if requestedPlatform:
-			if requestedOS:
-				raise ValueError(f"You cannot specify both --os and --platform")
-			return self.RoleSettings(roleName, platform = requestedPlatform, features = requestedFeatures)
+		if role.platform:
+			role.setResolution(twopence.provision.getPlatform(role.platform))
+			return
 
-		if not requestedOS:
-			raise ValueError(f"Unable to identify platform")
+		requestedOS = role.os
+		wantedBuildOptions = role.buildOptions
 
-		requestedFeatures = set(requestedFeatures)
-
-		osName = requestedOS.lower()
 		bestMatch = None
 		bestScore = -1
 
-		for platformInfo in twopence.provision.locatePlatformFiles():
-			for platform in platformInfo.platforms:
-				if platform.os is None or platform.os.lower() != osName:
-					continue
+		debug(f"Role {role.name}: finding best platform for OS {requestedOS} with build options {wantedBuildOptions}")
+		for platform in twopence.provision.locatePlatformsForOS(requestedOS, self.backend):
+			if not platform.applied_build_options.issubset(wantedBuildOptions):
+				continue
 
-				score = 2 * len(requestedFeatures.intersection(set(platform.features)))
-				if 'twopence' in platform.features:
-					score += 1
+			# scoring:
+			#  1 points if the platform has twopence installed
+			#  2 points for every other feature that is present
+			score = 2 * len(platform.applied_build_options)
+			if 'twopence' in platform.applied_build_options:
+				score -= 1
 
-				# print(f"{platform.name} scores {score}")
-				if score >= bestScore:
-					bestMatch = platform
-					bestScore = score
+			debug(f"  {platform.name} matches {requestedOS} and {self.backend}. built with {platform.applied_build_options}, score={score}")
+			if score > bestScore:
+				bestMatch = platform
+				bestScore = score
 
 		if bestMatch is None:
 			error(f"Could not find a platform for OS {requestedOS}")
 			return None
 
-		# print(f"The best match for OS {requestedOS} and the requested feature set is {bestMatch.name}")
-		return self.RoleSettings(roleName, platform = bestMatch.name, features = requestedFeatures)
+		lacking = wantedBuildOptions.difference(bestMatch.applied_build_options)
+		if not lacking:
+			info(f"Role {role.name}: {bestMatch.name} is the perfect match for OS {requestedOS} with build options {wantedBuildOptions}")
+		else:
+			info(f"Role {role.name}: {bestMatch.name} is a good match for OS {requestedOS} with build options {wantedBuildOptions}")
+			info(f"The only build option(s) missing: " + ", ".join(lacking))
+
+		role.setResolution(bestMatch)
+		return bestMatch
 
 	def buildTestContext(self, args):
 		self.testrun = args.testrun
@@ -970,11 +1003,11 @@ class Runner:
 
 		for role in context.roles.values():
 			node = tree.add_child("role", role.name)
-			node.set_value("platform", role.platform)
+			node.set_value("platform", role.resolution.name)
 			if role.repositories:
 				node.set_value("repositories", role.repositories)
-			if role.provisionFeatures:
-				node.set_value("build", list(role.provisionFeatures))
+			if role.provisionOptions:
+				node.set_value("build", list(role.provisionOptions))
 
 		if context.parameters:
 			child = tree.add_child("parameters")
