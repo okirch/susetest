@@ -919,11 +919,11 @@ class JournalResource(LogResource):
 
 			# Print the messages themselves w/o prefixing them with the node name
 			# This makes it easier to cut and paste them into bug reports
-			journal = self.target.journal
-			journal.info("== Messages begin ==")
+			logger = self.target.logger
+			logger.logInfo("== Messages begin ==")
 			for line in processed:
-				journal.info("%s" % line)
-			journal.info("== Messages end ==")
+				logger.logInfo(line)
+			logger.logInfo("== Messages end ==")
 
 		return bool(st)
 

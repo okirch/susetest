@@ -391,7 +391,7 @@ class TestsuiteInfo:
 		if self._failing:
 			# Just go through the reporting motions, but don't
 			# claim any resources etc.
-			driver.journal.beginGroup(group.name)
+			driver._logger.beginGroup(group.name)
 		else:
 			driver.beginGroup(group.name)
 
