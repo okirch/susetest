@@ -25,6 +25,10 @@ function get_build_result_name {
 		--debug)
 			main_options+=" $opt";;
 
+		--backend)
+			# ignore for now
+			shift;;
+
 		*)	echo "Cannot handle argument $1" >&2
 			exit 1;;
 		esac
@@ -63,6 +67,10 @@ function prepare_build_conf {
 			fi
 			shift;;
 
+		--backend)
+			backend="backend $1;"
+			shift;;
+
 		*)	: ;;
 		esac
 	done
@@ -74,6 +82,7 @@ function prepare_build_conf {
 	file=$(mktemp /tmp/twopence-build-XXXXXX.conf)
 	cat >$file <<EOF
 testcase build;
+$backend
 node build {
 	platform "$base_platform";
 	$features
