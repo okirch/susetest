@@ -95,10 +95,15 @@ class ResourceRequirement:
 		self.mandatory = mandatory
 
 	def request(self, driver):
-		return driver.acquireResource(self.resourceType, self.resourceName, self.nodeName, mandatory = self.mandatory)
+		result = driver.acquireResource(self.resourceType, self.resourceName, self.nodeName, mandatory = self.mandatory)
+		if type(result) == list:
+			return all(res.is_active for res in result)
+		return res.is_active
 
 	def __str__(self):
-		return "ResourceRequirement(%s %s)" % (self.resourceType, self.resourceName)
+		if self.mandatory:
+			return f"ResourceRequirement({self.resourceType} {self.resourceName})"
+		return f"ResourceRequirement(optional {self.resourceType} {self.resourceName})"
 
 	@property
 	def testID(self):
@@ -164,6 +169,12 @@ class TestCaseDefinition(TestCase):
 					result.add(name)
 
 		return result
+
+	def verifyResources(self, driver):
+		for req in self.resources:
+			if not req.request(driver):
+				return False
+		return True
 
 	def __str__(self):
 		return "TestCase(%s.%s, \"%s\")" % (
@@ -364,7 +375,10 @@ class TestsuiteInfo:
 			driver.skipTest(test.name, test.description)
 		else:
 			driver.beginTest(test.name, test.description)
-			test(driver)
+			if not test.verifyResources(driver):
+				driver.skipTest()
+			else:
+				test(driver)
 			driver.endTest()
 
 	def enumerateSteps(self):
