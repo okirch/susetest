@@ -200,7 +200,7 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 	f.__doc__ = f"selinux.{resourceName}: verify that selinux policy is applied to {resourceName}"
 
 	tc = TestDefinition.defineTestcase(f)
-	tc.addOptionalResource(resourceName)
+	tc.addOptionalResource(resourceType, resourceName, nodeName)
 	tc.addRequires('selinux')
 
 	TestDefinition.optionalResource(resourceType, resourceName, nodeName = nodeName)
@@ -239,7 +239,7 @@ def templateVerifyExecutable(resourceName, arguments, nodeName = None, **kwargs)
 	f.__doc__ = f"general.{testid}: verify that test user can invoke executable {command}"
 
 	tc = TestDefinition.defineTestcase(f)
-	tc.addOptionalResource(resourceName)
+	tc.addOptionalResource('executable', resourceName, nodeName)
 
 	TestDefinition.optionalResource("executable", resourceName, nodeName = nodeName)
 
@@ -294,7 +294,7 @@ def templateVerifyFile(resourceName, nodeName = None, **kwargs):
 	f.__doc__ = f"general.{testid}: verify DAC permissions for file resource {resourceName}"
 
 	tc = TestDefinition.defineTestcase(f)
-	tc.addOptionalResource(resourceName)
+	tc.addOptionalResource('file', resourceName, nodeName)
 
 	TestDefinition.optionalResource("file", resourceName, nodeName = nodeName)
 

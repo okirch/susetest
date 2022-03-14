@@ -149,8 +149,11 @@ class TestCaseDefinition(TestCase):
 	def addRequires(self, name):
 		self.requires.append(name)
 
-	def addOptionalResource(self, name):
-		self.resources.append(name)
+	def addResource(self, req):
+		self.resources.append(req)
+
+	def addOptionalResource(self, *args, **kwargs):
+		self.addResource(ResourceRequirement(*args, **kwargs))
 
 	def lackingRequirements(self, driver):
 		result = set()
@@ -580,7 +583,8 @@ class TestDefinition:
 				if test.unmetRequirements:
 					description.append("unmet requirement(s): %s" % " ".join(test.unmetRequirements))
 				if test.resources:
-					description.append("optional resources: %s" % " ".join(test.resources))
+					description.append("optional resources: %s" % " ".join(
+							map(str, test.resources)))
 				print("    %-20s %s" % (test.name, "; ".join(description)))
 
 		if not printed:
