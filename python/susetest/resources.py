@@ -325,7 +325,7 @@ class PackageBackedResource(Resource):
 			if self.detect():
 				return True
 
-		self.target.logError("resource %s not present" % self)
+		# self.target.logInfo("resource %s not present" % self)
 		return False
 
 	# Default implementation for PackageBackedResource.release
@@ -1088,8 +1088,10 @@ class ResourceAssertion:
 
 		if ok:
 			res.state = self.state
-		else:
+		elif self.mandatory:
 			node.logError("unable to %s resource %s" % (self.verb, res.name))
+		else:
+			node.logInfo("unable to %s resource %s" % (self.verb, res.name))
 
 		return ok
 
