@@ -316,13 +316,14 @@ class PackageBackedResource(Resource):
 		if self.detect():
 			return True
 
-		resource = self.target.optionalPackage(self.package)
-		if resource is None:
-			self.logError(f"resource {self} supposedly backed by package {self.package} - but this package is not defined, or could not be installed")
-			return False
+		if self.package is not None:
+			resource = self.target.optionalPackage(self.package)
+			if resource is None:
+				self.logError(f"resource {self} supposedly backed by package {self.package} - but this package is not defined, or could not be installed")
+				return False
 
-		if self.detect():
-			return True
+			if self.detect():
+				return True
 
 		self.target.logError("resource %s not present" % self)
 		return False
