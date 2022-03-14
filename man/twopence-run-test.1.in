@@ -112,15 +112,15 @@ server with Leap-15.4, enabling SELinux on both client and server:
 .P
 .SH OPTIONS
 .TP
-.BI --platform " PLATFORM
+.BI --platform " PLATFORM\fR, " --role-platform " ROLE" = PLATFORM
 This option specifies the platform with which to provision the SUT nodes.
 See the previous section for a discussion.
 .TP
-.BI --os " OS
+.BI --os " OS\fR, " --role-os " ROLE" = OS
 This option specifies the platform with which to provision the SUT nodes.
 See the previous section for a discussion.
 .TP
-.BI --feature " BUILDOPTION
+.BI --feature " BUILDOPTION\fR, " --role-feature " ROLE" = BUILDOPTION
 This instructs the provisioner to enable \fIBUILDOPTION\fP on all SUT
 nodes. Typical build options would be \fBselinux\fP or \fBfips\fP, for
 instance.
