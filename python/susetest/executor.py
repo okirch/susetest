@@ -839,6 +839,8 @@ class Runner:
 
 			role.buildOptions.update(defaultRole.buildOptions)
 			self.resolvePlatform(role)
+			if role.resolution is None:
+				raise ValueError(f"Could not identify a platform for role {role.name}")
 
 		print("Platform settings for role(s):")
 		for role in self.roles:

@@ -19,7 +19,7 @@ class PackageManager(Feature):
 	def __init__(self):
 		pass
 
-	def enableFeature(self, driver, node):
+	def activate(self, driver, node):
 		node.setPackageManager(self)
 
 	def run(self, node, cmd, **kwargs):

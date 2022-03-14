@@ -11,7 +11,7 @@
 # which indicates that the SUT is running with fips enabled.
 #
 # In order to handle features, define a subclass of Feature
-# and implement the enableFeature() method.
+# and implement the activate() method.
 #
 # In addition, feature implementations can handle domain specific
 # parameters. For example, the selinux feature supports a
@@ -61,15 +61,30 @@ class Feature(object):
 
 			return PackageManagerDNF()
 
+		if name in ('container', 'twopence', ):
+			return DummyFeature(name)
+
 		# raise ValueError("Feature %s not yet implemented" % name)
 		return UnsupportedFeature(name)
 
-	def enableFeature(self, driver, node):
+	@property
+	def requiresActivation(self):
+		return True
+
+	def activate(self, driver, node):
 		raise NotImplementedError()
 
 class UnsupportedFeature(Feature):
 	def __init__(self, name):
 		self.name = name
 
-	def enableFeature(self, driver, node):
-		susetest.say("Running node %s with unsupported feature %s" % (node.name, self.name))
+	def activate(self, driver, node):
+		susetest.say(f"Running node {node.name} with unsupported feature {self.name}")
+
+class DummyFeature(Feature):
+	def __init__(self, name):
+		self.name = name
+
+	@property
+	def requiresActivation(self):
+		return False

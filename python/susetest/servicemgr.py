@@ -22,7 +22,7 @@ class ServiceManager(Feature):
 	def __init__(self):
 		pass
 
-	def enableFeature(self, driver, node):
+	def activate(self, driver, node):
 		node.setServiceManager(self)
 
 class ServiceManagerSystemd(ServiceManager):

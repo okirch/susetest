@@ -137,13 +137,16 @@ class Driver:
 			self._features[name] = feature
 		return feature
 
-	def enableFeature(self, node, featureName):
+	def activateFeature(self, node, group, featureName):
 		feature = self.createFeature(featureName)
 
 		# ignore duplicates
-		if not node.testFeature(feature):
-			feature.enableFeature(self, node)
-			susetest.say("%s: enabled feature %s" % (node.name, featureName))
+		if not node.testFeature(feature) and feature.requiresActivation:
+			group.beginTest(name = f"{node.name}-enable-{featureName}")
+			feature.activate(self, node)
+			susetest.say(f"{node.name}: enabled feature {featureName}")
+			group.endTest()
+
 		node.enabledFeature(feature)
 
 	def getParameter(self, name):
@@ -164,9 +167,7 @@ class Driver:
 
 		for node in self.targets:
 			for feature in node.features:
-				group.beginTest(name = f"{node.name}-enable-{feature}")
-				self.enableFeature(node, feature)
-				group.endTest()
+				self.activateFeature(node, group, feature)
 
 		self._update_hosts_files()
 

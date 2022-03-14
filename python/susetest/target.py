@@ -63,11 +63,11 @@ class Target(twopence.Target):
 
 
 	def setServiceManager(self, serviceManager):
-		susetest.say(f"Setting service manager {serviceManager}")
+		susetest.say(f"Setting service manager {serviceManager.name}")
 		self.serviceManager = serviceManager
 
 	def setPackageManager(self, packageManager):
-		susetest.say(f"Setting package manager {packageManager}")
+		susetest.say(f"Setting package manager {packageManager.name}")
 		self.packageManager = packageManager
 
 	# family 42.1 , 12.2 etc

@@ -192,7 +192,7 @@ class SELinux(Feature):
 
 	# Acquire the journal monitoring resource, and install a
 	# message filter that checks for SELinux related kernel messages
-	def enableFeature(self, driver, node):
+	def activate(self, driver, node):
 		resource = node.requireEvents("audit", defer = True)
 
 		filter = SELinuxMessageFilter()
