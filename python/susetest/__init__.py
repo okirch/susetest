@@ -95,6 +95,23 @@ def requireResource(resourceName, resourceType = None, nodeName = None, **kwargs
 def optionalResource(resourceName, resourceType = None, nodeName = None, **kwargs):
 	TestDefinition.optionalResource(resourceType, resourceName, nodeName, **kwargs)
 
+# You can use the following to annotate individual test cases. If the specified resource
+# not available, the test is skipped automatically.
+#
+# @susetest.test
+# @susetest.optionalTestResource('executable', 'fancycommand')
+# def test_fancycommand(driver):
+#	...
+#
+# The order of decorators is not significant; you should also be able to swap the
+# two decorators in the above example.
+def optionalTestResource(resourceType, resourceName, nodeName = None):
+	def wrapper(f):
+		TestDefinition.optionalTestResource(f, resourceType, resourceName, nodeName)
+		return f
+
+	return wrapper
+
 # susetest.resource decorator
 def resource(klass):
 	TestDefinition.defineResource(klass)
