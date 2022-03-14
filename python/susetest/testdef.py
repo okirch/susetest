@@ -462,7 +462,7 @@ class TestsuiteInfo:
 						found = True
 
 			if not found:
-				raise ValueError("Did not find any tests maching --only \"%s\"" % id)
+				raise ValueError("Did not find any tests matching --only \"%s\"" % id)
 
 	def executeSkip(self, skip):
 		for id in skip:
@@ -482,7 +482,7 @@ class TestsuiteInfo:
 						found = True
 
 			if not found:
-				raise ValueError("Did not find any tests maching --only \"%s\"" % id)
+				raise ValueError("Did not find any tests matching --skip \"%s\"" % id)
 
 	def verifyRequirements(self, driver):
 		for group in self.groups:
@@ -546,8 +546,6 @@ class TestDefinition:
 			help = "Skip the named test case or group")
 		p.add_option('--only', action = 'append', default = [],
 			help = "Skip all but the named test case or group")
-		p.add_option('--on-failure',
-			help = "Specify reaction to a failed test case (continue, abort, shell) [default: continue]")
 
 		(opts, args) = p.parse_args()
 
