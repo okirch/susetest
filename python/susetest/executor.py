@@ -15,12 +15,7 @@ import readline
 import atexit
 from .logger import LogParser
 from .results import ResultsVector, ResultsMatrix
-
-def info(msg):
-	print("== %s" % msg)
-
-def error(msg):
-	print(f"Error: {msg}")
+from twopence import logger, info, debug, error
 
 class AbortedTestcase(Exception):
 	pass
@@ -756,6 +751,9 @@ class Runner:
 
 		parser = self.build_arg_parser()
 		args = parser.parse_args()
+
+		if args.debug:
+			twopence.logger.enableLogLevel('debug')
 
 		self.valid = False
 		self._roles = {}
