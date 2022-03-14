@@ -758,6 +758,7 @@ class Runner:
 		self.valid = False
 		self._roles = {}
 		self.matrix = None
+		self.backend = args.backend or 'vagrant'
 
 		self.definePlatforms(args)
 		self.buildTestContext(args)
@@ -965,6 +966,8 @@ class Runner:
 		config = curly.Config()
 		tree = config.tree()
 
+		tree.set_value("backend", self.backend)
+
 		for role in context.roles.values():
 			node = tree.add_child("role", role.name)
 			node.set_value("platform", role.platform)
@@ -995,6 +998,8 @@ class Runner:
 		import argparse
 
 		parser = argparse.ArgumentParser(description = 'Provision and run tests.')
+		parser.add_argument('--backend',
+			help = 'specify provisioning backend (vagrant, podman, ... - defaults to vagrant)')
 		parser.add_argument('--platform',
 			help = 'specify the OS platform to use for all nodes and roles')
 		parser.add_argument('--os',
