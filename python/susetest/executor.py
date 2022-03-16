@@ -731,9 +731,10 @@ class Runner:
 	MODE_SUITES = 1
 
 	class RoleSettings:
-		def __init__(self, name, platform = None, os = None, buildOptions = None):
+		def __init__(self, name, platform = None, application = None, os = None, buildOptions = None):
 			self.name = name
 			self.platform = platform
+			self.application = application
 			self.os = os
 
 			self.buildOptions = set()
@@ -743,6 +744,11 @@ class Runner:
 			self.resolution = None
 			self.repositories = []
 			self.provisionOptions = set()
+
+		def setApplication(self, application):
+			if self.application is not None and self.application != application:
+				raise ValueError(f"Conflicting settings of application for role {self.name}: {self.application} vs {application}")
+			self.application = application
 
 		def setOS(self, os):
 			if self.os is not None and self.os != os:
@@ -826,9 +832,12 @@ class Runner:
 				role = self.createRoleSettings(name)
 				yield role, value
 
-		defaultRole = self.createRoleSettings('default', platform = args.platform, os = args.os, buildOptions = set(args.feature))
+		defaultRole = self.createRoleSettings('default', platform = args.platform, application = args.application, os = args.os, buildOptions = set(args.feature))
 		for role, name in processRoleOptions('role-os', args.role_os):
 			role.setOS(name)
+
+		for role, name in processRoleOptions('role-application', args.role_application):
+			role.setApplication(name)
 
 		for role, name in processRoleOptions('role-platform', args.role_platform):
 			role.setPlatform(name)
@@ -840,13 +849,18 @@ class Runner:
 			if role.platform and role.os:
 				raise ValueError(f"You cannot specify both --role-os and --role-platform")
 			if role.platform is None:
-				if role.os is None:
+				if role.os or role.application:
+					pass
+				else:
 					role.platform = defaultRole.platform
 					if role.platform:
 						continue
+
+					role.application = defaultRole.application
 					role.os = defaultRole.os
-					if role.os is None:
-						raise ValueError(f"Unable to determine platform for role \"{role.name}\"")
+
+				if role.os is None and role.application is None:
+					raise ValueError(f"Unable to determine platform for role \"{role.name}\"")
 
 			role.buildOptions.update(defaultRole.buildOptions)
 			self.resolvePlatform(role)
@@ -870,8 +884,17 @@ class Runner:
 		bestMatch = None
 		bestScore = -1
 
-		debug(f"Role {role.name}: finding best platform for OS {requestedOS} with build options {wantedBuildOptions}")
-		for platform in twopence.provision.locatePlatformsForOS(requestedOS, self.backend):
+		if role.application:
+			if wantedBuildOptions:
+				raise ValueError("Use of application images not compatible with any build options")
+
+			debug(f"Role {role.name}: finding best application {role.application} for OS {requestedOS}")
+			found = list(twopence.provision.locateApplicationsForOS(role.application, requestedOS, self.backend))
+		else:
+			debug(f"Role {role.name}: finding best platform for OS {requestedOS} with build options {wantedBuildOptions}")
+			found = list(twopence.provision.locatePlatformsForOS(requestedOS, self.backend))
+
+		for platform in found:
 			if not platform.applied_build_options.issubset(wantedBuildOptions):
 				continue
 
@@ -1017,7 +1040,10 @@ class Runner:
 
 		for role in context.roles.values():
 			node = tree.add_child("role", role.name)
-			node.set_value("platform", role.resolution.name)
+			if role.resolution.isApplication:
+				node.set_value("application", role.resolution.name)
+			else:
+				node.set_value("platform", role.resolution.name)
 			if role.repositories:
 				node.set_value("repositories", role.repositories)
 			if role.provisionOptions:
@@ -1049,6 +1075,8 @@ class Runner:
 			help = 'specify provisioning backend (vagrant, podman, ... - defaults to vagrant)')
 		parser.add_argument('--platform',
 			help = 'specify the OS platform to use for all nodes and roles')
+		parser.add_argument('--application',
+			help = 'specify the application to deploy to all nodes')
 		parser.add_argument('--os',
 			help = 'specify the OS to use for all nodes and roles')
 		parser.add_argument('--testrun',
@@ -1081,7 +1109,9 @@ class Runner:
 		parser.add_argument('--role-os', default = [], action = 'append',
 			help = 'specify the OS to use for a specific role')
 		parser.add_argument('--role-feature', default = [], action = 'append',
-			help = 'Specify features you want the deployed image to provide for a specific role')
+			help = 'specify features you want the deployed image to provide for a specific role')
+		parser.add_argument('--role-application', default = [], action = 'append',
+			help = 'specify the application to deploy to for a specific role')
 
 		if self.mode == self.MODE_TESTS:
 			parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
