@@ -267,7 +267,7 @@ class TestThing:
 class Context:
 	def __init__(self, workspace, logspace, parent = None,
 			parameters = [],
-			dryrun = False, debug = False, quiet = False, clobber = False,
+			dryrun = False, debug = False, debug_schema = False, quiet = False, clobber = False,
 			roles = {},
 			results = None):
 
@@ -280,12 +280,14 @@ class Context:
 
 			self.dryrun = parent.dryrun
 			self.debug = parent.debug
+			self.debug_schema = parent.debug_schema
 			self.quiet = parent.quiet
 			self.clobber = parent.clobber
 		else:
 			self.roles = roles
 			self.dryrun = dryrun
 			self.debug = debug
+			self.debug_schema = debug_schema
 			self.quiet = quiet
 			self.clobber = clobber
 
@@ -360,6 +362,7 @@ class Testcase(TestThing):
 		self.logspace = context.createLogspaceFor(name)
 		self.dryrun = context.dryrun
 		self.debug = context.debug
+		self.debug_schema = context.debug_schema
 		self.quiet = context.quiet
 
 		self.isCompatible = True
@@ -515,6 +518,8 @@ class Testcase(TestThing):
 		argv = [cmd]
 		if self.debug:
 			argv.append("--debug")
+		if self.debug_schema:
+			argv.append("--debug-schema")
 
 		argv += args
 
@@ -915,6 +920,7 @@ class Runner:
 				parameters = args.parameter,
 				dryrun = args.dry_run,
 				debug = args.debug,
+				debug_schema = args.debug_schema,
 				clobber = args.clobber)
 
 		return
@@ -1061,6 +1067,8 @@ class Runner:
 			help = 'Do not run any commands, just show what would be done')
 		parser.add_argument('--debug', default = False, action = 'store_true',
 			help = 'Enable debugging output from the provisioner')
+		parser.add_argument('--debug-schema', default = False, action = 'store_true',
+			help = 'Enable schema debugging output from the provisioner')
 		parser.add_argument('--quiet', default = False, action = 'store_true',
 			help = 'Do not show output of provisioning and test script')
 		parser.add_argument('--feature', default = [], action = 'append',
