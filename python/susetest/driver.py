@@ -332,8 +332,8 @@ class Driver:
 			target.defineStringResource("ipv6_loopback", "::1")
 
 
-		# Require test-user resource for all nodes
-		self.requireUser("test-user")
+		# Do not require test-user resource for all nodes
+		# self.requireUser("test-user")
 
 	# Set any paramaters passed to us
 	def _set_parameters(self):
