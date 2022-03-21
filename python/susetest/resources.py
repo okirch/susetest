@@ -738,7 +738,7 @@ class FileResource(PackageBackedResource):
 	# the resource definition
 
 	def detect(self):
-		st = self.target.run("test -a '%s'" % self.path, user = "root")
+		st = self.target.run("test -f '%s'" % self.path, user = "root")
 		return bool(st)
 
 	# this is the namedtuple type that the stat() method returns
