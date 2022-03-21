@@ -1,10 +1,11 @@
 include Make.defs
 
-SUBDIRS	= python
+INSTALL_MOD_DIR = $(PYTHON_INSTDIR)/susetest
+SUBDIRS	= 
 
 HELPERS	= build-image run-test run-suite list-platforms tabulate-results
 
-INSTALL	= install-helpers
+INSTALL	= install-python install-helpers
 CLEAN	=
 BUILD	=
 ifeq ($(INSTALL_MANPAGES),true)
@@ -21,6 +22,10 @@ all install clean distclean::
 all:: $(BUILD) ;
 install:: $(INSTALL) ;
 clean:: $(CLEAN) ;
+
+install-python:
+	install -d $(DESTDIR)$(INSTALL_MOD_DIR)
+	install -m444 python/susetest/*.py $(DESTDIR)$(INSTALL_MOD_DIR)
 
 install-helpers:
 	install -d $(DESTDIR)$(TWOPENCE_BINDIR)
