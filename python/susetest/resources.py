@@ -928,6 +928,39 @@ class JournalResource(LogResource):
 		return bool(st)
 
 ##################################################################
+# ApplicationResources define stuff that the provisioner
+# would like to tell us about
+##################################################################
+class ApplicationResource(Resource):
+	@property
+	def is_present(self):
+		return True
+
+	def acquire(self, driver):
+		return True
+
+	def release(self, driver):
+		return True
+
+class ApplicationVolumeResource(ApplicationResource):
+	resource_type = "volume"
+	attributes = {}
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteApplicationVolumeResource(node, resourceName)
+
+class ConcreteApplicationVolumeResource(ApplicationVolumeResource):
+	def __init__(self, target, name):
+		self.name = name
+		super().__init__(target)
+		self.mountpoint = None
+		self.fstype = None
+
+	def describe(self):
+		return "volume(%s)" % self.name
+
+##################################################################
 # Manage all resources.
 # This is a bit convoluted, and involves several classes that
 # are needed to keep track.
@@ -985,11 +1018,13 @@ class ResourceInventory:
 		klass.defineResourceType(AuditResource)
 		klass.defineResourceType(PackageResource)
 		klass.defineResourceType(SubsystemResource)
+		klass.defineResourceType(ApplicationVolumeResource)
 
 	@classmethod
 	def defineResourceType(klass, rsrc_class):
 		if not hasattr(rsrc_class, 'attributes'):
-			print("%s: please define valid attributes for class %s" % (self.__class__.__name__, rsrc_class.__name__))
+			import twopence
+			twopence.error(f"{klass.__name__}: please define valid attributes for class {rsrc_class.__name__}")
 			raise NotImplementedError()
 
 		klass._res_type_by_name[rsrc_class.resource_type] = rsrc_class
@@ -1689,6 +1724,17 @@ class ResourceManager:
 
 	def getResource(self, *args, **kwargs):
 		return self.inventory.getResource(*args, **kwargs)
+
+	# given a list of resources, return those that are of a given type
+	def filterResources(self, resourceType, resourceList):
+		klass = ResourceInventory._res_type_by_name.get(resourceType)
+		if klass is None:
+			twopence.warning(f"Unknown resource type {resourceType}")
+			return
+
+		for res in resourceList:
+			if isinstance(res, klass):
+				yield res
 
 	@property
 	def pending(self):

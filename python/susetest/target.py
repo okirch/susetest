@@ -61,6 +61,16 @@ class Target(twopence.Target):
 		self._build = None
 		self._hostname = None
 
+		for child in node_config:
+			if child.type == 'application-resources':
+				for grandChild in child:
+					self.configureRuntimeResource(grandChild)
+
+		# you can now access all application resources of this target
+		# using properties. For instance, any volumes that have been provisioned
+		# can be iterated over using
+		#	for res in self.allVolumeResources:
+		#		print(f"found {res}")
 
 	def setServiceManager(self, serviceManager):
 		susetest.say(f"Setting service manager {serviceManager.name}")
@@ -69,6 +79,17 @@ class Target(twopence.Target):
 	def setPackageManager(self, packageManager):
 		susetest.say(f"Setting package manager {packageManager.name}")
 		self.packageManager = packageManager
+
+	def configureRuntimeResource(self, config):
+		res = self.instantiateResourceTypeAndName(config.type, config.name, strict = None)
+		if res is None:
+			return
+
+		if config.type == 'volume':
+			res.mountpoint = config.get_value('mountpoint')
+			res.fstype = config.get_value('fstype')
+
+		twopence.debug(f"defined application resource {res}")
 
 	# family 42.1 , 12.2 etc
 	@property
@@ -210,20 +231,30 @@ class Target(twopence.Target):
 		key = "%s:%s" % (type, name)
 		return self._resources.get(key)
 
+	@property
+	def allVolumeResources(self):
+		return self.getAllResources('volume')
+
+	def getAllResources(self, resourceType):
+		return list(self.resourceManager.filterResources(resourceType, self._resources.values()))
+
 	def acquireResourceTypeAndName(self, resourceType, resourceName, **stateArgs):
 		res = self.instantiateResourceTypeAndName(resourceType, resourceName)
 		self.acquireResource(res, **stateArgs)
 		return res
 
-	def instantiateResourceTypeAndName(self, type, name):
+	def instantiateResourceTypeAndName(self, type, name, strict = True):
 		assert(self.resourceManager)
 
 		res = self.getResource(type, name)
 		if res is None:
 			res = self.resourceManager.getResource(self, type, name, create = True)
-			if res is None:
+			if res is not None:
+				self.addResource(res)
+			elif strict:
 				raise ValueError("failed to instantiate %s resource \"%s\"" % (type, name))
-			self.addResource(res)
+
+			# else: fallthru and return None
 
 		return res
 
