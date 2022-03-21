@@ -863,7 +863,7 @@ class Runner:
 					raise ValueError(f"Unable to determine platform for role \"{role.name}\"")
 
 			role.buildOptions.update(defaultRole.buildOptions)
-			self.resolvePlatform(role)
+			self.resolvePlatform(role, args.gold_only)
 			if role.resolution is None:
 				raise ValueError(f"Could not identify a platform for role {role.name}")
 
@@ -871,7 +871,7 @@ class Runner:
 		for role in self.roles:
 			print(f"{role.name:20} platform {role.resolution.name:40} build {role.provisionOptions}")
 
-	def resolvePlatform(self, role):
+	def resolvePlatform(self, role, goldenImagesOnly):
 		import twopence.provision
 
 		if role.platform:
@@ -898,6 +898,10 @@ class Runner:
 			if not platform.applied_build_options.issubset(wantedBuildOptions):
 				continue
 
+			if goldenImagesOnly and platform.built_from:
+				debug(f"{platform.name} is not a golden image, ignored")
+				continue
+
 			# scoring:
 			#  1 points if the platform has twopence installed
 			#  2 points for every other feature that is present
@@ -906,7 +910,7 @@ class Runner:
 				score -= 1
 
 			debug(f"  {platform.name} matches {requestedOS} and {self.backend}. built with {platform.applied_build_options}, score={score}")
-			if score > bestScore:
+			if score >= bestScore:
 				bestMatch = platform
 				bestScore = score
 
@@ -1112,6 +1116,9 @@ class Runner:
 			help = 'specify features you want the deployed image to provide for a specific role')
 		parser.add_argument('--role-application', default = [], action = 'append',
 			help = 'specify the application to deploy to for a specific role')
+
+		parser.add_argument('--gold-only', default = False, action = 'store_true',
+			help = 'Ignore silver images and only use golden images')
 
 		if self.mode == self.MODE_TESTS:
 			parser.add_argument('testcase', metavar='TESTCASE', nargs='+',

@@ -121,13 +121,17 @@ This option specifies the platform with which to provision the SUT nodes.
 See the previous section for a discussion.
 .TP
 .BI --feature " BUILDOPTION\fR, " --role-feature " ROLE" = BUILDOPTION
-This instructs the provisioner to enable \fIBUILDOPTION\fP on all SUT
+This instructs the provisioner to enable \fIBUILDOPTION\fP on SUT
 nodes. Typical build options would be \fBselinux\fP or \fBfips\fP, for
 instance.
 .IP
 Note that \fBrun-test\fP will silently append \fBtwopence\fP to the
 build options, which instructs the provisioner to install the twopence
 SUT infrastrucutre on the node.
+.TP
+.BI "--gold-only
+Instructs \fBrun-test\fP to ignore any silver images (ie images that were
+built by the user using \fBtwopence-build-image\fP(1).)
 .TP
 .BI "--parameter " name = value
 Provide additional parameters to the test run. For example, when executing
