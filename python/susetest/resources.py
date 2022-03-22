@@ -116,6 +116,7 @@ import sys
 import re
 import crypt
 import functools
+import twopence
 from .files import FileFormatRegistry
 
 class Resource:
@@ -709,6 +710,7 @@ class FileResource(PackageBackedResource):
 		'path'			: str,
 		'format'		: str,
 		'package'		: str,
+		'volume'		: str,
 		'selinux_label_domain'	: str,
 		'dac_user'		: str,
 		'dac_group'		: str,
@@ -717,6 +719,7 @@ class FileResource(PackageBackedResource):
 
 	path = None
 	format = None
+	volume = None
 	selinux_label_domain = None
 	dac_user = None
 	dac_group = None
@@ -725,8 +728,12 @@ class FileResource(PackageBackedResource):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
+		self.host_path = None
+
 	def describe(self):
-		return "file(%s) = \"%s\"" % (self.name, self.path)
+		if self.volume:
+			return f"file({self.name}) = {self.path} at volume {self.volume}"
+		return f"file({self.name}) = {self.path}"
 
 	@property
 	def is_present(self):
@@ -738,8 +745,47 @@ class FileResource(PackageBackedResource):
 	# the resource definition
 
 	def detect(self):
+		if self.volume and self.resolveVolumeReference():
+			self.volume = None
+
 		st = self.target.run("test -f '%s'" % self.path, user = "root")
 		return bool(st)
+
+	# Container applications frequently expect their configuration to reside on
+	# a separate volume that is mounted into the container.
+	# In this case, they will copy info on the file resources into status.conf,
+	# looking somewhat like this:
+	#	 file "nginx.conf" {
+	#            volume        "config";
+	#            path          "nginx.conf";
+	#        }
+	# Chase these references and set the resource's .path attribute to the path
+	# of the file *inside* the container.
+	# If the volume is visible from the host (as will be the case with bind mounts),
+	# set the .host_path as well.
+	def resolveVolumeReference(self):
+		if self.volume is None:
+			return True
+
+		if self.package:
+			info(f"{self}: ignoring package for files residing on runtime volume {self.volume}")
+			self.package = None
+
+		volume = self.target.requireVolume(self.volume)
+		if not volume:
+			return False
+
+		orig_path = self.path
+		path = orig_path.lstrip('/')
+
+		self.path = os.path.join(volume.mountpoint, path)
+		twopence.debug(f"Resolved file path {orig_path}@volume({self.volume}) => {self.path}")
+
+		if volume.host_path:
+			self.host_path = os.path.join(volume.host_path, path)
+			twopence.debug(f"  host path = {self.host_path}")
+
+		return True
 
 	# this is the namedtuple type that the stat() method returns
 	xstat = functools.namedtuple('stat', ['user', 'group', 'permissions'])
@@ -960,6 +1006,25 @@ class ConcreteApplicationVolumeResource(ApplicationVolumeResource):
 	def describe(self):
 		return "volume(%s)" % self.name
 
+class ApplicationPortResource(ApplicationResource):
+	resource_type = "port"
+	attributes = {}
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteApplicationPortResource(node, resourceName)
+
+class ConcreteApplicationPortResource(ApplicationPortResource):
+	def __init__(self, target, name):
+		self.name = name
+		super().__init__(target)
+		self.port = None
+		self.protocol = None
+		self.expose = None
+
+	def describe(self):
+		return "port(%s)" % self.name
+
 ##################################################################
 # Manage all resources.
 # This is a bit convoluted, and involves several classes that
@@ -1019,6 +1084,7 @@ class ResourceInventory:
 		klass.defineResourceType(PackageResource)
 		klass.defineResourceType(SubsystemResource)
 		klass.defineResourceType(ApplicationVolumeResource)
+		klass.defineResourceType(ApplicationPortResource)
 
 	@classmethod
 	def defineResourceType(klass, rsrc_class):

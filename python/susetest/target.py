@@ -69,7 +69,9 @@ class Target(twopence.Target):
 		# you can now access all application resources of this target
 		# using properties. For instance, any volumes that have been provisioned
 		# can be iterated over using
-		#	for res in self.allVolumeResources:
+		#	for res in target.allVolumeResources:
+		#		print(f"found {res}")
+		#	for res in target.allPortResources:
 		#		print(f"found {res}")
 
 	def setServiceManager(self, serviceManager):
@@ -85,11 +87,21 @@ class Target(twopence.Target):
 		if res is None:
 			return
 
+		# THIS is crappy and needs a better solution.
+		# I'm afraid though that this will have to wait until I get
+		# around to resolving the resource handling mess I created. --okir
 		if config.type == 'volume':
 			res.mountpoint = config.get_value('mountpoint')
 			res.fstype = config.get_value('fstype')
+			res.host_path = config.get_value('host-path')
+		elif config.type == 'port':
+			res.port = config.get_value('internal-port')
+			res.protocol = config.get_value('protocol')
+		elif config.type == 'file':
+			res.volume = config.get_value('volume')
+			res.path = config.get_value('path')
 
-		twopence.debug(f"defined application resource {res}")
+		twopence.info(f"Defined application resource {res}")
 
 	# family 42.1 , 12.2 etc
 	@property
@@ -185,6 +197,12 @@ class Target(twopence.Target):
 	def requireEvents(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName(name, name, mandatory = True, **stateArgs)
 
+	def requireVolume(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("volume", name, mandatory = True, **stateArgs)
+
+	def requirePort(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("port", name, mandatory = True, **stateArgs)
+
 	def optionalUser(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("user", name, mandatory = False, **stateArgs)
 
@@ -234,6 +252,10 @@ class Target(twopence.Target):
 	@property
 	def allVolumeResources(self):
 		return self.getAllResources('volume')
+
+	@property
+	def allPortResources(self):
+		return self.getAllResources('port')
 
 	def getAllResources(self, resourceType):
 		return list(self.resourceManager.filterResources(resourceType, self._resources.values()))
