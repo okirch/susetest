@@ -25,13 +25,17 @@ class FileFormatRegistry(object):
 
 	@classmethod
 	def createEditor(klass, target, format, path):
+		return klass.createEditorForProxy(RemoteFileProxy(target, path), format)
+
+	@classmethod
+	def createEditorForProxy(klass, proxy, format):
 		registry = klass.instance()
 
 		format_klass = registry.lookupFormat(format)
 		if format_klass is None:
 			return None
 
-		return FileEditor(target, path, format_klass())
+		return FileEditor(proxy, format_klass())
 
 	def lookupFormat(self, name):
 		return self.formats.get(name)
@@ -61,16 +65,82 @@ class FileFormatRegistry(object):
 	def _registerFormat(self, format_klass):
 		self.formats[format_klass.file_type] = format_klass
 
-class FileEditor(object):
-	def __init__(self, node, path, format):
-		self.target = node
+class FileProxy:
+	def __init__(self, target, path):
+		self.target = target
 		self.path = path
+
+	def logFailure(self, msg):
+		self.target.logFailure(msg)
+
+	def logError(self, msg):
+		self.target.logError(msg)
+
+	def logInfo(self, msg):
+		self.target.logInfo(msg)
+
+class RemoteFileProxy(FileProxy):
+	def __init__(self, target, path):
+		super().__init__(target, path)
+
+	def __str__(self):
+		return f"node={self.target.name}, path={self.path}"
+
+	def read(self, **kwargs):
+		node = self.target
+
+		data = node.recvbuffer(self.path, user = "root", **kwargs)
+		if not data:
+			self.logFailure(f"Failed to download {self.path}")
+
+		return data
+
+	def write(self, data, **kwargs):
+		node = self.target
+		if not node.sendbuffer(self.path, data, user = "root", **kwargs):
+			node.logFailure(f"Failed to store updated file {self.path}")
+			return False
+
+		return True
+
+	def copyTo(self, destPath):
+		st = self.target.run(f"cp {self.path} {destPath}", quiet = True)
+		if not st:
+			self.logFailure(f"Failed to copy {self.path} to {destPath}: {st.message}")
+		return bool(st)
+
+	def remove(self, destPath):
+		st = self.target.run(f"rm -f {destPath}", quiet = True)
+		if not st:
+			self.logFailure(f"Failed to remove {destPath}: {st.message}")
+		return bool(st)
+
+	def copyToOnce(self, destPath):
+		st = self.target.run(f"test -f {destPath} || cp -p {self.path} {destPath}", quiet = True)
+		if not st:
+			self.logFailure(f"Failed to back up {self.path} to {destPath}: {st.message}")
+		return bool(st)
+
+	def displayDiff(self, origPath):
+		import susetest
+
+		st = self.target.run(f"diff -u {origPath} {self.path}", quiet = True)
+		if st.code == 0:
+			self.logInfo(f"File {self.path} remains unchanged")
+		elif st.code == 1:
+			self.logInfo(f"Showing the difference between old and new {self.path}")
+			for line in st.stdoutString.split("\n"):
+				susetest.say(line)
+
+class FileEditor(object):
+	def __init__(self, proxy, format):
+		self.proxy = proxy
 		self.format = format
 
 		self.rewriter = None
 
 	def __str__(self):
-		return f"{self.__class__.__name__}(node={self.target.name}, path={self.path})"
+		return f"{self.__class__.__name__}({self.proxy})"
 
 	def makeKey(self, *args, **kwargs):
 		return self.format.makeKey(*args, **kwargs)
@@ -79,10 +149,10 @@ class FileEditor(object):
 		return self.format.makeEntry(*args, **kwargs)
 
 	def _createReader(self):
-		return FileReader(self.target, self.path, self.format)
+		return FileReader(self.proxy, self.format)
 
 	def _createRewriter(self):
-		return FileRewriter(self.target, self.path, self.format)
+		return FileRewriter(self.proxy, self.format)
 
 	def entries(self):
 		reader = self._createReader()
@@ -144,25 +214,19 @@ class FileEditor(object):
 		return
 
 class FileReader(object):
-	def __init__(self, target, path, format):
-		self.target = target
-		self.path = path
+	def __init__(self, proxy, format):
+		self.proxy = proxy
 		self.format = format
 		self.data = None
 
+	@property
+	def path(self):
+		return self.proxy.path
+
 	def receive(self):
 		if self.data is None:
-			self.data = self.download()
+			self.data = self.proxy.read(quiet = True)
 		return self.data
-
-	def download(self):
-		node = self.target
-
-		data = node.recvbuffer(self.path, user = "root", quiet = True)
-		if not data:
-			node.logError(f"unable to download {self.path}")
-
-		return data
 
 	def entries(self):
 		data = self.receive()
@@ -205,35 +269,25 @@ class FileRewriter(FileReader):
 			self.modified = True
 
 	def commit(self):
-		import susetest
-
-		node = self.target
+		proxy = self.proxy
 
 		if not self.modified:
-			node.logInfo(f"Not writing back {self.path}: content remains unmodified")
+			proxy.logInfo(f"Not writing back {self.path}: content remains unmodified")
 			return
 
 		diff_orig = f"{self.path}.diff_orig"
 		if self.showDiff:
-			node.run(f"cp {self.path} {diff_orig}", quiet = True)
+			proxy.copyTo(diff_orig)
 
 		# Always make sure we have a backup copy of the original file
-		node.run(f"test -f {self.path}.orig || cp -p {self.path} {self.path}.orig", quiet = True)
+		proxy.copyToOnce(f"{self.path}.orig")
 
-		if not node.sendbuffer(self.path, self.data, user = "root", quiet = self.showDiff):
-			node.logFailure(f"Failed store updated file {self.path}")
+		if not proxy.write(self.data, quiet = self.showDiff):
 			return
 
 		if self.showDiff:
-			st = node.run(f"diff -u {diff_orig} {self.path}", quiet = True)
-			if st.code == 0:
-				node.logInfo(f"File {self.path} remains unchanged")
-			elif st.code == 1:
-				node.logInfo(f"Showing the difference between old and new {self.path}")
-				for line in st.stdoutString.split("\n"):
-					susetest.say(line)
-
-			node.run(f"rm -f {diff_orig}", quiet = True)
+			proxy.displayDiff(diff_orig)
+			proxy.remove(diff_orig)
 
 		self.modified = False
 
