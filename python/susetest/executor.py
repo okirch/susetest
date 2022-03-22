@@ -141,7 +141,13 @@ class InteractionPostProvisioning(Interaction):
 
 			name = args[0]
 			print("Trying to connect to node %s" % name)
-			testcase.runProvisioner("login", name)
+
+			# Using nsenter messes with the tty in a way that python's
+			# input() function has a hard time recovering from.
+			# Things end in tears and a nasty SIGTTOU.
+			# So instead, we use a pty to insulate our tty from
+			# whatever happens in nsenter.
+			testcase.runProvisioner("login", name, usePty = True)
 
 class InteractionPostTestRun(InteractionPostProvisioning):
 	def rerun(self, testcase, *args):
@@ -511,10 +517,36 @@ class Testcase(TestThing):
 
 		self.stage = self.STAGE_DESTROYED
 
-	def runProvisioner(self, *args):
-		return self.runCommand("twopence provision", "--workspace", self.workspace, *args)
+	def runProvisioner(self, *args, **kwargs):
+		return self.runCommand("twopence", "provision", "--workspace", self.workspace, *args, **kwargs)
 
-	def runCommand(self, cmd, *args):
+	class PtyCommand:
+		def __init__(self, argv):
+			self.argv = argv
+			self.winszChanged = True
+
+		def execute(self):
+			import pty
+
+			r = pty.spawn(self.argv, self.readFromMaster)
+			return r
+
+		def updateWindowSize(self, masterFd, terminalFd):
+			import fcntl
+			import termios
+			import struct
+
+			data = bytearray(8)
+			fcntl.ioctl(terminalFd, termios.TIOCGWINSZ, data)
+			fcntl.ioctl(masterFd, termios.TIOCSWINSZ, data)
+
+		def readFromMaster(self, fd):
+			if self.winszChanged:
+				self.updateWindowSize(fd, 0)
+				self.winszChanged = False
+			return os.read(fd, 1024)
+
+	def runCommand(self, cmd, *args, usePty = False):
 		argv = [cmd]
 		if self.debug:
 			argv.append("--debug")
@@ -526,6 +558,10 @@ class Testcase(TestThing):
 		# info("Executing command:")
 		cmd = " ".join(argv)
 		print("    " + cmd)
+
+		if usePty:
+			cmd = self.PtyCommand(argv)
+			return cmd.execute()
 
 		if self.dryrun:
 			return 0
