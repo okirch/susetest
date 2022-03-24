@@ -61,7 +61,8 @@ class Target(twopence.Target):
 		self._build = None
 		self._hostname = None
 
-		for child in node_config:
+	def configureApplicationResources(self):
+		for child in self.node_config:
 			if child.type == 'application-resources':
 				for grandChild in child:
 					self.configureRuntimeResource(grandChild)

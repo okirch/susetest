@@ -331,7 +331,6 @@ class Driver:
 			target.defineStringResource("ipv4_loopback", "127.0.0.1")
 			target.defineStringResource("ipv6_loopback", "::1")
 
-
 		# Do not require test-user resource for all nodes
 		# self.requireUser("test-user")
 
@@ -383,6 +382,7 @@ class Driver:
 	def _set_os_resources(self):
 		for node in self.targets:
 			self.resourceManager.loadPlatformResources(node, node.resource_files)
+			node.configureApplicationResources()
 
 	def _update_hosts_files(self):
 		entries = []
