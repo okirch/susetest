@@ -777,6 +777,42 @@ class PathResource(PackageBackedResource):
 		kwargs = dict([s.split('=') for s in st.stdoutString.split()])
 		return self.xstat(**kwargs)
 
+class DirectoryResource(PathResource):
+	resource_type = "directory"
+
+	attributes = {
+		# for PackageBackedResource
+		'package'		: str,
+
+		# for PathResource
+		'path'			: str,
+		'volume'		: str,
+		'selinux_label_domain'	: str,
+		'dac_user'		: str,
+		'dac_group'		: str,
+		'dac_permissions'	: str,
+	}
+
+	# inherit default acquire/release methods from PackageBackedResource
+	# acquire will call our .detect() to see if the file is already
+	# present. If not, it will try to install the package named by
+	# the resource definition
+	def detect(self):
+		if self.volume and self.resolveVolumeReference():
+			self.volume = None
+
+		st = self.target.run("test -d '%s'" % self.path, user = "root")
+		return bool(st)
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		return ConcreteDirectoryResource(node, resourceName)
+
+class ConcreteDirectoryResource(DirectoryResource):
+	def __init__(self, target, name):
+		self.name = name
+		super().__init__(target)
+
 class FileResource(PathResource):
 	resource_type = "file"
 
@@ -1087,6 +1123,7 @@ class ResourceInventory:
 		klass.defineResourceType(UserResource)
 		klass.defineResourceType(ServiceResource)
 		klass.defineResourceType(FileResource)
+		klass.defineResourceType(DirectoryResource)
 		klass.defineResourceType(JournalResource)
 		klass.defineResourceType(AuditResource)
 		klass.defineResourceType(PackageResource)

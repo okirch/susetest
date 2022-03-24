@@ -97,7 +97,7 @@ class Target(twopence.Target):
 		elif config.type == 'port':
 			res.port = config.get_value('internal-port')
 			res.protocol = config.get_value('protocol')
-		elif config.type == 'file':
+		elif config.type == 'file' or config.type == 'directory':
 			res.volume = config.get_value('volume')
 			res.path = config.get_value('path')
 
@@ -187,6 +187,9 @@ class Target(twopence.Target):
 	def requireService(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("service", name, mandatory = True, **stateArgs)
 
+	def requireDirectory(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("directory", name, mandatory = True, **stateArgs)
+
 	def requireFile(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("file", name, mandatory = True, **stateArgs)
 
@@ -211,6 +214,9 @@ class Target(twopence.Target):
 
 	def optionalService(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("service", name, mandatory = False, **stateArgs)
+
+	def optionalDirectory(self, name, **stateArgs):
+		return self.acquireResourceTypeAndName("directory", name, mandatory = True, **stateArgs)
 
 	def optionalFile(self, name, **stateArgs):
 		return self.acquireResourceTypeAndName("file", name, mandatory = False, **stateArgs)
