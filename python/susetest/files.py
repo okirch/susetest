@@ -9,6 +9,9 @@
 #
 
 import ipaddress
+import shutil
+import twopence
+import os
 
 class FileFormatRegistry(object):
 	_instance = None
@@ -26,6 +29,10 @@ class FileFormatRegistry(object):
 	@classmethod
 	def createEditor(klass, target, format, path):
 		return klass.createEditorForProxy(RemoteFileProxy(target, path), format)
+
+	@classmethod
+	def createHostEditor(klass, target, format, path):
+		return klass.createEditorForProxy(LocalFileProxy(target, path), format)
 
 	@classmethod
 	def createEditorForProxy(klass, proxy, format):
@@ -78,6 +85,64 @@ class FileProxy:
 
 	def logInfo(self, msg):
 		self.target.logInfo(msg)
+
+class LocalFileProxy(FileProxy):
+	def __init__(self, target, path):
+		super().__init__(target, path)
+
+	def __str__(self):
+		return f"host-path={self.path}"
+
+	def read(self, quiet = False):
+		with open(self.path, "rb") as f:
+			data = f.read()
+		return data
+
+	def write(self, data, quiet = False):
+		temp = f"{self.path}.new"
+		with open(temp, "wb") as f:
+			f.write(data)
+
+			self.copyDAC(temp)
+			os.rename(temp, self.path)
+		return True
+
+	def copyTo(self, destPath):
+		shutil.copyfile(self.path, destPath)
+
+	def remove(self, destPath):
+		if os.path.exists(destPath):
+			os.remove(destPath)
+
+	def copyToOnce(self, destPath):
+		if not os.path.exists(destPath):
+			self.copyTo(destPath)
+
+	def copyDAC(self, destPath):
+		mode = os.stat(self.path).st_mode
+		os.chmod(destPath, mode)
+		os.system(f"sudo chown --reference {self.path} {destPath}")
+
+	def displayDiff(self, origPath):
+		import susetest
+
+		with os.popen(f"diff -u {origPath} {self.path}") as f:
+			output = f.read().split("\n")
+			status = f.close()
+			if not status:
+				exit_code = 0
+			elif os.WIFEXITED(status):
+				exit_code = os.WEXITSTATUS(status)
+			else:
+				self.logFailure("diff command crashed")
+				return
+
+		if exit_code == 0:
+			self.logInfo(f"File {self.path} remains unchanged")
+		elif exit_code == 1:
+			self.logInfo(f"Showing the difference between old and new {self.path}")
+			for line in output:
+				susetest.say(line)
 
 class RemoteFileProxy(FileProxy):
 	def __init__(self, target, path):

@@ -863,7 +863,15 @@ class FileResource(PathResource):
 		if self.format is None:
 			raise ValueError(f"{self}: unable to create editor - undefined format")
 
-		editor = FileFormatRegistry.createEditor(self.target, self.format, self.path)
+		# If the resource is also visible from the host side, create an editor that
+		# edits the file directly. This allows us to modify the configuration even when
+		# the application container is down (and which is more in line with how this is
+		# actually expected to happen).
+		if self.host_path:
+			editor = FileFormatRegistry.createHostEditor(self.target, self.format, self.host_path)
+		else:
+			editor = FileFormatRegistry.createEditor(self.target, self.format, self.path)
+
 		if not editor:
 			raise ValueError(f"{self}: unable to create editor - no editor for format {self.format}")
 
