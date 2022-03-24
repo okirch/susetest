@@ -703,22 +703,8 @@ class ServiceResource(PackageBackedResource):
 	def user(self):
 		return self.serviceManager.getServiceUser(self)
 
-class FileResource(PackageBackedResource):
-	resource_type = "file"
-
-	attributes = {
-		'path'			: str,
-		'format'		: str,
-		'package'		: str,
-		'volume'		: str,
-		'selinux_label_domain'	: str,
-		'dac_user'		: str,
-		'dac_group'		: str,
-		'dac_permissions'	: str,
-	}
-
+class PathResource(PackageBackedResource):
 	path = None
-	format = None
 	volume = None
 	selinux_label_domain = None
 	dac_user = None
@@ -732,24 +718,12 @@ class FileResource(PackageBackedResource):
 
 	def describe(self):
 		if self.volume:
-			return f"file({self.name}) = {self.path} at volume {self.volume}"
-		return f"file({self.name}) = {self.path}"
+			return f"{self.resource_type}({self.name}) = {self.path} at volume {self.volume}"
+		return f"{self.resource_type}({self.name}) = {self.path}"
 
 	@property
 	def is_present(self):
 		return bool(self.path)
-
-	# inherit default acquire/release methods from PackageBackedResource
-	# acquire will call our .detect() to see if the file is already
-	# present. If not, it will try to install the package named by
-	# the resource definition
-
-	def detect(self):
-		if self.volume and self.resolveVolumeReference():
-			self.volume = None
-
-		st = self.target.run("test -f '%s'" % self.path, user = "root")
-		return bool(st)
 
 	# Container applications frequently expect their configuration to reside on
 	# a separate volume that is mounted into the container.
@@ -768,11 +742,12 @@ class FileResource(PackageBackedResource):
 			return True
 
 		if self.package:
-			info(f"{self}: ignoring package for files residing on runtime volume {self.volume}")
+			twopence.info(f"{self}: ignoring package for files residing on runtime volume {self.volume}")
 			self.package = None
 
 		volume = self.target.requireVolume(self.volume)
 		if not volume:
+			twopence.error("did not find resource {self.volume}")
 			return False
 
 		orig_path = self.path
@@ -801,6 +776,39 @@ class FileResource(PackageBackedResource):
 
 		kwargs = dict([s.split('=') for s in st.stdoutString.split()])
 		return self.xstat(**kwargs)
+
+class FileResource(PathResource):
+	resource_type = "file"
+
+	attributes = {
+		# for PackageBackedResource
+		'package'		: str,
+
+		# for PathResource
+		'path'			: str,
+		'volume'		: str,
+		'selinux_label_domain'	: str,
+		'dac_user'		: str,
+		'dac_group'		: str,
+		'dac_permissions'	: str,
+
+		# file:
+		'format'		: str,
+	}
+
+	format = None
+
+	# inherit default acquire/release methods from PackageBackedResource
+	# acquire will call our .detect() to see if the file is already
+	# present. If not, it will try to install the package named by
+	# the resource definition
+
+	def detect(self):
+		if self.volume and self.resolveVolumeReference():
+			self.volume = None
+
+		st = self.target.run("test -f '%s'" % self.path, user = "root")
+		return bool(st)
 
 	# FUTURE: implement a backup() method that copies the file to .bak,
 	# and register a cleanup function that restores the original file at
