@@ -250,6 +250,7 @@ class FileEditor(object):
 
 		self.rewriter.commit()
 		self.rewriter = None
+		return True
 
 	def discard(self):
 		self.rewriter = None
@@ -360,7 +361,7 @@ class FileRewriter(FileReader):
 
 		if not self.modified:
 			proxy.logInfo(f"Not writing back {self.path}: content remains unmodified")
-			return
+			return True
 
 		diff_orig = f"{self.path}.diff_orig"
 		if self.showDiff:
@@ -370,16 +371,17 @@ class FileRewriter(FileReader):
 		proxy.copyToOnce(f"{self.path}.orig")
 
 		if not proxy.write(self.data, quiet = self.showDiff):
-			return
+			return False
 
 		if self.showDiff:
 			proxy.displayDiff(diff_orig)
 			proxy.remove(diff_orig)
 
 		self.modified = False
+		return True
 
 class CommentOrOtherFluff:
-	pass
+	modified = False
 
 class FileFormat(object):
 	suggest_caching = False
