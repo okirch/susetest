@@ -283,6 +283,7 @@ class FileReader(object):
 		self.proxy = proxy
 		self.format = format
 		self.data = None
+		self._cache = None
 
 	@property
 	def path(self):
@@ -294,8 +295,16 @@ class FileReader(object):
 		return self.data
 
 	def entries(self):
-		data = self.receive()
-		for e in self.format.entries(data):
+		if self.format.suggest_caching:
+			if self._cache is None:
+				data = self.receive()
+				self._cache = list(self.format.entries(data))
+			it = self._cache
+		else:
+			data = self.receive()
+			it = self.format.entries(data)
+
+		for e in it:
 			if not isinstance(e, CommentOrOtherFluff):
 				yield e
 
@@ -336,6 +345,19 @@ class FileRewriter(FileReader):
 	def commit(self):
 		proxy = self.proxy
 
+		# The file format has asked us to cache the file's content.
+		# Most likely it's a block oriented format that uses the
+		# find-entry-and-update protocol rather than addOrReplaceEntry()
+		if self._cache:
+			if any(e.modified for e in self._cache):
+				self.modified = True
+
+				# update our raw file representation
+				data = bytearray()
+				for e in self._cache:
+					self.format.output(e, data)
+				self.data = data
+
 		if not self.modified:
 			proxy.logInfo(f"Not writing back {self.path}: content remains unmodified")
 			return
@@ -360,6 +382,8 @@ class CommentOrOtherFluff:
 	pass
 
 class FileFormat(object):
+	suggest_caching = False
+
 	class CommentLine(CommentOrOtherFluff):
 		def __init__(self, line):
 			self.line = line
