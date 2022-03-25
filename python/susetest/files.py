@@ -360,6 +360,13 @@ class CommentOrOtherFluff:
 	pass
 
 class FileFormat(object):
+	class CommentLine(CommentOrOtherFluff):
+		def __init__(self, line):
+			self.line = line
+
+		def format(self):
+			return self.line
+
 	def __init__(self):
 		pass
 
@@ -392,13 +399,6 @@ class LineOrientedFileFormat(FileFormat):
 			e = self.parseLineEntry(line)
 			if e is not None:
 				yield e
-
-	class CommentLine(CommentOrOtherFluff):
-		def __init__(self, line):
-			self.line = line
-
-		def format(self):
-			return self.line
 
 	def parseLineEntry(self, line):
 		raise NotImplementedError(f"{self}")
