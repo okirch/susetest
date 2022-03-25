@@ -382,20 +382,63 @@ class FileFormat(object):
 	def entries(self, buffer):
 		raise NotImplementedError()
 
+##################################################################
+# Helper class to process files line by line.
+# It offers two modes of processing
+#  - straightforward iteration:
+#	for line in lineProcess:
+#		do stuff
+#  - wrapped in a lexical analyzer
+#	line = lineProcess.next()
+#	if line is None:
+#		return EOF
+#	feed line to lexer
+##################################################################
+class LineByLineReader:
+	def __init__(self, data):
+		data = data.decode('utf-8')
+
+		# strip off trailing newline, else this will
+		# make an empty line appear at the end of the file
+		if data.endswith('\n'):
+			data = data[:-1]
+		self._lines = data.split('\n')
+
+		self._iter = iter(self._lines)
+
+		self._saved = None
+		self._done = False
+
+	def __bool__(self):
+		if not self._done and self._saved is None:
+			self._saved = self.readLine()
+		return not self._done
+
+	def __iter__(self):
+		return iter(self._lines)
+
+	def nextLine(self):
+		line = self._saved
+		if line:
+			self._saved = None
+		else:
+			line = self.readLine()
+		return line
+
+	def readLine(self):
+		try:
+			return next(self._iter)
+		except StopIteration:
+			self._done = True
+			return None
+
+	def save(self, line):
+		assert(self._saved is None)
+		self._saved = line
+
 class LineOrientedFileFormat(FileFormat):
-	def receiveLines(self, data):
-		if data is not None:
-			data = data.decode('utf-8')
-
-			# strip off trailing newline, else this will
-			# make an empty line appear at the end of the file
-			if data.endswith('\n'):
-				data = data[:-1]
-			for line in data.split('\n'):
-				yield line
-
 	def entries(self, buffer):
-		for line in self.receiveLines(buffer):
+		for line in LineByLineReader(buffer):
 			e = self.parseLineEntry(line)
 			if e is not None:
 				yield e
