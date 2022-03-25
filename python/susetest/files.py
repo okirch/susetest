@@ -10,6 +10,7 @@
 
 import ipaddress
 import shutil
+import shlex
 import twopence
 import os
 
@@ -870,3 +871,448 @@ class ListFileFormat(LineOrientedFileFormat):
 
 		return self.Entry(raw = raw_line, name = raw_line)
 
+##################################################################
+# FileTokenizer class.
+# Processes a file line by line, returning a mix of tokens
+# and comment lines
+#
+# The main entry point is getToken(), which returns one of
+#	None: EOF
+#	str: a string token
+#	CommentLine: a line containing a comment
+#
+# The caller is free to ignore comment lines, or use them any way
+# they wish.
+#
+# Note: depending on the actual file, this may return comment lines
+# in the middle of a file entry or block, in which case it should
+# probably be ignored:
+#
+#	long-entry a b c
+#		# we don't want to do D today
+# 		# D
+#		E F G;
+#
+##################################################################
+class FileTokenizer:
+	def __init__(self, lineReader):
+		self.lineReader = lineReader
+
+		self._lexer = None
+		self._raw = []
+		self._peek = None
+
+	def __bool__(self):
+		return bool(self.lineReader)
+
+	def peekToken(self):
+		if self._peek is None:
+			self._peek = self.getToken()
+		return self._peek
+
+	def getIndent(self):
+		assert(self._raw)
+
+		current_line = self._raw[-1]
+		indent = ""
+		for c in current_line:
+			if not c.isspace():
+				break
+			indent += c
+		return indent
+
+	def getRaw(self):
+		raw = "\n".join(self._raw)
+		self._raw = []
+		return raw
+
+	# INTERNAL.
+	# The following implementation of getToken() creates a new lexical analyzer
+	# for each line of file.
+	def getToken(self):
+		token = self._peek
+		if token is not None:
+			self._peek = None
+			return token
+
+		while True:
+			if self._lexer is not None:
+				token = self.nextToken(self._lexer)
+				if token is not None:
+					return token
+				self._lexer = None
+
+			raw_line = self.lineReader.nextLine()
+			if raw_line is None:
+				return None
+
+			semicooked = self.stripComment(raw_line)
+			if not semicooked:
+				return FileFormat.CommentLine(raw_line.rstrip("\n"))
+
+			# Create a new lexical analyzer for this line
+			self._lexer = self.newLexer(semicooked)
+			self._raw.append(raw_line)
+
+##################################################################
+# Files with some sort of block structure
+# For the time being, this is very much geared towards nginx.conf
+##################################################################
+class BlockOrientedFileFormat(FileFormat):
+	def parseLineEntry(self, line):
+		raise NotImplementedError(f"{self}")
+
+	def output(self, e, buffer):
+		line = e.format()
+		if line is not None:
+			if not line.endswith("\n"):
+				line += "\n"
+			buffer += line.encode('utf-8')
+
+	class Key:
+		def __init__(self, words = []):
+			if not words:
+				raise KeyError(f"refusing to create empty key")
+			if type(words) == str:
+				words = [words]
+			self.words = words
+			self.len = len(words)
+
+		def __str__(self):
+			return f"Key({' '.join(self.words)})"
+
+		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			# If the entry's key length is known, check that we are
+			# specific enough.
+			# For file formats like nginx.conf, the key length is not really
+			# easy to determine, so we leave it unset.
+			if entry.key_length is not None and entry.key_length != self.len:
+				return False
+
+			return entry._words[:self.len] == self.words
+
+	class Entry:
+		# If a file format knows exactly what the key length of an
+		# entry is, it should set entry.key_length.
+		# This will be used by key.matchEntry().
+		key_length = None
+
+		# this should be set by derived classes
+		entry_type = None
+
+		def __init__(self, words, raw = None, indent = ""):
+			if type(words) == str:
+				words = [words]
+			assert(len(words))
+			self._words = words
+			self.raw = raw
+			self.indent = indent
+			self._modified = False
+
+		@property
+		def modified(self):
+			return self._modified
+
+		@property
+		def name(self):
+			return self._words[0]
+
+		@property
+		def values(self):
+			return self._words[1:]
+
+		@values.setter
+		def values(self, values):
+			if type(values) == str:
+				values = [values]
+			self._words = [self.name] + values
+			self._modified = True
+
+		@property
+		def value(self):
+			if len(self._words) != 2:
+				raise KeyError(f"Cannot return single value for multi-word entry {self}")
+			return self._words[1]
+
+		@value.setter
+		def value(self, value):
+			if len(self._words) != 2:
+				raise KeyError(f"Cannot set single value for multi-word entry {self}")
+			self._words[1] = value
+
+		def __str__(self):
+			return f"Entry({' '.join(self._words)})"
+
+		def invalidate(self):
+			self.raw = None
+
+		def format(self):
+			if self.raw and not self._modified:
+				return self.raw
+			return self.entry_type.formatEntry(self)
+
+		def shouldReplace(self, entry):
+			return self.entry_type.shouldReplaceEntry(self, entry)
+
+	class Block(Entry):
+		# this should be set by derived classes
+		entry_type = None
+
+		def __init__(self, *args, **kwargs):
+			super().__init__(*args, **kwargs)
+			self._entries = []
+
+		def __str__(self):
+			return f"Block({' '.join(self._words)})"
+
+		@property
+		def modified(self):
+			return self._modified or any(e.modified for e in self._entries)
+
+		def addEntry(self, e):
+			self._entries.append(e)
+
+		def validateKey(self, key):
+			if type(key) in (str, list, tuple):
+				key = self.entry_type.makeKey(key)
+			return key
+
+		def hasEntry(self, key):
+			for e in self._entries:
+				if key.matchEntry(e):
+					return True
+
+		def createBlock(self, key):
+			block = self.entry_type.createBlock(key)
+			self._entries.append(block)
+			self.copyIndentFromPredecessor(block)
+			return block
+
+		def matchBlocks(self, key):
+			key = self.validateKey(key)
+
+			for e in self._entries:
+				if isinstance(e, BlockOrientedFileFormat.Block) and key.matchEntry(e):
+					yield e
+
+		def getProperty(self, key):
+			key = self.validateKey(key)
+
+			found = None
+			for e in self._entries:
+				if isinstance(e, BlockOrientedFileFormat.Entry) and key.matchEntry(e):
+					if found:
+						raise KeyError(f"{self}: property {key} is not unique")
+					found = e
+			return found
+
+		def setProperty(self, key, value = None):
+			if type(value) == list:
+				values = value
+			elif value is not None:
+				values = [value]
+			else:
+				values = [""]
+
+			prop = self.getProperty(key)
+			if prop is not None:
+				prop.values = values
+				return
+
+			words = []
+			if type(key) == str:
+				words.append(key)
+			else:
+				words += key
+			words += values
+
+			prop = self.entry_type.createEntry(words)
+			self._entries.append(prop)
+
+			self.copyIndentFromPredecessor(prop)
+			return prop
+
+		# we want to iterate over block entries just the way we iterate over
+		# the file:
+		#	for e in reader.entries():
+		#	for e in block.entries():
+		def entries(self):
+			return self._entries
+
+		def format(self):
+			return self.entry_type.formatBlock(self)
+
+		def shouldReplace(self, entry):
+			self.entry_type.shouldReplaceBlock()
+
+		def replaceEntry(self, e):
+			raise NotImplementedError()
+
+		def copyIndentFromPredecessor(self, newEntry):
+			# Set the indent of the new property to match the preceding
+			# entry (excluding comments and such). If there are none,
+			# choose an indent that is 4 spaces deeper than the current block
+			indent = self.indent + "    "
+			for entry in self._entries:
+				if isinstance(entry, NginxConfigFileFormat.Entry):
+					if newEntry is entry:
+						break
+					indent = entry.indent
+
+			newEntry.indent = indent
+
+
+##################################################################
+# A file format that uses curly braces for blocks, and ; as
+# line delimiter
+##################################################################
+class BlockFileFormatWithBraces(BlockOrientedFileFormat):
+	OPEN_BRACE	= '{'
+	CLOSE_BRACE	= '}'
+	SEMICOLON	= ';'
+
+	def parse(self, scanner):
+		words = []
+		while True:
+			token = scanner.getToken()
+			if token is None:
+				return None
+
+			# comments in the middle of a declaration are ignored.
+			# If they appear by themselves, we return them as is
+			if isinstance(token, CommentOrOtherFluff):
+				if not words:
+					return token
+				continue
+
+			# Save the indent that we encountered at the start of the line.
+			# Needed for reasonable formatting.
+			if not words:
+				indent = scanner.getIndent()
+
+			if token == self.OPEN_BRACE:
+				# print(f"Creating block {words}")
+				block = self.Block(words, raw = scanner.getRaw(), indent = indent)
+				while scanner.peekToken() != self.CLOSE_BRACE:
+					entry = self.parse(scanner)
+					if entry is None:
+						raise ValueError(f"premature end of file while parsing block {block}")
+					block.addEntry(entry)
+
+				# consume the closing brace
+				scanner.getToken()
+				scanner.getRaw()
+
+				return block
+
+			if token == self.CLOSE_BRACE:
+				raise ValueError("Unexpected closing brace")
+
+			if token == self.SEMICOLON:
+				# print(f"Creating entry {words}")
+				return self.Entry(words, raw = scanner.getRaw(), indent = indent)
+
+			words.append(token)
+
+
+##################################################################
+# Process nginx.conf
+##################################################################
+class NginxConfigFileFormat(BlockFileFormatWithBraces):
+	file_type = "nginx-config"
+	suggest_caching = True
+
+	class EntryFormat:
+		def makeKey(self, key):
+			return NginxConfigFileFormat.Key(key)
+
+		def _formatEntryPartial(self, entry):
+			words = map(shlex.quote, entry._words)
+			return f"{entry.indent}{' '.join(words)}"
+
+		def formatEntry(self, entry):
+			words = map(shlex.quote, entry._words)
+			return self._formatEntryPartial(entry) + NginxConfigFileFormat.SEMICOLON
+
+		def shouldReplaceEntry(self, entry, other):
+			if isinstance(other, LineOrientedFileFormat.CommentLine):
+				# Check if the line is a commented out entry for this keyword, as in
+				#    #Foobar value yadda yadda
+				line = other.line
+				if line.startswith("#"):
+					words = line[1:].split()
+					if words and words[0] == entry.name:
+						return True
+
+			if isinstance(other, CommentOrOtherFluff):
+				return False
+
+			return entry.name == other.name
+
+		def formatBlock(self, block):
+			result = []
+			if block.raw:
+				line = block.raw
+			else:
+				line = self._formatEntryPartial(block) + " " + NginxConfigFileFormat.OPEN_BRACE
+			result.append(line)
+
+			for e in block.entries():
+				result.append(e.format())
+			result.append(block.indent + NginxConfigFileFormat.CLOSE_BRACE)
+			return "\n".join(result)
+
+		def shouldReplaceBlock(self, entry, other):
+			return False
+
+		def createEntry(self, words):
+			return NginxConfigFileFormat.Entry(words)
+
+		def createBlock(self, words):
+			return NginxConfigFileFormat.Block(words)
+
+	class Entry(BlockOrientedFileFormat.Entry):
+		def __init__(self, *args, **kwargs):
+			if self.__class__.entry_type is None:
+				self.__class__.entry_type = NginxConfigFileFormat.EntryFormat()
+
+			super().__init__(*args, **kwargs)
+
+	class Block(BlockOrientedFileFormat.Block):
+		def __init__(self, *args, **kwargs):
+			if self.__class__.entry_type is None:
+				self.__class__.entry_type = NginxConfigFileFormat.EntryFormat()
+
+			super().__init__(*args, **kwargs)
+
+	class Tokenizer(FileTokenizer):
+		def __init__(self, lines):
+			super().__init__(lines)
+
+		def nextToken(self, lexer):
+			return lexer.get_token()
+
+		def stripComment(self, raw_line):
+			i = raw_line.find('#')
+			if i >= 0:
+				return raw_line[:i].strip()
+			return raw_line.strip()
+
+		def newLexer(self, semicooked):
+			sh = shlex.shlex(semicooked, posix = True, punctuation_chars = True)
+			sh.escape = ""
+			sh.wordchars += "\\$?:"
+			return sh
+
+	def entries(self, buffer):
+		scanner = self.Tokenizer(LineByLineReader(buffer))
+
+		while True:
+			e = self.parse(scanner)
+			if e is None:
+				break
+
+			yield e
