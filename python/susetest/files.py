@@ -239,6 +239,25 @@ class FileEditor(object):
 			if key.matchEntry(e):
 				return e
 
+	def lookupEntryNested(self, keys = []):
+		if not keys:
+			raise KeyError("lookupEntryNested: empty keys argument")
+
+		reader = self.rewriter
+		if reader is None:
+			reader = self._createReader()
+
+		haystack = [reader]
+		for key in keys:
+			found = []
+			for bale in haystack:
+				for e in bale.entries():
+					if key.matchEntry(e):
+						found.append(e)
+			haystack = found
+
+		return haystack
+
 	def beginRewrite(self):
 		if self.rewriter:
 			raise ValueError(f"{self} already open for rewriting")
