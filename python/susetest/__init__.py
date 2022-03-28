@@ -28,26 +28,10 @@ def say(msg):
 	print(msg)
 	sys.stdout.flush()
 
-# This class is needed for break a whole testsuite, exit without run all tests. Wanted in some scenarios.
-# Otherwise we can use susetest.finish(journal) to continue after  failed tests, 
-class SlenkinsError(Exception):
-	def __init__(self, code):
-		self.code = code
-
-	def __str__(self):
-		return repr(self.code)
-
-# Same for basiliqa
-class BasiliqaError(Exception):
-	def __init__(self, code):
-		self.code = code
-
-	def __str__(self):
-		return repr(self.code)
-
 class CriticalResourceMissingError(TwopenceException):
 	pass
 
+# FIXME: deprecate this in favor of the new prediction support
 class ExpectedCommandResult:
 	def __init__(self, cmdname):
 		self.cmdname = cmdname
