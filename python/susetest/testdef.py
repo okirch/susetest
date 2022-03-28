@@ -341,6 +341,10 @@ class TestsuiteInfo:
 			print(f"Transfer {requirement} to {tc}")
 			tc.resources.append(requirement)
 
+	# @susetest.setup is largely useless because it is executed at
+	# a point in time when the resource manager is still plugged, so
+	# we cannot really do anything useful with resources there. Which
+	# would be the main reason for defining a setup function :-(
 	def defineSetup(self, f):
 		name = f.__module__
 
