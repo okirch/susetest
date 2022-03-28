@@ -58,13 +58,6 @@ class ExpectedCommandFailure(ExpectedCommandResult):
 		node.logInfo(f"{self.cmdname} command failed as expected: {st.message}")
 		return True
 
-# finish the junit report.
-def finish(journal):
-	journal.writeReport()
-	if (journal.num_failed() + journal.num_errors()):
-			sys.exit(1)
-	sys.exit(0)
-
 def group_resource(f):
 	@functools.wraps(f)
 	def wrapper(*args, **kwds):
