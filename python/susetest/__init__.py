@@ -16,6 +16,7 @@ import functools
 from .target import Target
 from .driver import Driver
 from .testdef import TestDefinition
+from .application import Application
 
 # Having to import twopence just in order to create a command
 # is not so nice. So as a convenience, we import it here and

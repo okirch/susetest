@@ -54,6 +54,7 @@ class Target(twopence.Target):
 		self.ipaddr_ext = node_config.get_value("ipv4_address_external")
 
 		self._resources = {}
+		self._applications = {}
 		self._enabled_features = []
 
 		# OS attributes; will be populated on demand by querying the SUT
@@ -75,6 +76,24 @@ class Target(twopence.Target):
 		#		print(f"found {res}")
 		#	for res in target.allPortResources:
 		#		print(f"found {res}")
+
+	def configureApplications(self, driver):
+		for name in self.node_config.get_values("application"):
+			if self._applications.get(name) is not None:
+				continue
+
+			twopence.info(f"{self.name}: instantiating application {name}")
+
+			# Find the class
+			applicationClass = susetest.Application.find(name)
+			if applicationClass is None:
+				raise ValueError(f"Unable to find application class {name}")
+
+			# Create instance
+			application = applicationClass(driver, self)
+
+			setattr(self, name, application)
+			self._applications[name] = application
 
 	def setServiceManager(self, serviceManager):
 		susetest.say(f"Setting service manager {serviceManager.name}")
@@ -146,8 +165,6 @@ class Target(twopence.Target):
 
 		hostname = status.stdoutString
 		return hostname.rstrip()
-
-
 
 	def get_graphical(self):
 		''' return true if gnome is enabled, false if minimal'''

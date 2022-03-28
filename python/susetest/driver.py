@@ -175,6 +175,9 @@ class Driver:
 
 		self._update_hosts_files()
 
+		for target in self.targets:
+			target.configureApplications(self)
+
 		# Any resources that were brought up at this stage
 		# shall not be cleaned up automatically when done with this
 		# group (which is the default otherwise)
