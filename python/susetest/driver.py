@@ -16,6 +16,7 @@ import time
 from .resources import Resource, ResourceManager
 from .feature import Feature
 from .logger import Logger
+from .containermgr import ContainerManager
 import susetest
 
 class Driver:
@@ -330,6 +331,11 @@ class Driver:
 						resource_manager = self.resourceManager)
 			self._targets[name] = target
 			setattr(self, name, target)
+
+			container_config = target_config.get_child("container")
+			if container_config is not None:
+				mgr = ContainerManager.create(container_config)
+				target.setContainerManager(mgr)
 
 			target.defineStringResource("ipv4_loopback", "127.0.0.1")
 			target.defineStringResource("ipv6_loopback", "::1")

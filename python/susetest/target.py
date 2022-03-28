@@ -29,6 +29,7 @@ class Target(twopence.Target):
 		self.resourceManager = resource_manager
 		self.serviceManager = None
 		self.packageManager = None
+		self.containerManager = None
 
 		self.defaultUser = None
 
@@ -82,6 +83,10 @@ class Target(twopence.Target):
 	def setPackageManager(self, packageManager):
 		susetest.say(f"Setting package manager {packageManager.name}")
 		self.packageManager = packageManager
+
+	def setContainerManager(self, containerManager):
+		susetest.say(f"Setting container manager {containerManager.name}")
+		self.containerManager = containerManager
 
 	def configureRuntimeResource(self, config):
 		res = self.instantiateResourceTypeAndName(config.type, config.name, strict = None)
