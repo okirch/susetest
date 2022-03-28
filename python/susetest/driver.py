@@ -334,7 +334,8 @@ class Driver:
 			self._targets[name] = target
 			setattr(self, name, target)
 
-			if nodeStatus.container is not None:
+			containerInfo = nodeStatus.container
+			if containerInfo and containerInfo.backend:
 				mgr = ContainerManager.create(nodeStatus.container)
 				target.setContainerManager(mgr)
 
