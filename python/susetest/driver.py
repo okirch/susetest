@@ -67,6 +67,9 @@ class Driver:
 	def targets(self):
 		return self._targets.values()
 
+	def getTarget(self, name):
+		return self._targets[name]
+
 	def fatal(self, msg):
 		self._logger.logFatal(msg)
 
