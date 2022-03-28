@@ -36,6 +36,10 @@ class Target(twopence.Target):
 		# Initialize some commonly used attributes
 		self.name = name
 
+		self.fqdn = node_config.get_value("fqdn")
+		if self.fqdn is None:
+			self.fqdn = f"{name}.twopence"
+
 		self.ipv4_addr = node_config.get_value("ipv4_address")
 		self.ipv4_address = self.ipv4_addr
 		self.ipv6_addr = node_config.get_value("ipv6_address")
@@ -361,7 +365,7 @@ class Target(twopence.Target):
 		return traceback.format_exc(None)
 
 	# FIXME should be a property
-	def fqdn(self):
+	def updateFQDN(self):
 		status = self.run("hostname -f")
 		if not status:
 			self.logError("cannot get fully qualified hostname")

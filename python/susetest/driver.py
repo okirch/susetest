@@ -343,6 +343,12 @@ class Driver:
 			target.defineStringResource("ipv4_loopback", "127.0.0.1")
 			target.defineStringResource("ipv6_loopback", "::1")
 
+			# we should probably have a Hostname resource that we can
+			# get and set
+			if False:
+				res = target.requireSystemResource("hostname")
+				res.update(f"{target.name}.twopence")
+
 		# Do not require test-user resource for all nodes
 		# self.requireUser("test-user")
 
@@ -399,11 +405,13 @@ class Driver:
 	def _update_hosts_files(self):
 		entries = []
 		for node in self.targets:
+			fqdn = node.fqdn
+			aliases = [node.name]
 			if node.ipv4_address:
-				d = {'name': node.name, 'addr': node.ipv4_address}
+				d = {'name': fqdn, 'addr': node.ipv4_address, 'aliases': aliases}
 				entries.append(d)
 			if node.ipv6_address:
-				d = {'name': node.name, 'addr': node.ipv6_address}
+				d = {'name': fqdn, 'addr': node.ipv6_address, 'aliases': aliases}
 				entries.append(d)
 
 		if not entries:
