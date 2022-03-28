@@ -18,13 +18,14 @@ from .feature import Feature
 from .logger import Logger
 from .containermgr import ContainerManager
 import susetest
+import twopence.provision
 
 class Driver:
 	def __init__(self, name = None, config_path = None):
 		self.name = name
 		self.config_path = config_path
 
-		self._config = None
+		self._topologyStatus = None
 		self._caller_frame = inspect.stack()[-1]
 
 		self._setup_complete = False
@@ -59,10 +60,10 @@ class Driver:
 		sys.stdout.flush()
 
 	@property
-	def config(self):
-		if self._config is None:
-			self.load_config()
-		return self._config
+	def topologyStatus(self):
+		if self._topologyStatus is None:
+			self.loadTopologyStatus()
+		return self._topologyStatus
 
 	@property
 	def targets(self):
@@ -292,8 +293,8 @@ class Driver:
 		# susetest.say("expandArguments(%s) -> %s" % (args, result))
 		return result
 
-	def load_config(self):
-		if self._config is not None:
+	def loadTopologyStatus(self):
+		if self._topologyStatus is not None:
 			return
 
 		if not self.config_path:
@@ -309,7 +310,7 @@ class Driver:
 		if not self.config_path:
 			raise ValueError("Unable to determine path of config file")
 
-		self._config = curly.Config(self.config_path)
+		self._topologyStatus = twopence.provision.loadPersistent(self.config_path)
 
 		self._set_workspace()
 		self._set_parameters()
@@ -322,22 +323,19 @@ class Driver:
 	def _set_targets(self):
 		self._targets = {}
 
-		tree = self._config.tree()
-		for name in tree.get_children("node"):
+		for nodeStatus in self._topologyStatus.nodes:
+			name = nodeStatus.name
 			if getattr(self, name, None) is not None:
-				raise ValueError("Bad target node name \"%s\" - reserved name" % (name))
+				raise ValueError(f"Bad target node name \"{name}\" - reserved name")
 
-		for name in tree.get_children("node"):
-			target_config = tree.get_child("node", name)
-			target = susetest.Target(name, target_config,
+			target = susetest.Target(name, nodeStatus,
 						logger = self._logger,
 						resource_manager = self.resourceManager)
 			self._targets[name] = target
 			setattr(self, name, target)
 
-			container_config = target_config.get_child("container")
-			if container_config is not None:
-				mgr = ContainerManager.create(container_config)
+			if nodeStatus.container is not None:
+				mgr = ContainerManager.create(nodeStatus.container)
 				target.setContainerManager(mgr)
 
 			target.defineStringResource("ipv4_loopback", "127.0.0.1")
@@ -356,40 +354,35 @@ class Driver:
 	def _set_parameters(self):
 		self._parameters = {}
 
-		tree = self._config.tree()
-		child = tree.get_child("parameters")
-		if child:
-			printed = False
-			for name in child.get_attributes():
-				if not printed:
-					print("Detected test suite parameter(s):")
-					printed = True
+		printed = False
 
-				value = child.get_value(name)
+		for key, value in self._topologyStatus.parameters:
+			if not printed:
+				susetest.say("Detected test suite parameter(s):")
+				printed = True
 
-				print("  %s = %s" % (name, value))
-				self._parameters[name] = value
+			value = child.get_value(name)
+
+			susetest.say(f"  {name} = {value}")
+			self._parameters[name] = value
 
 	# Set the workspace
 	def _set_workspace(self):
 		if self.workspace is None:
-			logspace = self._config.tree().get_value("logspace")
-			if not logspace:
+			logspace = self._topologyStatus.logspace
+			if logspace is None:
 				logspace = "./" + self.name
-				susetest.say("Oops, no workspace defined. Using default \"%s\"" % logspae)
+				susetest.say(f"Oops, no workspace defined. Using default \"{logspace}\"")
 
 			self.workspace = logspace
 
 		if not os.path.isdir(self.workspace):
 			os.makedirs(self.workspace)
 
-		susetest.say("Using workspace %s" % self.workspace)
+		susetest.say(f"Using workspace {self.workspace}")
 
 	# Set the journal
 	def _set_journal(self):
-		if self.journal_path is None:
-			self.journal_path = self._config.report()
-
 		if not self.journal_path:
 			self.journal_path = os.path.join(self.workspace, "junit-results.xml")
 

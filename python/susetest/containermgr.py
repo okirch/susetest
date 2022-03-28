@@ -21,7 +21,7 @@ class ContainerManager:
 	def create(config):
 		from twopence.provision import Backend
 
-		backendName = config.get_value('backend')
+		backendName = config.backend
 		backend = Backend.create(backendName)
 
 		return backend.createApplicationManager(config)

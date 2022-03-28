@@ -698,7 +698,7 @@ class TestDefinition:
 		driver.verbose = not opts.quiet
 		driver.config_path = opts.config
 
-		driver.load_config()
+		driver.loadTopologyStatus()
 
 		# skip any tests whose requirements are not met
 		suite.verifyRequirements(driver)

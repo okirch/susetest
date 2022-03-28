@@ -30,9 +30,11 @@ class ManagedService:
 		return self.serviceManager.restart(self.serviceResource)
 
 class ManagedContainer:
-	def __init__(self, target):
+	def __init__(self, target, topologyConfig):
 		self.target = target
 		self.containerManager = target.containerManager
+
+		self.topologyConfig = topologyConfig
 
 	def reload(self):
 		return self.restart()
@@ -41,9 +43,14 @@ class ManagedContainer:
 		targetSpec = self.containerManager.restart()
 		assert(targetSpec)
 		self.target.reconnect(targetSpec)
-		twopence.info(f"Reconnected to SUT at {targetSpec}")
+		self.target.logInfo(f"Reconnected to SUT at {targetSpec}")
 
 		# FIXME: we may want to perform a NO-OP call to the SUT just to be sure.
+
+		if self.topologyConfig:
+			self.topologyConfig.save()
+			self.target.logInfo(f"Updated {self.topologyConfig.path} to reflect container restart")
+
 		return True
 
 class Application:
@@ -84,7 +91,10 @@ class Application:
 
 			self.manager = ManagedService(self.target.serviceManager, resource)
 		elif self.target.containerManager:
-			self.manager = ManagedContainer(self.target)
+			# Pass a reference to the (parsed) status.conf. When we restart the
+			# container, we also have to restart the test server, and update the
+			# target setting in status.conf
+			self.manager = ManagedContainer(self.target, driver.topologyStatus)
 		else:
 			raise ValueError(f"Application {self.id}: no idea how we can manage applications running on {target.name}")
 

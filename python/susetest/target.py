@@ -14,17 +14,19 @@ import re
 import sys
 
 from .resources import ConcreteExecutableResource, ConcreteStringValuedResource, StringValuedResource
+from twopence import ConfigError
 
 class Target(twopence.Target):
-	def __init__(self, name, node_config, logger = None, resource_manager = None):
-		spec = node_config.get_value("target")
+	def __init__(self, name, nodeStatus, logger = None, resource_manager = None):
+		spec = nodeStatus.target
 		if spec is None:
-			raise ValueError("Cannot connect to node %s: config doesn't specify a target" % name)
+			raise ValueError(f"Cannot connect to node {name}: config doesn't specify a target")
 
+		twopence.info(f"Connecting to node {name} at {spec}")
 		super(Target, self).__init__(spec, None, name)
 		self.connectionDead = False
 
-		self.node_config = node_config
+		self.nodeStatus = nodeStatus
 		self.logger = logger
 		self.resourceManager = resource_manager
 		self.serviceManager = None
@@ -35,27 +37,19 @@ class Target(twopence.Target):
 
 		# Initialize some commonly used attributes
 		self.name = name
+		self.fqdn = f"{name}.twopence"
 
-		self.fqdn = node_config.get_value("fqdn")
-		if self.fqdn is None:
-			self.fqdn = f"{name}.twopence"
-
-		self.ipv4_addr = node_config.get_value("ipv4_address")
-		self.ipv4_address = self.ipv4_addr
-		self.ipv6_addr = node_config.get_value("ipv6_address")
-		self.ipv6_address = self.ipv6_addr
-		self.features = node_config.get_values("features")
-		self.resource_files = node_config.get_values("resources")
-		self.test_user = node_config.get_value("test-user")
-		self.os_vendor = node_config.get_value("vendor")
-		self.os_release = node_config.get_value("os")
-
-		# Backward compat
-		self.ipaddr = self.ipv4_addr
-		self.ip6addr = self.ipv6_addr
+		# FIXME: We might just as well turn Target into a Facaded class for nodeStatus
+		self.ipv4_address = nodeStatus.ipv4_address
+		self.ipv6_address = nodeStatus.ipv6_address
+		self.features = nodeStatus.features
+		self.resource_files = nodeStatus.resources
+		# self.test_user = nodeStatus.test-user
+		self.os_vendor = nodeStatus.vendor
+		self.os_release = nodeStatus.os
 
 		# external ip for cloud
-		self.ipaddr_ext = node_config.get_value("ipv4_address_external")
+		self.ipv4_address_external = nodeStatus.ipv4_address_external
 
 		self._resources = {}
 		self._applications = {}
@@ -68,10 +62,17 @@ class Target(twopence.Target):
 		self._hostname = None
 
 	def configureApplicationResources(self):
-		for child in self.node_config:
-			if child.type == 'application-resources':
-				for grandChild in child:
-					self.configureRuntimeResource(grandChild)
+		appResources = self.nodeStatus.application_resources
+		if appResources:
+			defined = []
+			defined += map(self.configureRuntimeVolume, appResources.volumes)
+			defined += map(self.configureRuntimePort, appResources.ports)
+			defined += map(self.configureRuntimeFile, appResources.files)
+			defined += map(self.configureRuntimeDirectory, appResources.directories)
+
+			for res in defined:
+				twopence.info(f"Defined application resource {res}")
+			return
 
 		# you can now access all application resources of this target
 		# using properties. For instance, any volumes that have been provisioned
@@ -81,23 +82,73 @@ class Target(twopence.Target):
 		#	for res in target.allPortResources:
 		#		print(f"found {res}")
 
+	# THIS is crappy and needs a better solution.
+	# I'm afraid though that this will have to wait until I get
+	# around to resolving the resource handling mess I created. --okir
+	def configureRuntimeVolume(self, info):
+		res = self.instantiateResourceTypeAndName('volume', info.name, strict = None)
+		if res is None:
+			return
+
+		res.mountpoint = info.mountpoint
+		res.fstype = info.fstype
+		res.host_path = info.host_path
+		return res
+
+	def configureRuntimePort(self, info):
+		res = self.instantiateResourceTypeAndName('port', info.name, strict = None)
+		if res is None:
+			return
+
+		res.port = info.internal_port
+		res.protocol = info.protocol
+		return res
+
+	def configureRuntimeFile(self, info):
+		res = self.instantiateResourceTypeAndName('file', info.name, strict = None)
+		if res is None:
+			return
+
+		res.volume = info.volume
+		res.path = info.path
+		return res
+
+	def configureRuntimeDirectory(self, info):
+		res = self.instantiateResourceTypeAndName('directory', info.name, strict = None)
+		if res is None:
+			return
+
+		res.volume = info.volume
+		res.path = info.path
+		return res
+
+
 	def configureApplications(self, driver):
-		for name in self.node_config.get_values("application"):
-			if self._applications.get(name) is not None:
-				continue
+		name = self.nodeStatus.application
+		className = self.nodeStatus.application_class
 
-			twopence.info(f"{self.name}: instantiating application {name}")
+		if name and className:
+			self.setApplication(driver, name, className)
 
-			# Find the class
-			applicationClass = susetest.Application.find(name)
-			if applicationClass is None:
-				raise ValueError(f"Unable to find application class {name}")
+	def getApplication(self, name):
+		return self._applications.get(name)
 
-			# Create instance
-			application = applicationClass(driver, self)
+	def setApplication(self, driver, name, className):
+		if self._applications.get(name) is not None:
+			return
 
-			setattr(self, name, application)
-			self._applications[name] = application
+		twopence.info(f"{self.name}: instantiating application {name} using class {className}")
+
+		# Find the class
+		applicationClass = susetest.Application.find(className)
+		if applicationClass is None:
+			raise ConfigError(f"Unable to find application class {className}")
+
+		# Create instance
+		application = applicationClass(driver, self)
+
+		setattr(self, name, application)
+		self._applications[name] = application
 
 	def setServiceManager(self, serviceManager):
 		susetest.say(f"Setting service manager {serviceManager.name}")
@@ -111,26 +162,11 @@ class Target(twopence.Target):
 		susetest.say(f"Setting container manager {containerManager.name}")
 		self.containerManager = containerManager
 
-	def configureRuntimeResource(self, config):
-		res = self.instantiateResourceTypeAndName(config.type, config.name, strict = None)
-		if res is None:
-			return
+	def reconnect(self, targetSpec):
+		super().reconnect(targetSpec)
 
-		# THIS is crappy and needs a better solution.
-		# I'm afraid though that this will have to wait until I get
-		# around to resolving the resource handling mess I created. --okir
-		if config.type == 'volume':
-			res.mountpoint = config.get_value('mountpoint')
-			res.fstype = config.get_value('fstype')
-			res.host_path = config.get_value('host-path')
-		elif config.type == 'port':
-			res.port = config.get_value('internal-port')
-			res.protocol = config.get_value('protocol')
-		elif config.type == 'file' or config.type == 'directory':
-			res.volume = config.get_value('volume')
-			res.path = config.get_value('path')
-
-		twopence.info(f"Defined application resource {res}")
+		# update the node status in status.conf
+		self.nodeStatus.target = targetSpec
 
 	# family 42.1 , 12.2 etc
 	@property

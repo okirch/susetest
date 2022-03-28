@@ -209,14 +209,14 @@ class ResourceAddressIPv4(StringValuedResource):
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(None, *args, **kwargs)
-		self.value = self.target.ipv4_addr
+		self.value = self.target.ipv4_address
 
 class ResourceAddressIPv6(StringValuedResource):
 	name = "ipv6_address"
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(None, *args, **kwargs)
-		self.value = self.target.ipv6_addr
+		self.value = self.target.ipv6_address
 
 class ConcreteStringValuedResource(StringValuedResource):
 	def __init__(self, target, name, value = None):
