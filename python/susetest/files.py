@@ -87,6 +87,24 @@ class FileProxy:
 	def logInfo(self, msg):
 		self.target.logInfo(msg)
 
+	@property
+	def isLocal(self):
+		return isinstance(self, LocalFileProxy)
+
+	@property
+	def parentDirectory(self):
+		parent = os.path.dirname(self.path)
+		if self.path == parent:
+			raise ValueError(f"No parent directory for \"{self.path}\"")
+
+		return self.__class__(self.target, parent)
+
+	def createFile(self, name):
+		assert('/' not in name)
+
+		path = os.path.join(self.path, name)
+		return self.__class__(self.target, path)
+
 class LocalFileProxy(FileProxy):
 	def __init__(self, target, path):
 		super().__init__(target, path)
