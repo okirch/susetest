@@ -122,7 +122,7 @@ class TestCaseDefinition(TestCase):
 		self.f = f
 		self.name = None
 		self.group = None
-		self.description = None
+		self.description = "(no description)"
 		self.skip = False
 		self.requires = []
 		self.unmetRequirements = []
@@ -614,6 +614,9 @@ class TestDefinition:
 			help = "Skip all but the named test case or group")
 
 		(opts, args) = p.parse_args()
+
+		if opts.debug:
+			twopence.logger.enableLogLevel('debug')
 
 		if opts.twopence_debug:
 			twopence.setDebugLevel(1)
