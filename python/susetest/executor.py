@@ -274,6 +274,7 @@ class Context:
 	def __init__(self, workspace, logspace, parent = None,
 			parameters = [],
 			dryrun = False, debug = False, debug_schema = False, quiet = False, clobber = False,
+			update_images = False,
 			roles = {},
 			results = None):
 
@@ -289,6 +290,7 @@ class Context:
 			self.debug_schema = parent.debug_schema
 			self.quiet = parent.quiet
 			self.clobber = parent.clobber
+			self.update_images = parent.update_images
 		else:
 			self.roles = roles
 			self.dryrun = dryrun
@@ -296,6 +298,7 @@ class Context:
 			self.debug_schema = debug_schema
 			self.quiet = quiet
 			self.clobber = clobber
+			self.update_images = update_images
 
 		self.parameters = []
 		if parameters:
@@ -370,6 +373,7 @@ class Testcase(TestThing):
 		self.debug = context.debug
 		self.debug_schema = context.debug_schema
 		self.quiet = context.quiet
+		self.update_images = context.update_images
 
 		self.isCompatible = True
 
@@ -451,7 +455,13 @@ class Testcase(TestThing):
 			return
 
 		info("Provisioning test nodes")
-		if self.runProvisioner("create") != 0:
+		argv = ["create"]
+		if self.update_images is True:
+			argv.append("--update-images")
+		if self.update_images is False:
+			argv.append("--no-update-images")
+
+		if self.runProvisioner(*argv) != 0:
 			info("Failed to provision cluster")
 			return
 
@@ -978,13 +988,21 @@ class Runner:
 			self.workspace = os.path.join(self.workspace, self.testrun)
 			self.logspace = os.path.join(self.logspace, self.testrun)
 
+		if args.update_images:
+			update_images = True
+		elif args.no_update_images:
+			update_images = False
+		else:
+			update_images = None
+
 		self.context = Context(self.workspace, self.logspace,
 				roles = self._roles,
 				parameters = args.parameter,
 				dryrun = args.dry_run,
 				debug = args.debug,
 				debug_schema = args.debug_schema,
-				clobber = args.clobber)
+				clobber = args.clobber,
+				update_images = update_images)
 
 		return
 
@@ -1155,6 +1173,10 @@ class Runner:
 
 		parser.add_argument('--gold-only', default = False, action = 'store_true',
 			help = 'Ignore silver images and only use golden images')
+		parser.add_argument('--update-images', default = False, action = 'store_true',
+			help = 'For backends that support an upstream image registry, always try to use the latest version available')
+		parser.add_argument('--no-update-images', default = False, action = 'store_true',
+			help = 'Do not try to use the latest version available')
 
 		if self.mode == self.MODE_TESTS:
 			parser.add_argument('testcase', metavar='TESTCASE', nargs='+',
