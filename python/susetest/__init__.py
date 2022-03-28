@@ -317,6 +317,17 @@ def templateVerifyFile(resourceName, nodeName = None, **kwargs):
 
 	return tc
 
+# Called by the user at the top of a test script when they wish to
+# use libraries provided eg by farthings
+#
+#	susetest.enable_libdir()
+#	from farthings.openssl_pki import PKI
+#
+def enable_libdir():
+	import twopence.paths
+	import sys
+
+	sys.path.append(twopence.paths.test_lib_dir)
 
 # Called by the user at the end of a test script, like this
 #
