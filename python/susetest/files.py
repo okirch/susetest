@@ -138,9 +138,12 @@ class LocalFileProxy(FileProxy):
 			self.copyTo(destPath)
 
 	def copyDAC(self, destPath):
-		mode = os.stat(self.path).st_mode
-		os.chmod(destPath, mode)
-		os.system(f"sudo chown --reference {self.path} {destPath}")
+		if os.path.exists(self.path):
+			mode = os.stat(self.path).st_mode
+			os.chmod(destPath, mode)
+			os.system(f"sudo chown --reference {self.path} {destPath}")
+		else:
+			os.system(f"sudo chown root.root {destPath}")
 
 	def displayDiff(self, origPath):
 		import susetest
