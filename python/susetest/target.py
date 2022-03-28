@@ -338,6 +338,7 @@ class Target(twopence.Target):
 
 		return traceback.format_exc(None)
 
+	# FIXME should be a property
 	def fqdn(self):
 		status = self.run("hostname -f")
 		if not status:
@@ -350,12 +351,6 @@ class Target(twopence.Target):
 			return None
 
 		return fqdn
-
-	def workspaceFile(self, relativeName = None):
-		path = self.config.workspace
-		if relativeName:
-			path = path + "/" + relativeName
-		return path
 
 	def handleException(self, operation, exc):
 		self.logError("%s failed: %s" % (operation, exc))
