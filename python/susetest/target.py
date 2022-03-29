@@ -33,7 +33,7 @@ class Target(twopence.Target):
 		self.packageManager = None
 		self.containerManager = None
 
-		self.defaultUser = None
+		self.defaultUser = "root"
 
 		# Initialize some commonly used attributes
 		self.name = name
@@ -44,7 +44,8 @@ class Target(twopence.Target):
 		self.ipv6_address = nodeStatus.ipv6_address
 		self.features = nodeStatus.features
 		self.resource_files = nodeStatus.resources
-		# self.test_user = nodeStatus.test-user
+		# self.test_user = nodeStatus.test_user
+		self.test_user = None
 		self.os_vendor = nodeStatus.vendor
 		self.os_release = nodeStatus.os
 
