@@ -56,6 +56,9 @@ class ManagedContainer:
 class Application:
 	id = None
 
+	def __str__(self):
+		return f"application {self.id}"
+
 	@staticmethod
 	def find(name, moduleName = None):
 		applicationClass = None
@@ -84,19 +87,20 @@ class Application:
 
 		self.manager = None
 
-		if self.target.serviceManager and self.service_name:
-			resource = self.target.requireService(self.service_name)
-			if resource is None:
-				raise ValueError(f"Application {self.id} specifies unknown service {self.service_name}")
+		if self.service_name is not None:
+			if self.target.serviceManager:
+				resource = self.target.requireService(self.service_name)
+				if resource is None:
+					raise ValueError(f"Application {self.id} specifies unknown service {self.service_name}")
 
-			self.manager = ManagedService(self.target.serviceManager, resource)
-		elif self.target.containerManager:
-			# Pass a reference to the (parsed) status.conf. When we restart the
-			# container, we also have to restart the test server, and update the
-			# target setting in status.conf
-			self.manager = ManagedContainer(self.target, driver.topologyStatus)
-		else:
-			raise ValueError(f"Application {self.id}: no idea how we can manage applications running on {target.name}")
+				self.manager = ManagedService(self.target.serviceManager, resource)
+			elif self.target.containerManager:
+				# Pass a reference to the (parsed) status.conf. When we restart the
+				# container, we also have to restart the test server, and update the
+				# target setting in status.conf
+				self.manager = ManagedContainer(self.target, driver.topologyStatus)
+			else:
+				raise ValueError(f"Application {self.id}: no idea how we can manage applications running on {target.name}")
 
 	def reload(self):
 		if self.manager is None:
