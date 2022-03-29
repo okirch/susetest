@@ -272,7 +272,7 @@ class TestThing:
 
 class Context:
 	def __init__(self, workspace, logspace, parent = None,
-			parameters = [],
+			backend = None, parameters = [],
 			dryrun = False, debug = False, debug_schema = False, quiet = False, clobber = False,
 			update_images = False,
 			roles = {},
@@ -285,6 +285,7 @@ class Context:
 		if parent:
 			self.roles = parent.roles
 
+			self.backend = parent.backend
 			self.dryrun = parent.dryrun
 			self.debug = parent.debug
 			self.debug_schema = parent.debug_schema
@@ -293,6 +294,7 @@ class Context:
 			self.update_images = parent.update_images
 		else:
 			self.roles = roles
+			self.backend = backend
 			self.dryrun = dryrun
 			self.debug = debug
 			self.debug_schema = debug_schema
@@ -345,6 +347,47 @@ class Context:
 
 	def createLogspaceFor(self, name):
 		return self._makedir(os.path.join(self.logspace, name))
+
+	def createTestrunConfig(self):
+		path = os.path.join(self.workspace, "testrun.conf")
+		info("Creating %s" % path)
+
+		config = curly.Config()
+		tree = config.tree()
+
+		tree.set_value("backend", self.backend)
+
+		for role in self.roles.values():
+			node = tree.add_child("role", role.name)
+
+			if role.resolution:
+				if role.resolution.isApplication:
+					node.set_value("application", role.resolution.name)
+				else:
+					node.set_value("platform", role.resolution.name)
+
+			if role.repositories:
+				node.set_value("repositories", role.repositories)
+			if role.provisionOptions:
+				node.set_value("build", list(role.provisionOptions))
+
+		if self.parameters:
+			child = tree.add_child("parameters")
+			for paramString in self.parameters:
+				words = paramString.split('=', maxsplit = 1)
+				if len(words) != 2:
+					raise ValueError("argument to --parameter must be in the form name=value, not \"%s\"" % s)
+
+				child.set_value(*words)
+
+		config.save(path)
+
+		info("Contents of %s:" % path)
+		with open(path) as f:
+			for l in f.readlines():
+				info("    %s" % l.rstrip())
+
+		return path
 
 	def attachResults(self, results):
 		results.attachToLogspace(self.logspace, clobber = self.clobber)
@@ -997,6 +1040,7 @@ class Runner:
 
 		self.context = Context(self.workspace, self.logspace,
 				roles = self._roles,
+				backend = args.backend,
 				parameters = args.parameter,
 				dryrun = args.dry_run,
 				debug = args.debug,
@@ -1059,7 +1103,7 @@ class Runner:
 
 		okayToContinue = True
 
-		testrunConfig = self.createTestrunConfig(context)
+		testrunConfig = context.createTestrunConfig()
 		for test in testcases:
 			if not test.isCompatible:
 				info(f"Skipping {test.description} because it's not compatible with the plaform's feature set")
@@ -1085,45 +1129,6 @@ class Runner:
 
 		os.remove(testrunConfig)
 		return okayToContinue
-
-	# could be moved to Context
-	def createTestrunConfig(self, context):
-		path = os.path.join(self.workspace, "testrun.conf")
-		info("Creating %s" % path)
-
-		config = curly.Config()
-		tree = config.tree()
-
-		tree.set_value("backend", self.backend)
-
-		for role in context.roles.values():
-			node = tree.add_child("role", role.name)
-			if role.resolution.isApplication:
-				node.set_value("application", role.resolution.name)
-			else:
-				node.set_value("platform", role.resolution.name)
-			if role.repositories:
-				node.set_value("repositories", role.repositories)
-			if role.provisionOptions:
-				node.set_value("build", list(role.provisionOptions))
-
-		if context.parameters:
-			child = tree.add_child("parameters")
-			for paramString in context.parameters:
-				words = paramString.split('=', maxsplit = 1)
-				if len(words) != 2:
-					raise ValueError("argument to --parameter must be in the form name=value, not \"%s\"" % s)
-
-				child.set_value(*words)
-
-		config.save(path)
-
-		info("Contents of %s:" % path)
-		with open(path) as f:
-			for l in f.readlines():
-				print("    %s" % l.rstrip())
-
-		return path
 
 	def build_arg_parser(self):
 		import argparse
