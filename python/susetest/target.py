@@ -126,27 +126,32 @@ class Target(twopence.Target):
 
 	def configureApplications(self, driver):
 		for app in self.nodeStatus.application_managers:
-			self.setApplication(driver, app.name, app.class_id)
+			res = self.instantiateResourceTypeAndName('application-manager', app.name, strict = None)
+			if app.class_id:
+				res.class_id = app.class_id
+				if app.module:
+					res.module = app.module
+
+			twopence.debug(f"attaching resource {res}")
+			self.acquireResource(res, mandatory = True)
 
 	def getApplication(self, name):
 		return self._applications.get(name)
 
-	def setApplication(self, driver, name, className):
+	def attachApplication(self, name, application):
 		if self._applications.get(name) is not None:
-			return
+			twopence.error(f"{self.name}: refusing to attach {application}: we already have {name}")
+			return False
 
-		twopence.info(f"{self.name}: instantiating application {name} using class {className}")
-
-		# Find the class
-		applicationClass = susetest.Application.find(className)
-		if applicationClass is None:
-			raise ConfigError(f"Unable to find application class {className}")
-
-		# Create instance
-		application = applicationClass(driver, self)
+		deadparrot = "parrot"
+		if getattr(self, name, deadparrot) is not deadparrot:
+			twopence.error(f"{self.name}: refusing to attach {application}: invalid name {name}")
+			return False
 
 		setattr(self, name, application)
 		self._applications[name] = application
+
+		return True
 
 	def setServiceManager(self, serviceManager):
 		susetest.say(f"Setting service manager {serviceManager.name}")

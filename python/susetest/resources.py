@@ -1078,6 +1078,82 @@ class ConcreteApplicationPortResource(ApplicationPortResource):
 		return "port(%s)" % self.name
 
 ##################################################################
+# APIResources let you attach behavior to a platform definition.
+# Currently, the only use case we have is in specifying
+# certain management APIs.
+##################################################################
+class APIResource(Resource):
+	attributes = {
+		'class_id'		: str,
+		'module'		: str,
+	}
+
+	class_id = None
+	module = None
+
+	@property
+	def is_present(self):
+		return True
+
+	def acquire(self, driver):
+		return True
+
+	def release(self, driver):
+		return True
+
+class ApplicationManagerResource(APIResource):
+	resource_type = "application-manager"
+
+	def describe(self):
+		values = [self.name]
+		if self.class_id:
+			values.append(f"class={self.class_id}")
+		if self.module:
+			values.append(f"module={self.module}")
+		return f"application-manager({', '.join(values)})"
+
+	def acquire(self, driver):
+		target = self.target
+		if target.getApplication(self.name):
+			# it already has an application of this name
+			return True
+
+		if not self.class_id:
+			target.logInfo(f"Cannot attach application {self.name}: no class-id specified")
+			return False
+
+		# Find the class
+		applicationClass = susetest.Application.find(self.class_id, moduleName = self.module)
+		if applicationClass is None:
+			target.logInfo(f"Unable to find application class {self.class_id}")
+			return False
+
+		# Create instance
+		application = applicationClass(driver, target)
+
+		if not target.attachApplication(self.name, application):
+			target.logInfo(f"Unable to attach {application} as {self.name}")
+			return False
+
+		target.logInfo(f"Attached {application} as {self.name}")
+		return True
+
+	def release(self, driver):
+		return True
+
+	@classmethod
+	def createDefaultInstance(klass, node, resourceName):
+		print("Creating ConcreteApplicationManagerResource")
+		return ConcreteApplicationManagerResource(node, resourceName)
+
+class ConcreteApplicationManagerResource(ApplicationManagerResource):
+	def __init__(self, target, name):
+		self.name = name
+		super().__init__(target)
+		self.class_id = None
+		self.module = None
+
+##################################################################
 # Manage all resources.
 # This is a bit convoluted, and involves several classes that
 # are needed to keep track.
@@ -1138,6 +1214,7 @@ class ResourceInventory:
 		klass.defineResourceType(SubsystemResource)
 		klass.defineResourceType(ApplicationVolumeResource)
 		klass.defineResourceType(ApplicationPortResource)
+		klass.defineResourceType(ApplicationManagerResource)
 
 	@classmethod
 	def defineResourceType(klass, rsrc_class):
