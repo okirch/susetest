@@ -70,6 +70,9 @@ def group_resource(f):
 def requireResource(resourceName, resourceType = None, nodeName = None, **kwargs):
 	TestDefinition.requireResource(resourceType, resourceName, nodeName, **kwargs)
 
+def requireExecutable(resourceName, nodeName = None, **kwargs):
+	TestDefinition.requireResource('executable', resourceName, nodeName, **kwargs)
+
 def optionalResource(resourceName, resourceType = None, nodeName = None, **kwargs):
 	TestDefinition.optionalResource(resourceType, resourceName, nodeName, **kwargs)
 
