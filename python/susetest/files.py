@@ -1062,6 +1062,8 @@ class BlockOrientedFileFormat(FileFormat):
 
 		@property
 		def values(self):
+			# Beware: callers may modify the object we return here. Whatever
+			# they do with it, we do not want that to modify Entry.values()
 			return self._words[1:]
 
 		@values.setter
