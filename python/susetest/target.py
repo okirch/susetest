@@ -124,11 +124,8 @@ class Target(twopence.Target):
 
 
 	def configureApplications(self, driver):
-		name = self.nodeStatus.application
-		className = self.nodeStatus.application_class
-
-		if name and className:
-			self.setApplication(driver, name, className)
+		for app in self.nodeStatus.application_managers:
+			self.setApplication(driver, app.name, app.class_id)
 
 	def getApplication(self, name):
 		return self._applications.get(name)
