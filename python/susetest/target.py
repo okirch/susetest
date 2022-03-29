@@ -682,38 +682,3 @@ class Target(twopence.Target):
 			self._logInfo(self.describeException())
 
 			return twopence.Status(256)
-
-	#
-	# FIXME: this function does not belong here...
-	#
-	def changeSysconfigVar(self, filename, var, value):
-		if not isinstance(filename, str):
-			self.logError("changeSysconfigVar: filename argument must be a string")
-			return False
-
-		if filename[0] != '/':
-			filename = "/etc/sysconfig/" + filename;
-
-		self.logInfo("Changing sysconfig file %s: set %s=%s" % (filename, var, value))
-
-		data = self.recvbuffer(filename);
-
-		result = []
-		found = False
-		for line in str(data).split('\n'):
-			if re.match("^[# ]*" + var + "=", line):
-				if found:
-					continue
-				line = "%s='%s'" % (var, value)
-				found = True
-			result.append(line)
-
-		if not found:
-			result.append("%s='%s'" % (var, value))
-
-		data = '\n'.join(result)
-		if not self.sendbuffer(filename, data):
-			self.logFailure("failed to upload changed sysconfig data to %s" % filename);
-			return False
-
-		return True
