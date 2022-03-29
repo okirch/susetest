@@ -485,6 +485,7 @@ class Testcase(TestThing):
 			"--config", testrunConfig,
 			"--config", self.testConfig)
 
+		# FIXME: TestBase should parse the testconfig file...
 		config = curly.Config(self.testConfig)
 		tree = config.tree()
 		self._nodes = []
@@ -796,7 +797,8 @@ class Pipeline:
 				self.valid = False
 
 			for role in context.roles.values():
-				if not test.validateCompatibility(role.resolution.features):
+				if role.resolution and \
+				   not test.validateCompatibility(role.resolution.features):
 					test.isCompatible = False
 
 			testcases.append(test)
@@ -901,7 +903,7 @@ class Runner:
 		if roleName not in self._roles:
 			role = self.RoleSettings(roleName, **kwargs)
 
-			# We want to run a test - so always make sure twopene is configured.
+			# We want to run a test - so always make sure twopence is configured.
 			# If we're using vagrant, we also want to enable twopence-tcp
 			role.buildOptions.update(self._backend.twopenceBuildOptions)
 			role.repositories += self._backend.twopenceRepositories
@@ -948,24 +950,29 @@ class Runner:
 					role.application = defaultRole.application
 					role.os = defaultRole.os
 
-				if role.os is None and role.application is None:
-					raise ValueError(f"Unable to determine platform for role \"{role.name}\"")
-
 			role.buildOptions.update(defaultRole.buildOptions)
-			self.resolvePlatform(role, args.gold_only)
-			if role.resolution is None:
+
+			if not self.resolvePlatform(role, args.gold_only):
 				raise ValueError(f"Could not identify a platform for role {role.name}")
 
-		print("Platform settings for role(s):")
+		printedHeader = False
 		for role in self.roles:
+			if role.resolution is None:
+				continue
+
+			if not printedHeader:
+				print("Platform settings for role(s):")
+				printedHeader = True
+
 			print(f"{role.name:20} platform {role.resolution.name:40} build {role.provisionOptions}")
 
+	# Returns False iff the role specified platforms hints, but we were not able to resolve them.
 	def resolvePlatform(self, role, goldenImagesOnly):
 		import twopence.provision
 
 		if role.platform:
 			role.setResolution(twopence.provision.getPlatform(role.platform))
-			return
+			return True
 
 		requestedOS = role.os
 		wantedBuildOptions = role.buildOptions
@@ -977,11 +984,13 @@ class Runner:
 			if wantedBuildOptions:
 				raise ValueError("Use of application images not compatible with any build options")
 
-			debug(f"Role {role.name}: finding best application {role.application} for OS {requestedOS}")
+			debug(f"Role {role.name}: finding best application {role.application} for {requestedOS or 'any OS'}")
 			found = list(twopence.provision.locateApplicationsForOS(role.application, requestedOS, self.backend))
-		else:
+		elif requestedOS:
 			debug(f"Role {role.name}: finding best platform for OS {requestedOS} with build options {wantedBuildOptions}")
 			found = list(twopence.provision.locatePlatformsForOS(requestedOS, self.backend))
+		else:
+			return True
 
 		for platform in found:
 			if not platform.applied_build_options.issubset(wantedBuildOptions):
