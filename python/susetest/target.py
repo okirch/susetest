@@ -16,6 +16,13 @@ import sys
 from .resources import ConcreteExecutableResource, ConcreteStringValuedResource, StringValuedResource
 from twopence import ConfigError
 
+class SimpleDictFacade:
+	def __init__(self, dictionary):
+		self.d = dictionary
+
+	def __getattr__(self, name):
+		return self.d.get(name)
+
 class Target(twopence.Target):
 	def __init__(self, name, nodeStatus, logger = None, resource_manager = None):
 		spec = nodeStatus.target
@@ -53,8 +60,10 @@ class Target(twopence.Target):
 		self.ipv4_address_external = nodeStatus.ipv4_address_external
 
 		self._resources = {}
-		self._applications = {}
 		self._enabled_features = []
+
+		self._applications = {}
+		self.managers = SimpleDictFacade(self._applications)
 
 		# OS attributes; will be populated on demand by querying the SUT
 		self._family = None
@@ -126,14 +135,18 @@ class Target(twopence.Target):
 
 	def configureApplications(self, driver):
 		for app in self.nodeStatus.application_managers:
+			driver.beginTest(name = f"init-{app.name}-manager", description = f"Load the application manager for {app.name}")
+
 			res = self.instantiateResourceTypeAndName('application-manager', app.name, strict = None)
 			if app.class_id:
 				res.class_id = app.class_id
-				if app.module:
-					res.module = app.module
+			if app.module:
+				res.module = app.module
 
 			twopence.debug(f"attaching resource {res}")
 			self.acquireResource(res, mandatory = True)
+
+			driver.endTest()
 
 	def getApplication(self, name):
 		return self._applications.get(name)
@@ -143,14 +156,7 @@ class Target(twopence.Target):
 			twopence.error(f"{self.name}: refusing to attach {application}: we already have {name}")
 			return False
 
-		deadparrot = "parrot"
-		if getattr(self, name, deadparrot) is not deadparrot:
-			twopence.error(f"{self.name}: refusing to attach {application}: invalid name {name}")
-			return False
-
-		setattr(self, name, application)
 		self._applications[name] = application
-
 		return True
 
 	def setServiceManager(self, serviceManager):
