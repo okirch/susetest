@@ -459,6 +459,7 @@ class Testcase(TestThing):
 		self.info = info
 		self.testConfig = info.config
 		self.testScript = info.script
+
 		return True
 
 	def perform(self, testrunConfig, console = None):
@@ -674,7 +675,7 @@ class Testsuite(TestThing):
 			error(f"Cannot find {self.description}")
 			return False
 
-		self.testcases = self.info.open().get_values("testcases")
+		self.testcases = self.info.open().testcases
 
 		info(f"Loaded test suite {self.name}")
 		if not self.testcases:
@@ -692,7 +693,7 @@ class TestMatrixColumn(TestThing):
 		self.matrix_name = matrix_name
 
 		self.config = config
-		self.parameters = config.get_values("parameters")
+		self.parameters = config.parameters
 
 	def parametersAsDict(self):
 		result = {}
@@ -730,7 +731,7 @@ class Testmatrix(TestThing):
 			error(f"Cannot find test matrix {self.name}")
 			return False
 
-		self.columns = self.load()
+		self.load()
 
 		info(f"Loaded {self.description} from {self.info.path}")
 		if not self.columns:
@@ -746,25 +747,20 @@ class Testmatrix(TestThing):
 		return True
 
 	def load(self):
-		result = []
+		self.columns = []
 
 		config = self.info.open()
-		for child in config:
-			if child.type != 'column':
-				continue
-
-			column = TestMatrixColumn(child.name, self.name, child)
-			result.append(column)
+		for columnConfig in config.columns:
+			column = TestMatrixColumn(columnConfig.name, self.name, columnConfig)
+			self.columns.append(column)
 
 		# The name attribute is useful for later stages that don't know which matrix
 		# the test run was based on
-		name = config.get_value("name")
+		name = config.name
 		if name is None:
 			raise ValueError(f"{self.info.path} does not define a name attribute")
 		if name != self.name:
 			raise ValueError(f"{self.info.path} specifies name = {name} (expected {self.name}")
-
-		return result
 
 class Pipeline:
 	def __init__(self, context):
