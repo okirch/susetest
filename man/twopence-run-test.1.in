@@ -182,6 +182,14 @@ Specify a name for a test run, ie a group of test cases that belong together.
 When specifying this option, test reports are stored as
 .BI "" TESTRUN / TESTCASE /junit-results.xml
 below the logspace directory.
+.TP
+.BR "--clobber" ", " --no-clobber
+Instructs \fBrun-test\fP whether to check for existing test results.
+The default is to just overwrite the test report from a previous test run.
+When running with \fB--no-clobber\fP, \fBrun-test\fP will print an error message
+and exit if it detects an existing test report.
+.P
+.\" ----------------------------------------
 .SS Interactive Mode
 In interactive mode, the user is prompted for a command after each provisioning step.
 Typing

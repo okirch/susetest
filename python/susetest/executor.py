@@ -1040,12 +1040,17 @@ class Runner:
 			self.workspace = os.path.join(self.workspace, self.testrun)
 			self.logspace = os.path.join(self.logspace, self.testrun)
 
-		if args.update_images:
-			update_images = True
-		elif args.no_update_images:
-			update_images = False
-		else:
-			update_images = None
+		def evalTriStateOption(args, name, defValue):
+			name = name.lstrip("-").replace("-", "_")
+			if getattr(args, name):
+				return True
+			if getattr(args, "no_" + name):
+				return False
+			return defValue
+
+		# default value None here means: let the backend decide
+		update_images = evalTriStateOption(args, "--update-images", None)
+		clobber = evalTriStateOption(args, "--clobber", True)
 
 		self.context = Context(self.workspace, self.logspace,
 				roles = self._roles,
@@ -1054,7 +1059,7 @@ class Runner:
 				dryrun = args.dry_run,
 				debug = args.debug,
 				debug_schema = args.debug_schema,
-				clobber = args.clobber,
+				clobber = clobber,
 				update_images = update_images)
 
 		return
@@ -1158,7 +1163,9 @@ class Runner:
 		parser.add_argument('--logspace',
 			help = 'the directory to use as logspace')
 		parser.add_argument('--clobber', default = False, action = 'store_true',
-			help = 'Clobber existing test results')
+			help = 'Clobber existing test results (default)')
+		parser.add_argument('--no-clobber', default = False, action = 'store_true',
+			help = 'Do not clobber existing test results (error out of results exist)')
 		parser.add_argument('--parameter', action = 'append',
 			help = 'Parameters to be passed to the test suite, in name=value format')
 		parser.add_argument('--matrix',
