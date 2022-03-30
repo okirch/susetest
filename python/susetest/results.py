@@ -130,7 +130,7 @@ class ResultsMatrix(ResultsCollection):
 		writer.setName(self._name)
 		super().serialize(writer)
 		for column in self._columns:
-			column.serialize(writer)
+			column.serialize(writer.createColumn(column.name))
 
 	def deserialize(self, reader):
 		self._name = reader.name
