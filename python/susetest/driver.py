@@ -35,6 +35,7 @@ class Driver:
 		self.workspace = None
 		self.journal_path = None
 		self._parameters = {}
+		self._logger = None
 
 		self.resourceManager = ResourceManager(self)
 
@@ -362,10 +363,8 @@ class Driver:
 				susetest.say("Detected test suite parameter(s):")
 				printed = True
 
-			value = child.get_value(name)
-
-			susetest.say(f"  {name} = {value}")
-			self._parameters[name] = value
+			susetest.say(f"  {key} = {value}")
+			self._parameters[key] = value
 
 	# Set the workspace
 	def _set_workspace(self):
