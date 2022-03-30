@@ -447,6 +447,16 @@ class ResultsIO:
 		def name(self):
 			return self._node.attrib.get('name')
 
+		def setInvocation(self, command):
+			node = self._node.createChild("invocation")
+			node.setText(command)
+
+		@property
+		def invocation(self):
+			node = self._node.find("invocation")
+			if node is not None:
+				return node.text.strip()
+
 		def addParameters(self, parameters):
 			if not parameters:
 				return

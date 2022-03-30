@@ -41,6 +41,7 @@ class ResultsCollection:
 		self._name = name
 		self._saver = None
 		self._writerClass = writerClass
+		self.invocation = None
 
 	def attachToLogspace(self, logspace, clobber = False):
 		path = os.path.join(logspace, "results.xml")
@@ -58,6 +59,13 @@ class ResultsCollection:
 	def save(self):
 		if self._saver:
 			self._saver.sync()
+
+	def serialize(self, writer):
+		if self.invocation:
+			writer.setInvocation(self.invocation)
+
+	def deserialize(self, reader):
+		self.invocation = reader.invocation
 
 class ResultsVector(ResultsCollection):
 	class TestResult:
@@ -84,11 +92,13 @@ class ResultsVector(ResultsCollection):
 		return sorted(self._results.values(), key = lambda r: r.id)
 
 	def serialize(self, writer):
+		super().serialize(writer)
 		writer.addParameters(self._parameters)
 		writer.addResults(self.results)
 
 	def deserialize(self, reader):
 		self._name = reader.name
+		super().deserialize(reader)
 		self._parameters = reader.parameters
 
 		for res in reader.results:
@@ -118,11 +128,13 @@ class ResultsMatrix(ResultsCollection):
 
 	def serialize(self, writer):
 		writer.setName(self._name)
+		super().serialize(writer)
 		for column in self._columns:
 			column.serialize(writer)
 
 	def deserialize(self, reader):
 		self._name = reader.name
+		super().deserialize(reader)
 		for columnReader in reader.columns:
 			col = self._createColumn(columnReader.name)
 			col.deserialize(columnReader)

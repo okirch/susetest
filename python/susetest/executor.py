@@ -10,6 +10,7 @@
 import twopence
 import argparse
 import os
+import sys
 import curly
 import readline
 import atexit
@@ -393,6 +394,8 @@ class Context:
 		results.attachToLogspace(self.logspace, clobber = self.clobber)
 		self.results = results
 
+		results.invocation = " ".join(sys.argv)
+
 	def _makedir(self, path):
 		if not os.path.isdir(path):
 			os.makedirs(path)
@@ -556,7 +559,7 @@ class Testcase(TestThing):
 
 		reportPath = os.path.join(self.logspace, "junit-results.xml")
 		if not os.path.isfile(reportPath):
-			print("Error: cannot find test report document at %s" % reportPath);
+			error("cannot find test report document at {reportPath}")
 			return
 
 		self.testReport = reportPath
