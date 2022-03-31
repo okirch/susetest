@@ -281,22 +281,39 @@ class MatrixOfValues:
 		self._rowNames.difference_update(hide)
 		self._hiddenRows.update(hide)
 
-class TextRenderer:
+class Renderer:
+	def __init__(self, outfile = None):
+		self.print = print
+		if outfile:
+			f = open(outfile, "w")
+			self.print = lambda msg = '', **kwargs: print(msg, file = f, **kwargs)
+
+class TextRenderer(Renderer):
+	def renderResults(self, results, terse = False):
+		if isinstance(results, ResultsMatrix):
+			values = results.asMatrixOfValues()
+			self.renderMatrix(values, results.parameterMatrix())
+		else:
+			vector = results.asVectorOfValues()
+			self.renderVector(vector)
+
 	def renderMatrix(self, values, parameters):
 		self.displayMatrix(values)
 
-		print()
-		print("Description of matrix columns:")
+		self.print()
+		self.print("Description of matrix columns:")
 		self.displayMatrix(parameters)
 
 		self.showTestLegend(values)
-		print()
+		self.print()
 
 	def renderVector(self, vector):
-		print()
+		self.print()
 		self.displayVector(vector)
 
 	def showTestLegend(self, matrix):
+		print = self.print
+
 		print()
 		print("Description of failed test(s):")
 		for id in matrix.rows:
@@ -304,6 +321,7 @@ class TextRenderer:
 			print(f"    {id:24} {description}")
 
 	def displayMatrix(self, matrix):
+		print = self.print
 		empty = ""
 
 		print()
@@ -324,12 +342,138 @@ class TextRenderer:
 			print()
 
 	def displayVector(self, vector):
+		print = self.print
 		for row in vector.rows:
 			status = vector.get(row)
 			description = vector.getRowInfo(row)
 
 			print(f"    {row:32} {status:18} {description}")
 
+html_preamble = '''
+<html>
+<style>
+table, th, td {
+  border: 1px solid;
+}
+table.params {
+  width: 30em;
+}
+th, td {
+  padding: 2px;
+}
+td.caption {
+  font-size: larger;
+  font-weight: bold;
+}
+p.success { color: blue; }
+p.error { color: red; }
+p.failure { color: red; }
+tr:hover {background-color: lightgreen;}
+</style>
+
+<body>
+<h1>Test Run Summary</h1>
+'''
+
+html_trailer = '''
+</body>
+</html>
+'''
+
+class HTMLRenderer(Renderer):
+	def renderResults(self, results, terse = False):
+		print = self.print
+
+		print(html_preamble)
+
+		if results.invocation:
+			print(f"Invocation: <code>{results.invocation}</code><p>")
+		if terse:
+			print("Results renderer in terse mode. Only (partial) failures are displayed.")
+
+		if isinstance(results, ResultsMatrix):
+			values = results.asMatrixOfValues()
+			self.renderMatrix(values, results.parameterMatrix())
+		else:
+			vector = results.asVectorOfValues()
+			self.renderVector(vector)
+
+		self.print(html_trailer)
+
+	def renderMatrix(self, matrix, parameters):
+		print = self.print
+
+		print("<h2>Table of test results</h2>")
+		# print("<center>")
+		print("<table>")
+
+		print(" <th>")
+		for name in matrix.columns:
+			print(f"  <td><a href='#col:{name}'>{name}</td>")
+		print(" </th>")
+
+		numColumns = 1 + len(matrix.columns)
+
+		currentTestName = None
+		for rowName in matrix.rows:
+
+			testName = rowName.split('.')[0]
+			if testName != currentTestName:
+				currentTestName = testName
+				print(" <tr>")
+				print(f"  <td colspan={numColumns} class='caption'>{testName}</td>")
+				print(" </tr>")
+
+			print(" <tr>")
+			desc = self.describeRow(matrix, rowName)
+			print(f"  <td>{desc}</td>")
+			for colName in matrix.columns:
+				cell = matrix.get(rowName, colName)
+				if cell in ('success', 'failure', 'error'):
+					cell = f"<p class='{cell}'>{cell}</p>"
+				print(f"  <td>{cell}</td>")
+			print(" </tr>")
+
+		print("</table>")
+		# print("</center>")
+
+		for matrixColumn in parameters.columns:
+			print(f"<h2 id='col:{matrixColumn}'>Matrix parameters for column {matrixColumn}</h2>")
+
+			print("<table class='params'>")
+			print(f" <tr><th width='50%'>Parameter</td><td>Value</td></tr>")
+			for paramName in parameters.rows:
+				value = parameters.get(paramName, matrixColumn)
+				print(f" <tr><td>{paramName}</td><td>{value}</td></tr>")
+			print("</table>")
+
+	def renderVector(self, vector):
+		print = self.print
+
+		print("<center><table>")
+		for row in vector.rows:
+			status = vector.get(row)
+			if status in ('success', 'failure', 'error'):
+				status = f"<p class='{status}'>{status}</p>"
+
+			description = self.describeRow(vector, row)
+
+			print(f"  <tr><td>{row}</td><td>{status}</td><td>{description}</td>")
+		print("</table></center>")
+
+	def describeRow(self, matrix, id):
+		description = matrix.getRowInfo(id)
+		if description is None:
+			if '__resources__.resource-acquire:' in id:
+				# ids for resource mgmt look like this:
+				# traceroute.__resources__.resource-acquire:client:optional:executable:traceroute
+				words = id.split()[1:]
+				if words[0] == "None":
+					words.pop(0)
+				description = " ".join(words)
+			else:
+				description = id
+		return description
 
 class Tabulator:
 	def __init__(self):
@@ -344,7 +488,13 @@ class Tabulator:
 
 		self.terse = args.terse
 
-	def perform(self, renderer = None):
+		outfile = args.output_file
+		if args.html:
+			self.renderer = HTMLRenderer(outfile)
+		else:
+			self.renderer = TextRenderer(outfile)
+
+	def perform(self):
 		path = os.path.join(self.logspace, "results.xml")
 
 		if os.path.exists(path):
@@ -352,27 +502,17 @@ class Tabulator:
 		else:
 			results = self.scanResults()
 
-		if renderer is None:
-			renderer = TextRenderer()
-
-		if isinstance(results, ResultsMatrix):
-			values = results.asMatrixOfValues()
-
-			if self.terse:
+		if self.terse:
+			if isinstance(results, ResultsMatrix):
 				values.hideRowsWithValue("success")
 				values.hideRowsWithValue("skipped")
 				values.hideRowsWithValue("disabled")
-
-			renderer.renderMatrix(values, results.parameterMatrix())
-		else:
-			vector = results.asVectorOfValues()
-
-			if self.terse:
+			else:
 				vector.hideCellsWithValue("success")
 				# vector.hideCellsWithValue("skipped")
 				vector.hideCellsWithValue("disabled")
 
-			renderer.renderVector(vector)
+		self.renderer.renderResults(results)
 
 	def loadResults(self, path):
 		info(f"Loading results from {path}")
@@ -428,4 +568,8 @@ class Tabulator:
 			help = 'the directory to use as logspace')
 		parser.add_argument('--testrun',
 			help = 'name of the test run')
+		parser.add_argument('--html', action = 'store_true',
+			help = 'Render as HTML rather than text')
+		parser.add_argument('--output-file', metavar = 'PATH',
+			help = 'Write to the indicated file rather than to stdout')
 		return parser
