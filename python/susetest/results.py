@@ -281,81 +281,20 @@ class MatrixOfValues:
 		self._rowNames.difference_update(hide)
 		self._hiddenRows.update(hide)
 
-class Tabulator:
-	def __init__(self):
-		parser = self.build_arg_parser()
-		args = parser.parse_args()
+class TextRenderer:
+	def renderMatrix(self, values, parameters):
+		self.displayMatrix(values)
 
-		self.logspace = args.logspace
-		if self.logspace is None:
-			self.logspace = os.path.expanduser("~/susetest/logs")
-		if args.testrun:
-			self.logspace = os.path.join(self.logspace, args.testrun)
+		print()
+		print("Description of matrix columns:")
+		self.displayMatrix(parameters)
 
-		self.terse = args.terse
+		self.showTestLegend(values)
+		print()
 
-	def perform(self):
-		path = os.path.join(self.logspace, "results.xml")
-
-		if os.path.exists(path):
-			results = self.loadResults(path)
-		else:
-			results = self.scanResults()
-
-		if isinstance(results, ResultsMatrix):
-			values = results.asMatrixOfValues()
-
-			if self.terse:
-				values.hideRowsWithValue("success")
-				values.hideRowsWithValue("skipped")
-				values.hideRowsWithValue("disabled")
-
-			self.displayMatrix(values)
-
-			print()
-			print("Description of matrix columns:")
-			self.displayMatrix(results.parameterMatrix())
-
-			self.showTestLegend(values)
-			print()
-		else:
-			vector = results.asVectorOfValues()
-
-			if self.terse:
-				vector.hideCellsWithValue("success")
-				# vector.hideCellsWithValue("skipped")
-				vector.hideCellsWithValue("disabled")
-
-			print()
-			self.displayVector(vector)
-
-	def loadResults(self, path):
-		info(f"Loading results from {path}")
-		io = ResultsParser(path)
-		if io is None:
-			raise ValueError(f"Could not open {path}")
-
-		if io.type == "matrix":
-			results = ResultsMatrix()
-		else:
-			results = ResultsVector()
-
-		results.deserialize(io)
-
-		return results
-
-	def scanResults(self):
-		info("Scanning logspace")
-		testcases = self.scanDirectory(self.logspace)
-		if not testcases:
-			raise ValueError(f"No test cases found in {self.logspace}")
-
-		vector = ResultsVector()
-		for result in testcases.values():
-			for group in result.groups:
-				for test in group.tests:
-					vector.add(test.id, test.status, test.description)
-		return vector
+	def renderVector(self, vector):
+		print()
+		self.displayVector(vector)
 
 	def showTestLegend(self, matrix):
 		print()
@@ -390,6 +329,78 @@ class Tabulator:
 			description = vector.getRowInfo(row)
 
 			print(f"    {row:32} {status:18} {description}")
+
+
+class Tabulator:
+	def __init__(self):
+		parser = self.build_arg_parser()
+		args = parser.parse_args()
+
+		self.logspace = args.logspace
+		if self.logspace is None:
+			self.logspace = os.path.expanduser("~/susetest/logs")
+		if args.testrun:
+			self.logspace = os.path.join(self.logspace, args.testrun)
+
+		self.terse = args.terse
+
+	def perform(self, renderer = None):
+		path = os.path.join(self.logspace, "results.xml")
+
+		if os.path.exists(path):
+			results = self.loadResults(path)
+		else:
+			results = self.scanResults()
+
+		if renderer is None:
+			renderer = TextRenderer()
+
+		if isinstance(results, ResultsMatrix):
+			values = results.asMatrixOfValues()
+
+			if self.terse:
+				values.hideRowsWithValue("success")
+				values.hideRowsWithValue("skipped")
+				values.hideRowsWithValue("disabled")
+
+			renderer.renderMatrix(values, results.parameterMatrix())
+		else:
+			vector = results.asVectorOfValues()
+
+			if self.terse:
+				vector.hideCellsWithValue("success")
+				# vector.hideCellsWithValue("skipped")
+				vector.hideCellsWithValue("disabled")
+
+			renderer.renderVector(vector)
+
+	def loadResults(self, path):
+		info(f"Loading results from {path}")
+		io = ResultsParser(path)
+		if io is None:
+			raise ValueError(f"Could not open {path}")
+
+		if io.type == "matrix":
+			results = ResultsMatrix()
+		else:
+			results = ResultsVector()
+
+		results.deserialize(io)
+
+		return results
+
+	def scanResults(self):
+		info("Scanning logspace")
+		testcases = self.scanDirectory(self.logspace)
+		if not testcases:
+			raise ValueError(f"No test cases found in {self.logspace}")
+
+		vector = ResultsVector()
+		for result in testcases.values():
+			for group in result.groups:
+				for test in group.tests:
+					vector.add(test.id, test.status, test.description)
+		return vector
 
 	def scanDirectory(self, path):
 		result = {}
