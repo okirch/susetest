@@ -368,6 +368,15 @@ class LogParser:
 				status =	str,
 				)
 
+			self.error = None
+			self.systemOut = None
+
+			for child in node:
+				if child.tag == 'error':
+					self.error = child.text.strip()
+				elif child.tag == 'system-out':
+					self.systemOut = child.text.strip()
+
 		@property
 		def id(self):
 			return self.classname
@@ -391,7 +400,11 @@ class LogParser:
 					self.tests.append(LogParser.TestResult(child))
 
 		def processProperties(self, node):
-			pass
+			for child in node.findall("property"):
+				key = child.attrib.get('key')
+				value = child.attrib.get('value')
+				if key is not None:
+					self.properties[key] = value
 
 	def __init__(self, path):
 		self.stats = None
@@ -543,7 +556,7 @@ class ResultsIO:
 			super().__init__(self._tree.getroot())
 
 			if self._node.tag != "results":
-				raise ValueError(f"{path}: unexpected root node <{root.tag}>")
+				raise ValueError(f"{path}: unexpected root node <{self._node.tag}>")
 
 class ResultsMatrixWriter(ResultsIO.DocumentWriter):
 	def __init__(self):

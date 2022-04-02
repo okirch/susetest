@@ -28,6 +28,20 @@ Specify the name of the previous test run.
 .BI --terse
 Do not display the full set of results, only those that failed and/or resulted in an
 error.
+.TP
+.BI --output-directory " PATH"
+Write any generated output to files below \fIPATH\fP, rather than standard output.
+.TP
+.BI --format " FORMAT
+Generate report in a different format. The default format is \fBtext\fP, which just writes
+some human readable output.
+.IP
+The \fBhtml\fP format renders the test results to as a table. Without \fB--output-directory\fP,
+this will just write the HTML document to standard output. With \fB--output-directory\fP, the
+document is written to \fBindex.html\fP in the output directory.
+.IP
+If \fBtabulate-results\fP is invoked with \fB--output-directory\fP it will also
+render the contents of each test case's test report as HTML and write it to a separate file.
 .SH SEE ALSO
 .BR twopence-run-test (1),
 .BR twopence-run-suite (1).
