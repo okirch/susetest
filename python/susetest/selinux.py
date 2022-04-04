@@ -520,11 +520,19 @@ class SELinux(Feature):
 			proc.kill("KILL")
 			proc.wait()
 
-		expected = self.checkContext(process_ctx, type = res.selinux_process_domain)
+		# Check if the resource says that the command is expected to fail for our
+		# seuser. That's a roundabout way of saying that SELinux will not allow the
+		# transition to the expected process domain.
+		prediction = res.predictOutcome(driver, {})
+		expected_type = res.selinux_process_domain
+		if prediction and prediction.status != 'success':
+			expected_type = None
+
+		expected = self.checkContext(process_ctx, type = expected_type)
 		if expected:
 			node.logFailure(f"Command \"{cmdline}\" is running with wrong SELinux context");
-			node.logInfo("  expected %s" % expected)
-			node.logInfo("  actual context %s" % process_ctx)
+			node.logInfo(f"  expected {expected}")
+			node.logInfo(f"  actual context {process_ctx}")
 			return False
 
 		node.logInfo("good, command is running with expected SELinux context %s" % process_ctx);
