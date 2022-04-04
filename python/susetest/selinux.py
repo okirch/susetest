@@ -292,7 +292,7 @@ class SELinux(Feature):
 		for filter in self._filters:
 			filter.addCheck(fn)
 
-	def resourceVerifyPolicy(self, node, resourceType, resourceName):
+	def resourceVerifyPolicy(self, driver, node, resourceType, resourceName):
 		if 'selinux' not in node.features:
 			node.logInfo("Skipping SELinux test; you may want to label the test with @susetest.requires('selinux')")
 			driver.skipTest()
@@ -304,9 +304,9 @@ class SELinux(Feature):
 			driver.skipTest()
 			return
 
-		self.resourceVerifyPolicyImpl(node, res)
+		self.resourceVerifyPolicyImpl(driver, node, res)
 
-	def resourceVerifyPolicyImpl(self, node, res):
+	def resourceVerifyPolicyImpl(self, driver, node, res):
 		# Avoid verifying the same resource twice
 		# (which could happen with services, for instance)
 		if res in self.verifiedResources:
@@ -330,7 +330,7 @@ class SELinux(Feature):
 			tested = True
 
 			if res.selinux_process_domain:
-				self.verifyExecutableProcessDomain(node, res)
+				self.verifyExecutableProcessDomain(driver, node, res)
 				tested = True
 		elif isinstance(res, FileResource):
 			if not res.path:
@@ -360,7 +360,7 @@ class SELinux(Feature):
 		elif isinstance(res, SubsystemResource):
 			susetest.say(f"\n### SELinux: verifying subsystem {res.name} ###")
 			for package in res.packages:
-				self.resourceVerifyPolicy(node, "package", package)
+				self.resourceVerifyPolicy(driver, node, "package", package)
 				tested = True
 		elif isinstance(res, PackageResource):
 			susetest.say(f"\n*** SELinux: verifying package {res.name} ***")
@@ -374,7 +374,7 @@ class SELinux(Feature):
 
 			for desc in ordered:
 				childResource = node.acquireResourceTypeAndName(desc.klass.resource_type, desc.name, mandatory = True)
-				self.resourceVerifyPolicyImpl(node, childResource)
+				self.resourceVerifyPolicyImpl(driver, node, childResource)
 				tested = True
 
 		if not tested:
@@ -408,18 +408,18 @@ class SELinux(Feature):
 		else:
 			node.logInfo("good, %s has expected SELinux label %s" % (path, expected_label));
 
-	def verifyExecutableProcessDomain(self, node, res):
+	def verifyExecutableProcessDomain(self, driver, node, res):
 		if self.default_setype == 'unconfined_t':
 			node.logInfo("Not checking executable's process context for unconfined user")
 			return True
 
 		node.logInfo(f"Checking executable's process context (expecting {res.selinux_process_domain})")
 		if res.selinux_test_service:
-			return self.verifyExecutableProcessDomainService(node, res)
+			return self.verifyExecutableProcessDomainService(driver, node, res)
 		else:
-			return self.verifyExecutableProcessDomainCommand(node, res)
+			return self.verifyExecutableProcessDomainCommand(driver, node, res)
 
-	def verifyExecutableProcessDomainService(self, node, res):
+	def verifyExecutableProcessDomainService(self, driver, node, res):
 		node.logInfo("  to verify the context, we need to inspect service %s" % res.selinux_test_service)
 		service = node.requireService(res.selinux_test_service)
 		if not service:
@@ -476,7 +476,7 @@ class SELinux(Feature):
 		node.logInfo("good, service is running with expected SELinux context %s" % process_ctx);
 		return True
 
-	def verifyExecutableProcessDomainCommand(self, node, res):
+	def verifyExecutableProcessDomainCommand(self, driver, node, res):
 		user = node.getResource("user", "test-user")
 		if not user.uid:
 			node.logError("user %s does not seem to exist" % user.login)

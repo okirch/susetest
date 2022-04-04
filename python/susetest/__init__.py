@@ -183,7 +183,7 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 			say(driver._features)
 			return
 
-		selinux.resourceVerifyPolicy(node, resourceType, resourceName)
+		selinux.resourceVerifyPolicy(driver, node, resourceType, resourceName)
 
 	f = verify_exec_selinux
 	f.__doc__ = f"selinux.{resourceName}: verify that selinux policy is applied to {resourceName}"
