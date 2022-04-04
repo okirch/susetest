@@ -142,6 +142,7 @@ class LocalFileProxy(FileProxy):
 			mode = os.stat(self.path).st_mode
 			os.chmod(destPath, mode)
 			os.system(f"sudo chown --reference {self.path} {destPath}")
+			os.system(f"type -p chcon && sudo chcon --reference {self.path} {destPath}")
 		else:
 			os.system(f"sudo chown root.root {destPath}")
 
