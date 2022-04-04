@@ -1,0 +1,34 @@
+
+twopence:
+	FEATURE: server needs journal support
+
+provisioning:
+	FIXME: build-image will package the image even if provisioning timed out :-(
+
+	FEATURE: support for rmt/smt proxy
+	FIXME: test compatibility handling is broken & currently disabled
+	FIXME: topology teardown should only consult status.conf
+	FEATURE: offer a "brutal" mode to topology teardown that works
+		even if the vagrant directory is gone
+
+susetest:
+	FIXME: Rewrite resource handling to make it saner
+	FIXME: unexpected audit messages should raise a warning
+	FEATURE: attach to SUT's journal event source
+	FEATURE: run-test should support --role-parameter
+
+Results processing:
+	FEATURE: comparison of two test runs (regression analysis)
+
+SELinux:
+
+	FEATURE: SELinux resources should specify domains and who
+	is allowed to transition to them (simple)
+
+
+Farthings:
+	FEATURE: reimplement ntp as applications
+	FEATURE: mariadb test case
+	FEATURE: mount test case
+	FEATURE: nfs-server test case
+
