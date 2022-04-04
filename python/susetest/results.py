@@ -425,15 +425,14 @@ class Tabulator:
 			else:
 				filter = ResultFilter(["success", "disabled"])
 
+		hrefMap = {}
 		if self.renderer.canRenderTestReports:
-			hrefMap = {}
-			anchor = 1
 			if isinstance(results, ResultsMatrix):
 				for col in results.columns:
 					path = os.path.join(self.logspace, results._name, col.name)
 					for name, log in self.scanDirectory(path).items():
 						outpath = os.path.join(results._name, col.name, f"{name}.html")
-						print(f"render {path}/{name}: {log} -> {outpath}")
+						# print(f"render {path}/{name}: {log} -> {outpath}")
 						self.renderer.open(outpath)
 						self.renderer.renderTestReport(log)
 						for group in log.groups:
@@ -441,9 +440,16 @@ class Tabulator:
 								refId = f"{col.name}:{test.id}"
 								testId = test.id
 								hrefMap[refId] = f"{outpath}#{testId}"
-								anchor += 1
 			else:
-				raise NotImplementedError("not yet implemented")
+				for name, log in self.scanDirectory(self.logspace).items():
+					outpath = os.path.join(f"{name}.html")
+					# print(f"render {path}/{name}: {log} -> {outpath}")
+					self.renderer.open(outpath)
+					self.renderer.renderTestReport(log)
+					for group in log.groups:
+						for test in group.tests:
+							testId = test.id
+							hrefMap[test.id] = f"{outpath}#{testId}"
 
 		self.renderer.renderResults(results, filter = filter, referenceMap = hrefMap)
 

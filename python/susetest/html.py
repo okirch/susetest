@@ -65,6 +65,27 @@ class HTMLRenderer(Renderer):
 
 		self.print(html_trailer)
 
+	class CellStatusRenderer:
+		def __init__(self, hrefMap):
+			self.hrefMap = hrefMap
+
+		def render(self, value, rowName, colName = None):
+			cell = value
+			if self.hrefMap is not None:
+				if colName:
+					refId = f"{colName}:{rowName}"
+				else:
+					refId = rowName
+
+				href = self.hrefMap.get(refId)
+				if href is not None:
+					cell = f"<a href=\"{href}\">{cell}</a>"
+
+			if value in ('success', 'failure', 'error'):
+				cell = f"<p class='{value}'>{cell}</p>"
+
+			return cell
+
 	def renderMatrix(self, matrix, parameters, referenceMap):
 		print = self.print
 
@@ -78,10 +99,10 @@ class HTMLRenderer(Renderer):
 		print(" </th>")
 
 		numColumns = 1 + len(matrix.columns)
+		cellRenderer = self.CellStatusRenderer(referenceMap)
 
 		currentTestName = None
 		for rowName in matrix.rows:
-
 			testName = rowName.split('.')[0]
 			if testName != currentTestName:
 				currentTestName = testName
@@ -93,15 +114,7 @@ class HTMLRenderer(Renderer):
 			desc = self.describeRow(matrix, rowName)
 			print(f"  <td>{desc}</td>")
 			for colName in matrix.columns:
-				status = matrix.get(rowName, colName)
-				cell = status
-				if referenceMap:
-					refId = f"{colName}:{rowName}"
-					href = referenceMap.get(refId)
-					if href is not None:
-						cell = f"<a href=\"{href}\">{cell}</a>"
-				if status in ('success', 'failure', 'error'):
-					cell = f"<p class='{status}'>{cell}</p>"
+				cell = cellRenderer.render(matrix.get(rowName, colName), rowName, colName)
 				print(f"  <td>{cell}</td>")
 			print(" </tr>")
 
@@ -122,14 +135,21 @@ class HTMLRenderer(Renderer):
 		print = self.print
 
 		print("<center><table>")
-		for row in vector.rows:
-			status = vector.get(row)
-			if status in ('success', 'failure', 'error'):
-				status = f"<p class='{status}'>{status}</p>"
 
-			description = self.describeRow(vector, row)
+		cellRenderer = self.CellStatusRenderer(referenceMap)
+		currentTestName = None
+		for rowName in vector.rows:
+			testName = rowName.split('.')[0]
+			if testName != currentTestName:
+				currentTestName = testName
+				print(" <tr>")
+				print(f"  <td colspan=2 class='caption'>{testName}</td>")
+				print(" </tr>")
 
-			print(f"  <tr><td>{row}</td><td>{status}</td><td>{description}</td>")
+			cell = cellRenderer.render(vector.get(rowName), rowName)
+			description = self.describeRow(vector, rowName)
+
+			print(f"  <tr><td>{description}</td><td>{cell}</td>")
 		print("</table></center>")
 
 	def describeRow(self, matrix, id):
