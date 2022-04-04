@@ -27,16 +27,16 @@ class ContinueTestcase(Exception):
 class FinishTestcase(Exception):
 	pass
 
+class InteractiveCommand(object):
+	def __init__(self, name, description, func):
+		self.name = name
+		self.description = description.strip()
+		self.func = func
+
+	def getCompletion(self, tokens, nth):
+		return None
+
 class Interaction(object):
-	class Command(object):
-		def __init__(self, name, description, func):
-			self.name = name
-			self.description = description.strip()
-			self.func = func
-
-		def getCompletion(self, tokens, nth):
-			return None
-
 	def __init__(self, testcase, message):
 		self.testcase = testcase
 		self.message = message
@@ -54,8 +54,7 @@ class Interaction(object):
 			# add it right away. This is the only way we can
 			# do per-command completion of arguments
 			if type(attr) == type(self.__class__) and \
-			   attr != self.Command and \
-			   issubclass(attr, self.Command):
+			   issubclass(attr, InteractiveCommand):
 				cmd = attr()
 				self.commands[cmd.name] = cmd
 				continue
@@ -68,7 +67,7 @@ class Interaction(object):
 			self.addCommand(name, description, attr)
 
 	def addCommand(self, name, description, func):
-		cmd = self.Command(name, description, func)
+		cmd = InteractiveCommand(name, description, func)
 		self.commands[name] = cmd
 
 	def getCommand(self, name):
@@ -117,7 +116,7 @@ class InteractionPostProvisioning(Interaction):
 		'''status: display the status of provisioned cluster'''
 		testcase.displayClusterStatus()
 
-	class SSHCommand(Interaction.Command):
+	class SSHCommand(InteractiveCommand):
 		def __init__(self):
 			super().__init__("ssh", "connect to a node", self.perform)
 
