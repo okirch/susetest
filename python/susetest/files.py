@@ -609,6 +609,71 @@ class HostsFile(LineOrientedFileFormat):
 
 		return self.Entry(name = w[1], addr = w[0], aliases = w[2:], raw = raw_line)
 
+class FstabFile(LineOrientedFileFormat):
+	file_type = "fstab"
+
+	class Key:
+		def __init__(self, fsname = None, mountpoint = None):
+			if not fsname and not mountpoint:
+				raise ValueError(f"refusing to create empty key")
+			self.fsname = fsname
+			self.mountpoint = mountpoint
+
+		def __str__(self):
+			return f"Filesystem({self.fsname}, {self.mountpoint})"
+
+		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			if self.fsname and self.fsname != entry.fsname:
+				return False
+			if self.mountpoint and self.mountpoint != entry.mountpoint:
+				return False
+			return True
+
+	class Entry(Key):
+		def __init__(self, fsname, mountpoint, fstype, options = None, freq = "0", passno = "0", raw = None):
+			super().__init__(fsname, mountpoint)
+			self.fstype = fstype
+			self.options = options or "defaults"
+			self.freq = freq
+			self.passno = passno
+			self.raw = raw
+
+		def invalidate(self):
+			self.raw = None
+
+		def format(self):
+			if self.raw:
+				return self.raw
+			return f"{self.fsname} {self.mountpoint} {self.fstype} {self.options} {self.freq} {self.passno}"
+
+		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			if self.mountpoint == entry.mountpoint or \
+			   self.fsname == entry.fsname:
+				return True
+			return False
+
+	def parseLineEntry(self, raw_line):
+		if raw_line == "" or raw_line.startswith("#") or raw_line.isspace():
+			return self.CommentLine(raw_line)
+
+		i = raw_line.find('#')
+		if i >= 0:
+			line = raw_line[:i]
+		else:
+			line = raw_line
+
+		w = line.split()
+		if len(w) != 6:
+			twopence.error(f"could not parse |{raw_line}|")
+			return
+
+		return self.Entry(*w, raw = raw_line)
 
 class LinesWithColonFileFormat(LineOrientedFileFormat):
 	entry_type = None

@@ -255,8 +255,23 @@ Abort the test run and clean up the workspace.
 .B finish
 Process all remaining stages of the test run non-interactively.
 .TP
-.B inspect
-Display information on the test case being executed.
+.B schedule
+Display information on the test case being executed. This includes
+the names of the individual test cases and test groups, which can
+be used in the \fBonly\fP and \fBskip\fP commands described below.
+.TP
+.BR only ", " skip
+These commands control which of the tests implemented by the test
+script will be executed, and which not. They take one or more names
+of test groups or test cases. Wildcards like \fBselinux.*\fP or
+\fB*.md5\fP are supported.
+.IP
+The \fBskip\fP command instructs the test script to skip all tests
+matching the given names/patterns, and run all others.
+The \fBonly\fP command instructs the test script to skip all tests
+except those matching the given names/patterns.
+.IP
+To re-enable all tests, use \fBskip none\fP.
 .SH SEE ALSO
 .BR twopence-provision (1),
 .BR twopence-list-platforms (1),

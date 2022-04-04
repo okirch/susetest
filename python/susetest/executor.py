@@ -36,6 +36,39 @@ class InteractiveCommand(object):
 	def getCompletion(self, tokens, nth):
 		return None
 
+class ScheduleControlCommandBase(InteractiveCommand):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+	def perform(self, testcase, *args):
+		changed = testcase.controlTests(self.name, args)
+		if changed:
+			print()
+			print("Changes in test schedule:")
+			for s in changed:
+				print(s)
+
+	def getCompletion(self, testcase, tokens, nth):
+		name = tokens[-1]
+
+		completions = []
+		if '.' not in name:
+			schedule = testcase.scheduledGroups
+			# remove the trailing * from the group name
+			schedule = map(lambda s: s.rstrip('*'), schedule)
+		else:
+			if name.endswith('.'):
+				completions.append(name + '*')
+			schedule = testcase.scheduledTests
+
+		for possibleCompletion in schedule:
+			if possibleCompletion.startswith(name):
+				completions.append(possibleCompletion)
+
+		if nth < len(completions):
+			return completions[nth]
+		return None
+
 class Interaction(object):
 	def __init__(self, testcase, message):
 		self.testcase = testcase
@@ -97,7 +130,7 @@ class Interaction(object):
 	def help(self, testcase, *args):
 		'''help: display help message'''
 
-		for (name, cmd) in self.commands.items():
+		for (name, cmd) in sorted(self.commands.items()):
 			print("%-20s %s" % (name, cmd.description))
 
 	def abort(self, testcase, *args):
@@ -112,6 +145,14 @@ class Interaction(object):
 
 		for s in testcase.schedule:
 			print(s)
+
+	class OnlyCommand(ScheduleControlCommandBase):
+		def __init__(self):
+			super().__init__("only", "execute just the matching test cases, none other", self.perform)
+
+	class SkipCommand(ScheduleControlCommandBase):
+		def __init__(self):
+			super().__init__("skip", "skip matching test cases", self.perform)
 
 class InteractionPreProvisioning(Interaction):
 	pass
@@ -435,6 +476,8 @@ class Testcase(TestThing):
 		self._nodes = []
 		self._schedule = None
 
+		self._control = None
+
 	@property
 	def is_larval(self):
 		return self.stage == self.STAGE_LARVAL
@@ -460,6 +503,18 @@ class Testcase(TestThing):
 		if self._schedule is None:
 			self.updateTestSchedule()
 		return self._schedule
+
+	@property
+	def scheduledGroups(self):
+		for s in self.schedule:
+			if s.type == 'GROUP':
+				yield s.name
+
+	@property
+	def scheduledTests(self):
+		for s in self.schedule:
+			if s.type == 'TEST':
+				yield s.name
 
 	def validate(self):
 		info = twopence.TestBase().findTestCase(self.name)
@@ -551,6 +606,11 @@ class Testcase(TestThing):
 		statusFile = os.path.join(self.workspace, "status.conf")
 		argv += ["--config", statusFile]
 
+		if self._control:
+			verb, names = self._control
+			for name in names:
+				argv += [f"--{verb}", name]
+
 		return argv
 
 	class ScheduledTest:
@@ -578,7 +638,6 @@ class Testcase(TestThing):
 		argv.append('schedule')
 
 		schedule = []
-		print(" ".join(argv))
 		with os.popen(" ".join(argv)) as f:
 			for line in f.readlines():
 				words = line.strip().split(':', maxsplit = 3)

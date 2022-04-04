@@ -685,6 +685,14 @@ class TestDefinition:
 		opts, args = TestDefinition.parseArgs()
 
 		suite = TestsuiteInfo.instance()
+
+		# The call to executeOnly must be first, so that
+		# constructs like
+		#	--only groupA --skip groupA.caseB
+		# do what you'd expect
+		suite.executeOnly(opts.only)
+		suite.executeSkip(opts.skip)
+
 		if args:
 			for action in args:
 				if action == 'info':
@@ -697,13 +705,6 @@ class TestDefinition:
 
 		if not suite or suite.empty:
 			raise ValueError("susetest.perform() invoked, but the script does not seem to define any test cases")
-
-		# The call to executeOnly must be first, so that
-		# constructs like
-		#	--only groupA --skip groupA.caseB
-		# do what you'd expect
-		suite.executeOnly(opts.only)
-		suite.executeSkip(opts.skip)
 
 		driver = Driver(suite.name)
 
