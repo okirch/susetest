@@ -390,12 +390,11 @@ class SELinux(Feature):
 		return self.checkLabel(node, res.path, expected)
 
 	def checkLabel(self, node, path, expected_label):
-		print("Checking label of %s (expecting %s)" % (path, expected_label))
+		node.logInfo("Checking label of %s (expecting %s)" % (path, expected_label))
 		if not path:
 			node.logError("Unable to get path of resource");
 			return
 
-		print("Resource path is %s" % path)
 		status = node.runOrFail("stat -Lc %%C %s" % path, stdout = bytearray(), quiet = True)
 		if not status:
 			return
@@ -484,6 +483,15 @@ class SELinux(Feature):
 
 		cmdline = res.selinux_test_command
 
+		# Check if the resource says that the command is expected to fail for our
+		# seuser. That's a roundabout way of saying that SELinux will not allow the
+		# transition to the expected process domain.
+		prediction = res.predictOutcome(driver, {})
+		expected_type = res.selinux_process_domain
+		if prediction and prediction.status != 'success':
+			node.logInfo(f"Expecting this command to not make the transition to domain {expected_type}")
+			expected_type = None
+
 		if not (res.interactive or res.selinux_test_interactive):
 			# Run a NOP invocation of the command (could also be sth like "cmd --help")
 			# and tell twopence to collect the exit status when reaping the child process.
@@ -495,12 +503,12 @@ class SELinux(Feature):
 
 			process_ctx = st.process.selinux_context
 			if process_ctx is None:
-				node.logFailure("unable to find process context for exited command: %s" % cmdline)
+				node.logFailure(f"unable to find process context for exited command: {cmdline} ({st.message})")
 				return
 		else:
 			if not cmdline:
 				cmdline = res.path
-			cmd = susetest.Command(cmdline, timeout = 10, user = user.login, background = True, tty = True)
+			cmd = susetest.Command(cmdline, timeout = 10, user = user.login, background = True, tty = True, exitInfo = True)
 
 			proc = node.chat(cmd)
 			if not proc:
@@ -513,20 +521,26 @@ class SELinux(Feature):
 
 			process_ctx = proc.selinux_context
 
+			# This is a somewhat ugly workaround for a problem between
+			# twopence.Process and twopence.Status. When receiving a
+			# notification from the server that the process has exited,
+			# its exit_info should be visible in twopence.Process as well.
 			if process_ctx is None:
-				node.logFailure("unable to find process context for exited command: %s" % cmdline)
+				try: proc.kill("KILL")
+				except: pass
+
+				st = proc.wait()
+				process_ctx = st.process.selinux_context
+
+			if process_ctx is None:
+				node.logFailure(f"unable to find process context for command: {cmdline}")
 				return
 
-			proc.kill("KILL")
-			proc.wait()
+			if proc:
+				try: proc.kill("KILL")
+				except: pass
 
-		# Check if the resource says that the command is expected to fail for our
-		# seuser. That's a roundabout way of saying that SELinux will not allow the
-		# transition to the expected process domain.
-		prediction = res.predictOutcome(driver, {})
-		expected_type = res.selinux_process_domain
-		if prediction and prediction.status != 'success':
-			expected_type = None
+				proc.wait()
 
 		expected = self.checkContext(process_ctx, type = expected_type)
 		if expected:
