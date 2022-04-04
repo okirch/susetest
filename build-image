@@ -101,7 +101,10 @@ function do_build {
 		return 1
 	fi
 
-	twopence provision $main_options create
+	if ! twopence provision $main_options create; then
+		return 1
+	fi
+
 	twopence provision $main_options package $output_platform
 	return $?
 }
