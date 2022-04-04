@@ -16,6 +16,7 @@
 from .resources import MessageFilter, ExecutableResource, FileResource, PackageResource, SubsystemResource, ServiceResource
 from .feature import Feature
 import susetest
+import twopence
 import time
 
 # Typical SELinux message:
@@ -210,6 +211,9 @@ class SELinux(Feature):
 		selinuxUser = driver.getParameter('selinux-user')
 		if not selinuxUser:
 			selinuxUser = driver.getParameter('selinux-testuser')
+			if selinuxUser:
+				twopence.warning("Your configuration uses obsolete parameter \"selinux-testuser\". Please use selinux-user instead")
+				driver.setParameter('selinux-user', selinuxUser)
 
 		if selinuxUser:
 			self.updateSEUser(node, selinuxPolicy, selinuxUser)

@@ -158,6 +158,9 @@ class Driver:
 	def getParameter(self, name):
 		return self._parameters.get(name)
 
+	def setParameter(self, name, value):
+		self._parameters[name] = value
+
 	def setup(self):
 		if self._setup_complete:
 			raise Exception("Duplicate call to setup()")
