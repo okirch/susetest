@@ -90,10 +90,6 @@ class Interaction(object):
 		'''continue: proceed to next step'''
 		raise ContinueTestcase()
 
-	def inspect(self, testcase, *args):
-		'''inspect: display information on the test case'''
-		testcase.inspect()
-
 	def finish(self, testcase, *args):
 		'''finish: finish the test case non-interactively'''
 		raise FinishTestcase()
@@ -107,6 +103,15 @@ class Interaction(object):
 	def abort(self, testcase, *args):
 		'''abort: abort this test case'''
 		raise AbortedTestcase()
+
+	def schedule(self, testcase, *args):
+		'''schedule: display the test schedule'''
+		if not testcase.schedule:
+			print("This test script does not seem to define any tests")
+			return
+
+		for s in testcase.schedule:
+			print(s)
 
 class InteractionPreProvisioning(Interaction):
 	pass
@@ -428,6 +433,7 @@ class Testcase(TestThing):
 
 		self.stage = self.STAGE_LARVAL
 		self._nodes = []
+		self._schedule = None
 
 	@property
 	def is_larval(self):
@@ -448,6 +454,12 @@ class Testcase(TestThing):
 	@property
 	def is_destroyed(self):
 		return self.stage == self.STAGE_DESTROYED
+
+	@property
+	def schedule(self):
+		if self._schedule is None:
+			self.updateTestSchedule()
+		return self._schedule
 
 	def validate(self):
 		info = twopence.TestBase().findTestCase(self.name)
@@ -514,8 +526,72 @@ class Testcase(TestThing):
 
 		self.stage = self.STAGE_PROVISIONED
 
+	def controlTests(self, verb, names):
+		if verb == 'skip' and names == ["none"]:
+			self._control = None
+			return
+		if verb == 'only' and names == ["all"]:
+			self._control = None
+			return
+
+		self._control = [verb, names]
+
+		return self.updateTestSchedule()
+
 	def displayClusterStatus(self):
 		self.runProvisioner("status")
+
+	def buildScriptInvocation(self):
+		argv = [self.testScript]
+
+		# This is hard-coded, and we "just know" where it is.
+		# If this ever changes, use
+		#  twopence provision --workspace BLAH show status-file
+		# to obtain the name of that file
+		statusFile = os.path.join(self.workspace, "status.conf")
+		argv += ["--config", statusFile]
+
+		return argv
+
+	class ScheduledTest:
+		def __init__(self, type, name, skip, description = None):
+			self.type = type
+			self.name = name
+			self.skip = bool(skip)
+			self.description = description
+
+		def __str__(self):
+			skipped = ""
+			if self.skip:
+				skipped = ", SKIP"
+			if self.type == 'GROUP':
+				return f"Group {self.name:24}{skipped}"
+			return f"  {self.name:30}{self.description}{skipped}"
+
+		def __eq__(self, other):
+			return self.type == other.type and \
+			       self.name == other.name and \
+			       self.skip == other.skip
+
+	def updateTestSchedule(self):
+		argv = self.buildScriptInvocation()
+		argv.append('schedule')
+
+		schedule = []
+		print(" ".join(argv))
+		with os.popen(" ".join(argv)) as f:
+			for line in f.readlines():
+				words = line.strip().split(':', maxsplit = 3)
+				schedule.append(self.ScheduledTest(*words))
+
+		changed = []
+		if self._schedule:
+			for old, new in zip(self._schedule, schedule):
+				if old != new:
+					changed.append(new)
+
+		self._schedule = schedule
+		return changed
 
 	def runScript(self, rerun = False):
 		if rerun and self.is_test_complete:
@@ -525,14 +601,9 @@ class Testcase(TestThing):
 			return
 
 		info("Executing test script")
+		argv = self.buildScriptInvocation()
 
-		# This is hard-coded, and we "just know" where it is.
-		# If this ever changes, use
-		#  twopence provision --workspace BLAH show status-file
-		# to obtain the name of that file
-		statusFile = os.path.join(self.workspace, "status.conf")
-
-		if self.runCommand(self.testScript, "--config", statusFile) != 0:
+		if self.runCommand(*argv) != 0:
 			info("Test script return non-zero exit status")
 
 			# FIXME: record failure; we should also return non-zero

@@ -662,6 +662,16 @@ class TestDefinition:
 
 		print()
 
+	@staticmethod
+	def print_schedule(suite):
+		for group in suite.groups:
+			if group.empty:
+				continue
+
+			print(f"GROUP:{group.name}.*:{group.skip and 'SKIP' or ''}")
+			for test in group.tests:
+				print(f"TEST:{group.name}.{test.name}:{test.skip and 'SKIP' or ''}:{test.description}")
+
 	# Called by the user at the end of a test script, like this
 	#
 	#  if __name__ == '__main__':
@@ -679,6 +689,8 @@ class TestDefinition:
 			for action in args:
 				if action == 'info':
 					TestDefinition.print_pre_run_summary(suite)
+				elif action == 'schedule':
+					TestDefinition.print_schedule(suite)
 				else:
 					raise ValueError(f"Unknown action \"{action}\" on the command line")
 			exit(0)
