@@ -58,15 +58,6 @@ class ExpectedCommandFailure(ExpectedCommandResult):
 		node.logInfo(f"{self.cmdname} command failed as expected: {st.message}")
 		return True
 
-def group_resource(f):
-	@functools.wraps(f)
-	def wrapper(*args, **kwds):
-		print('Setting up group resource %s' % f)
-		return f(*args, **kwds)
-
-	print("Attaching group resource %s" % f)
-	return wrapper
-
 def requireResource(resourceName, resourceType = None, nodeName = None, **kwargs):
 	TestDefinition.requireResource(resourceType, resourceName, nodeName, **kwargs)
 
