@@ -407,7 +407,12 @@ class Tabulator:
 
 		self.terse = args.terse
 
-		self.renderer = Renderer.factory(args.format, args.output_directory)
+		output_directory = None
+		if args.document_root:
+			output_directory = os.path.join(args.document_root,
+						args.testrun or "testrun")
+
+		self.renderer = Renderer.factory(args.format, output_directory)
 
 	def perform(self):
 		path = os.path.join(self.logspace, "results.xml")
@@ -551,6 +556,6 @@ class Tabulator:
 			help = 'Name of the test run')
 		parser.add_argument('--format', default = 'text',
 			help = 'Select output format (text, html - default: text)')
-		parser.add_argument('--output-directory', metavar = 'PATH',
-			help = 'Create output file(s) in the specified directory')
+		parser.add_argument('--document-root', metavar = 'PATH',
+			help = 'Create output file(s) below the specified directory')
 		return parser
