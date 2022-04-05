@@ -77,7 +77,7 @@ class ResultsVector(ResultsCollection):
 	def __init__(self, name = None):
 		super().__init__(name, writerClass = ResultsVectorWriter)
 		self._parameters = {}
-		self._results = {}
+		self._results = []
 
 	@property
 	def name(self):
@@ -89,7 +89,7 @@ class ResultsVector(ResultsCollection):
 
 	@property
 	def results(self):
-		return sorted(self._results.values(), key = lambda r: r.id)
+		return self._results
 
 	def serialize(self, writer):
 		super().serialize(writer)
@@ -112,7 +112,7 @@ class ResultsVector(ResultsCollection):
 
 	def add(self, *args, **kwargs):
 		result = self.TestResult(*args, **kwargs)
-		self._results[result.id] = result
+		self._results.append(result)
 
 	def asVectorOfValues(self, filter):
 		vector = VectorOfValues(default_value = "(not run)")
@@ -192,7 +192,7 @@ class ResultsMatrix(ResultsCollection):
 class VectorOfValues:
 	def __init__(self, default_value = "-"):
 		self._values = {}
-		self._rowNames = set()
+		self._rowNames = []
 		self._rowInfo = {}
 		self._default_value = default_value
 
@@ -200,7 +200,7 @@ class VectorOfValues:
 
 	def set(self, row, value):
 		self._values[row] = value
-		self._rowNames.add(row)
+		self._rowNames.append(row)
 
 	def get(self, row):
 		return self._values.get(row) or self._default_value
@@ -213,7 +213,7 @@ class VectorOfValues:
 
 	@property
 	def rows(self):
-		return sorted(self._rowNames)
+		return filter(lambda name: name not in self._hiddenRows, self._rowNames)
 
 	def hideCellsWithValue(self, value):
 		hide = set()
@@ -222,14 +222,13 @@ class VectorOfValues:
 			if self.get(row) == value:
 				hide.add(row)
 
-		self._rowNames.difference_update(hide)
 		self._hiddenRows.update(hide)
 
 class MatrixOfValues:
 	def __init__(self, columnNames = [], default_value = "-"):
 		self._values = {}
 		self._columnNames = columnNames or []
-		self._rowNames = set()
+		self._rowNames = []
 		self._rowInfo = {}
 		self._default_value = default_value
 
@@ -239,7 +238,8 @@ class MatrixOfValues:
 		self._values[f"{row},{col}"] = value
 		if col not in self._columnNames:
 			self._columnNames.append(col)
-		self._rowNames.add(row)
+		if row not in self._rowNames:
+			self._rowNames.append(row)
 
 	def get(self, row, col):
 		return self._values.get(f"{row},{col}") or self._default_value
@@ -258,7 +258,7 @@ class MatrixOfValues:
 
 	@property
 	def rows(self):
-		return sorted(self._rowNames)
+		return filter(lambda name: name not in self._hiddenRows, self._rowNames)
 
 	@property
 	def columns(self):
@@ -281,14 +281,12 @@ class MatrixOfValues:
 	def hideRowsWithValue(self, value):
 		def rowHasUniformValue(value, rowValues):
 			return all(cell == value for cell in rowValues)
-			return len(set(values)) == 1
 
 		hide = set()
 		for row in self.rows:
 			if self.rowHasUniformValue(row, value):
 				hide.add(row)
 
-		self._rowNames.difference_update(hide)
 		self._hiddenRows.update(hide)
 
 class ResultFilter:
