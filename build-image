@@ -119,7 +119,7 @@ Build commands:
    twopence provision $main_options init --config $build_config
    twopence provision $main_options create
    twopence provision $main_options package $output_platform
-   twopence provision $main_options destroy --zap
+   twopence provision $main_options destroy --force --zap
 
 Build config file:
 EOF
@@ -130,7 +130,7 @@ if ! do_build; then
 	exitcode=$?
 fi
 
-twopence provision $main_options destroy --zap
+twopence provision $main_options destroy --force --zap
 
 if [ $exitcode -ne 0 ]; then
 	cat <<-EOF
