@@ -196,7 +196,7 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 
 	return tc
 
-def templateVerifyExecutable(resourceName, arguments, nodeName = None, **kwargs):
+def templateVerifyExecutable(resourceName, arguments, nodeName = None, requireFeatures = [], **kwargs):
 	def verify_executable(driver):
 		node = getTargetForTemplate(driver, nodeName)
 		if node is None:
@@ -229,6 +229,9 @@ def templateVerifyExecutable(resourceName, arguments, nodeName = None, **kwargs)
 
 	tc = TestDefinition.defineTestcase(f)
 	tc.addOptionalResource('executable', resourceName, nodeName)
+
+	for name in requireFeatures:
+		tc.addRequires(name)
 
 	TestDefinition.optionalResource("executable", resourceName, nodeName = nodeName)
 
