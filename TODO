@@ -1,9 +1,18 @@
 
+Critical bugs:
+	FIXME: Leap-15.4 with fips seems to be broken (never comes back from reboot)
+
 twopence:
 	FEATURE: server needs journal support
+	FEATURE: server should set /proc/self/loginuid between fork and exec
+	FIXME: NUL termination problem somewhere in the audit message passing
+		(permissive=0rminal=?)
 
 provisioning:
-	FIXME: build-image will package the image even if provisioning timed out :-(
+	FEATURE: rewrite the provisioning from doing it with scripts to
+		doing it through twopence. The only bit that needs to be
+		done in vagrant is import the RPM key, activate the twopence
+		repo and install the test server
 
 	FEATURE: support for rmt/smt proxy
 	FIXME: test compatibility handling is broken & currently disabled
@@ -13,6 +22,9 @@ provisioning:
 
 susetest:
 	FIXME: Rewrite resource handling to make it saner
+		start by dropping resource manager plugging
+		and the groupBegin callback
+
 	FIXME: unexpected audit messages should raise a warning
 	FEATURE: attach to SUT's journal event source
 	FEATURE: run-test should support --role-parameter
@@ -27,6 +39,7 @@ SELinux:
 
 
 Farthings:
+	FIXME: change ntp to use file editing provided by resource mechanism
 	FEATURE: reimplement ntp as applications
 	FEATURE: mariadb test case
 	FEATURE: mount test case
