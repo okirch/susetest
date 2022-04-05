@@ -470,9 +470,18 @@ class Tabulator:
 
 	def scanResults(self):
 		info("Scanning logspace")
-		testcases = self.scanDirectory(self.logspace)
-		if not testcases:
+		result = self.scanSuite()
+		if result is None:
+			result = self.scanMatrix()
+
+		if result is None:
 			raise ValueError(f"No test cases found in {self.logspace}")
+		return result
+
+	def scanSuite(self):
+		testcases = self.scanDirectory(self.logspace)
+		if not testscases:
+			return
 
 		vector = ResultsVector()
 		for result in testcases.values():
@@ -480,6 +489,41 @@ class Tabulator:
 				for test in group.tests:
 					vector.add(test.id, test.status, test.description)
 		return vector
+
+	def scanMatrix(self):
+		subdirs = []
+		for de in os.scandir(self.logspace):
+			if de.is_dir():
+				subdirs.append(de)
+
+		if len(subdirs) != 1:
+			return
+
+		de = subdirs[0]
+		matrix = ResultsMatrix(de.name)
+
+		path = de.path
+		for de in os.scandir(path):
+			if not de.is_dir():
+				continue
+
+			columnPath = de.path
+			testcases = self.scanDirectory(de.path)
+			if not testcases:
+				continue
+
+			column = matrix.createColumn(de.name)
+			if matrix._name == 'selinux':
+				column.setParameter('selinux-user', de.name)
+			else:
+				column.setParameter('value', de.name)
+
+			for result in testcases.values():
+				for group in result.groups:
+					for test in group.tests:
+						column.add(test.id, test.status, test.description)
+
+		return matrix
 
 	def scanDirectory(self, path):
 		result = {}
