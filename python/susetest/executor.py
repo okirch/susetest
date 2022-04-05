@@ -582,15 +582,14 @@ class Testcase(TestThing):
 		self.stage = self.STAGE_PROVISIONED
 
 	def controlTests(self, verb, names):
-		if verb == 'skip' and names == ["none"]:
-			self._control = None
-			return
-		if verb == 'only' and names == ["all"]:
-			self._control = None
-			return
+		if len(names) == 1:
+			wot = names[0]
+			if verb == 'skip' and wot == "none" or \
+			   verb == 'only' and wot == "all":
+				self._control = None
+				return self.updateTestSchedule()
 
 		self._control = [verb, names]
-
 		return self.updateTestSchedule()
 
 	def displayClusterStatus(self):
