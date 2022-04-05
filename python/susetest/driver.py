@@ -148,7 +148,7 @@ class Driver:
 
 		# ignore duplicates
 		if not node.testFeature(feature) and feature.requiresActivation:
-			group.beginTest(name = f"{node.name}-enable-{featureName}")
+			group.beginTest(name = f"{node.name}-enable-{featureName}", description = f"enable {featureName} on node {node.name}")
 			feature.activate(self, node)
 			susetest.say(f"{node.name}: enabled feature {featureName}")
 			group.endTest()
@@ -211,7 +211,7 @@ class Driver:
 		# active test case, most of the logging would otherwise
 		# go to the bit bucket.
 		if self.resourceManager.pending:
-			group.beginTest(name = "setup-resources")
+			group.beginTest(name = "setup-resources", description = "setup resources required by test run")
 
 			# Perform any postponed resource changes,
 			# allow future resource changes to be executed right away
