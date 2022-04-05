@@ -478,7 +478,7 @@ class Tabulator:
 
 	def scanSuite(self):
 		testcases = self.scanDirectory(self.logspace)
-		if not testscases:
+		if not testcases:
 			return
 
 		vector = ResultsVector()

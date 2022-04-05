@@ -25,9 +25,9 @@ td.caption {
   font-size: larger;
   font-weight: bold;
 }
-p.success { color: blue; }
-p.error { color: red; }
-p.failure { color: red; }
+font.success { color: blue; }
+font.error { color: red; }
+font.failure { color: red; }
 tr:hover {background-color: lightgreen;}
 </style>
 
@@ -71,6 +71,10 @@ class HTMLRenderer(Renderer):
 
 		def render(self, value, rowName, colName = None):
 			cell = value
+
+			if value in ('success', 'failure', 'error'):
+				cell = f"<font class='{value}'>{cell}</font>"
+
 			if self.hrefMap is not None:
 				if colName:
 					refId = f"{colName}:{rowName}"
@@ -80,9 +84,6 @@ class HTMLRenderer(Renderer):
 				href = self.hrefMap.get(refId)
 				if href is not None:
 					cell = f"<a href=\"{href}\">{cell}</a>"
-
-			if value in ('success', 'failure', 'error'):
-				cell = f"<p class='{value}'>{cell}</p>"
 
 			return cell
 
