@@ -61,7 +61,7 @@ class Feature(object):
 
 			return PackageManagerDNF()
 
-		if name in ('container', 'twopence', ):
+		if name in ('container', 'twopence', 'twopence-tcp',):
 			return DummyFeature(name)
 
 		# raise ValueError("Feature %s not yet implemented" % name)
