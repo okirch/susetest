@@ -187,7 +187,7 @@ class HTMLRenderer(Renderer):
 	def renderGroupInfo(self, group):
 		print = self.print
 
-		print(f"<h2>Test Group {group.stats.package}</h2>")
+		print(f"<h2>Test Group {group.id}</h2>")
 		print("<table>")
 
 		print(f"<tr><td colspan='2'>Statistics</td></tr>")
@@ -213,7 +213,7 @@ class HTMLRenderer(Renderer):
 		else:
 			time = "%.2f s" % time
 
-		print(f"<h3 id='{test.classname}'>Test: {test.description}</h3>")
+		print(f"<h3 id='{test.id}'>Test: {test.description}</h3>")
 		print("<table>")
 		print(f"<tr><td>Status</td><td><p class='{test.status}'>{test.status}</p></td></tr>")
 		print(f"<tr><td>Duration</td><td>{time}</td></tr>")
