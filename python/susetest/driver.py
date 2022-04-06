@@ -5,7 +5,6 @@
 # Copyright (C) 2021 SUSE Linux GmbH
 #
 ##################################################################
-import suselog
 import inspect
 import os
 import curly
@@ -246,7 +245,7 @@ class Driver:
 		if not test:
 			raise ValueError("skipTest called outside of a test")
 
-		test.skip()
+		test.skip(msg)
 
 	def predictTestResult(self, resource, **variables):
 		test = self.currentTestLogger

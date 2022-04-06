@@ -108,7 +108,6 @@
 ##################################################################
 
 import susetest
-import suselog
 import inspect
 import os
 import curly

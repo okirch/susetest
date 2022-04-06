@@ -14,7 +14,6 @@
 ##################################################################
 
 import susetest
-import suselog
 
 from .feature import Feature
 

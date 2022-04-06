@@ -6,7 +6,6 @@
 #
 ##################################################################
 
-import suselog
 import time
 import re
 import sys

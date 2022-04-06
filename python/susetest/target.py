@@ -6,7 +6,6 @@
 #
 ##################################################################
 
-import suselog
 import susetest
 import twopence
 import time
