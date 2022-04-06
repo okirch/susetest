@@ -10,6 +10,9 @@ import suselog
 import susetest
 from .xmltree import XMLTree
 
+from .journal import load as loadJournal
+from .journal import create as createJournal
+
 def error(msg):
 	print(f"Error: {msg}")
 
@@ -302,148 +305,8 @@ class Logger:
 	def addProperty(self, name, value):
 		self._journal.addProperty(name, value)
 
-class LogParser:
-	class Info:
-		def __init__(self, node, **kwargs):
-			self._schema = kwargs
-			for name, type in kwargs.items():
-				value = node.attrib.get(name)
-				if value is not None:
-					try:
-						value = type(value)
-					except: pass
-
-				setattr(self, name, value)
-
-		def __str__(self):
-			list = []
-			for name in self._schema.keys():
-				list.append(f"{name} = {getattr(self, name)}")
-			args = ", ".join(list)
-			return f"{self.__class__.__name__}({args})"
-
-		def __eq__(self, other):
-			if self.__class__ != other.__class__:
-				return False
-
-			for name in self._schema.keys():
-				if getattr(self, name) != getattr(other, name):
-					return False
-
-			return True
-
-	class Stats(Info):
-		def __init__(self, node, **kwargs):
-			super().__init__(node,
-				time =		float,
-				tests =		int,
-				failures =	int,
-				disabled =	int,
-				skipped =	int,
-				errors =	int,
-				**kwargs)
-
-	class ReportStats(Stats):
-		def __init__(self, node):
-			super().__init__(node,
-				name =		str,
-				)
-
-	class TestsuiteStats(Stats):
-		def __init__(self, node):
-			super().__init__(node,
-				package =	str,
-				timestamp =	str,
-				hostname =	str,
-				)
-
-	# The way we store test id and description is currently rather odd
-	# because we tried to shoehorn it onto the junit schema.
-	class TestResult(Info):
-		def __init__(self, node):
-			super().__init__(node,
-				classname =	str,
-				name =		str,
-				time =		float,
-				status =	str,
-				)
-
-			self.error = None
-			self.systemOut = None
-
-			for child in node:
-				if child.tag == 'error':
-					self.error = child.text.strip()
-				elif child.tag == 'system-out':
-					self.systemOut = child.text.strip()
-
-		@property
-		def id(self):
-			return self.classname
-
-		@property
-		def description(self):
-			return self.name
-
-	class TestsuiteInfo:
-		def __init__(self, node):
-			self.stats = LogParser.TestsuiteStats(node)
-			# print(self.stats)
-
-			self.properties = {}
-			self.tests = []
-
-			for child in node:
-				if child.tag == 'properties':
-					self.processProperties(child)
-				elif child.tag == 'testcase':
-					self.tests.append(LogParser.TestResult(child))
-
-		def processProperties(self, node):
-			for child in node.findall("property"):
-				key = child.attrib.get('key')
-				value = child.attrib.get('value')
-				if key is not None:
-					self.properties[key] = value
-
-	def __init__(self, path):
-		self.stats = None
-		self.groups = []
-
-		if not self.load(path):
-			error(f"{path} does not look like a test report we understand")
-
-	@property
-	def name(self):
-		if not self.stats:
-			return None
-		return self.stats.name
-
-	def load(self, path):
-		import xml.etree.ElementTree as ET
-
-		# susetest.say(f"Loading journal from {path}")
-		try:
-			tree = ET.parse(path)
-		except Exception as e:
-			error(f"Unable to parse test report {path}: {e}")
-			return False
-
-		root = tree.getroot()
-		if root.tag != "testsuites":
-			error(f"Unexpected root node <{root.tag}>")
-			return False
-
-		self.stats = self.ReportStats(root)
-		# print(self.stats)
-
-		for child in root:
-			if child.tag != 'testsuite':
-				continue
-
-			self.groups.append(self.TestsuiteInfo(child))
-
-		return True
+def LogParser(path):
+	return loadJournal(path)
 
 class ResultsIO:
 	class GenericObject:
