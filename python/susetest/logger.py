@@ -6,7 +6,6 @@
 #
 ##################################################################
 
-import suselog
 import susetest
 from .xmltree import XMLTree
 
@@ -47,6 +46,7 @@ class GroupLogger:
 	def __init__(self, journal, hooks, name, global_resources = None):
 		self._name = name
 		self._journal = journal
+		self._group = journal.beginGroup(name)
 		self._hooks = hooks
 
 		self._currentTest = None
@@ -54,7 +54,6 @@ class GroupLogger:
 
 		assert(not global_resources)
 
-		self._journal.beginGroup(self._name)
 		self._active = True
 
 	def __del__(self):
@@ -73,8 +72,9 @@ class GroupLogger:
 
 	def end(self):
 		if self._active:
+			self.endTest()
 			self._hooks.runGroupEndHooks(self)
-			self._journal.finishGroup()
+			# self._journal.finishGroup()
 			self._active = False
 
 	@property
@@ -88,7 +88,7 @@ class GroupLogger:
 	def beginTest(self, *args, **kwargs):
 		self.endTest()
 
-		test = TestLogger(self._journal, self._hooks, *args, **kwargs)
+		test = TestLogger(self._group, self._hooks, *args, **kwargs)
 		self._currentTest = test
 
 		return test
@@ -115,18 +115,17 @@ class TestLogger:
 		def __str__(self):
 			return self.noun
 
-	def __init__(self, journal, hooks, name, *args, **kwargs):
-		self._journal = journal
+	def __init__(self, group, hooks, name, *args, **kwargs):
 		self._hooks = hooks
 
-		self._journal.beginTest(name, *args, **kwargs)
+		self._test = group.beginTest(name, *args, **kwargs)
 		self._active = True
 
 		self._predict = None
 		self._predictionArrived = False
 
-		self.outcomeFailure = self.Outcome("failure", self._journal.failure)
-		self.outcomeError = self.Outcome("error", self._journal.error)
+		self.outcomeFailure = self.Outcome("failure", self._test.logFailure)
+		self.outcomeError = self.Outcome("error", self._test.logError)
 
 
 	def __bool__(self):
@@ -138,32 +137,33 @@ class TestLogger:
 
 		self._hooks.runPostTestHooks()
 
-		if self._journal.status == "running":
+		if self._test.status is None:
 			if self._predict and not self._predictionArrived:
-				self._journal.failure(f"*** Expected {self._predict.noun} ({self._predict.reason}) - but the test apparently succeeded")
+				self._test.logFailure(f"*** Expected {self._predict.noun} ({self._predict.reason}) - but the test apparently succeeded")
 			else:
-				self._journal.success()
+				self._test.logSuccess()
 
+		self._test.complete()
 		self._active = False
 
 	# mark the test as being skipped
-	def skip(self):
-		self._journal.skipped()
+	def skip(self, msg = None):
+		self._test.logSkipped(msg)
 		self.end()
 
 	def logInfo(self, message):
-		self._journal.info(message)
+		self._test.logInfo(message)
 
 	def logOutcome(self, outcome, message):
 		if self._predict is outcome:
 			if not self._predictionArrived:
-				self._journal.info(f"*** Encountering expected {outcome.noun} of test case")
+				self.logInfo(f"*** Encountering expected {outcome.noun} of test case")
 				self._predictionArrived = True
-			self._journal.info(f"Expected {outcome.noun}: {message}")
+			self.logInfo(f"Expected {outcome.noun}: {message}")
 			return
 
 		if self._predict and not self._predictionArrived:
-			self._journal.info("*** Encountering unpredicted {outcome.noun} of test case (expected {self._predict.noun})")
+			self.logInfo("*** Encountering unpredicted {outcome.noun} of test case (expected {self._predict.noun})")
 			self._predictionArrived = True
 
 		outcome.log(message)
@@ -175,10 +175,10 @@ class TestLogger:
 		self.logOutcome(self.outcomeError, message)
 
 	def recordStdout(self, data):
-		self._journal.recordStdout(data)
+		self._test.recordStdout(data)
 
 	def recordStderr(self, data):
-		self._journal.recordStderr(data)
+		self._test.recordStderr(data)
 
 	def setPredictedOutcome(self, status, reason):
 		if status == 'failure':
@@ -200,7 +200,8 @@ class Logger:
 	def __init__(self, name, path):
 		susetest.say(f"Writing journal to {path}")
 
-		self._journal = suselog.Journal(name, path = path);
+		self._journal = createJournal(name)
+		self._path = path
 		self._hooks = TestLoggerHooks()
 
 		self._currentGroup = None
@@ -210,8 +211,8 @@ class Logger:
 
 	def close(self):
 		if self._journal:
-			self._journal.writeReport()
-			self._journal.close()
+			self._journal.finish()
+			self._journal.save(self._path)
 			self._journal = None
 
 	def addGroupBeginHook(self, fn):

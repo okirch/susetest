@@ -82,7 +82,7 @@ class XMLBackedNode:
 	children = []
 
 	def __init__(self, node):
-		self._initclass()
+		self._init_schema()
 
 		self.node = node
 
@@ -97,7 +97,7 @@ class XMLBackedNode:
 			type._adder(self, type.childClass(child))
 
 	@classmethod
-	def _initclass(klass):
+	def _init_schema(klass):
 		if getattr(klass, '_initialized', False):
 			return
 
@@ -128,16 +128,16 @@ class XMLBackedNode:
 			raise KeyError(f"Invalid name {_childName}: no type information for this child of {self}")
 
 		childObject = type._factory(self)
-		if kwargs:
-			for name, value in kwargs.items():
-				childObject.setAttribute(name, value)
+		childObject.construct(**kwargs)
 		return childObject
 
-	def setAttribute(self, name, value):
-		type = self._attributes.get(name)
-		if type is None:
-			raise KeyError(f"Invalid attribute {name}: no information for this attribute of {self}")
-		type._setter(self, value)
+	def construct(self, **kwargs):
+		if kwargs:
+			for name, value in kwargs.items():
+				type = self._attributes.get(name)
+				if type is None:
+					raise KeyError(f"Invalid attribute {name}: no information for this attribute of {self}")
+				type._setter(self, value)
 
 class TimedNode(XMLBackedNode):
 	def __init__(self, node):
@@ -161,22 +161,29 @@ class JournalMessages(XMLBackedNode):
 	def __init__(self, node):
 		super().__init__(node)
 		self._messages = []
+		self.writer = None
 
-		self.classinit()
-	
+		self._init_escape_table()
+
 	@classmethod
-	def classinit(klass):
+	def _init_escape_table(klass):
 		if klass._escape_table:
 			return
 
 		d = {i: ("<Ctrl-" + chr(i + 0x41) + ">") for i in range(32)}
 		del d[ord('\n')]
+		del d[ord('\t')]
 		d[ord('\b')] = '\\b'
 		d[ord('\r')] = '\\r'
 		d[ord('\v')] = '\\v'
 		d[7] = '<BEL>'
 
 		klass._escape_table = str.maketrans(d)
+
+	def construct(self, writer = None, **kwargs):
+		super().construct(**kwargs)
+
+		self.writer = writer
 
 	@property
 	def text(self):
@@ -185,6 +192,20 @@ class JournalMessages(XMLBackedNode):
 		return self.node.text.strip()
 
 	def write(self, msg, level = None, nodeName = None):
+		# can be None, empty string, empty bytearray...
+		if not msg:
+			return
+
+		if type(msg) in (bytearray, bytes):
+			try:
+				msg = msg.decode('utf-8')
+			except: pass
+		if type(msg) != str:
+			msg = str(msg)
+
+		if self.writer and level != 'quiet':
+			self.writer.logMessage(msg)
+
 		self._messages.append(msg)
 		text = "\n".join(self._messages)
 		text = text.translate(self._escape_table)
@@ -204,34 +225,67 @@ class JournalTest(TimedNode):
 		NodeSchema("error", JournalMessages),
 	]
 
-class ConstructedJournalTest(JournalTest):
-	def __init__(self, node):
-		super().__init__(node)
-
-		self.createChild("system-out")
-		# child = node.createChild("system-out")
-		# self.systemOut = JournalMessages(child)
+	def construct(self, writer = None, **kwargs):
+		super().construct(**kwargs)
 
 		self.startTime = time.time()
 
+		if writer:
+			writer.beginTestHeading(id = self.classname, description = self.name)
+		self.writer = writer
+
 	def setStatus(self, status):
+		assert(status in ('success', 'failure', 'error', 'skipped', 'disabled'))
+
 		current = self.status
 		if current is None:
-			self.time = time.time() - self.startTime
+			pass
+		elif status == 'error':
+			# test suite errors always win
+			pass
+		elif status == 'success':
+			# someone hasn't been paying attention
+			return
 		elif status != current:
-			raise ValueError("status changes from {current} to {status}")
+			# now it's an error
+			self.log("invalid test status changes from {current} to {status}", level = 'error')
+			status = 'error'
 
+		self.time = time.time() - self.startTime
 		self.status = status
 
-	def logInfo(self, msg):
-		self.system_out.write(msg, level = 'info')
+	def log(self, msg, level = None):
+		if not msg:
+			return
 
-	def logSuccess(self, msg):
-		self.system_out.write(msg, level = 'info')
+		if self.system_out is None:
+			self.createChild("system-out", writer = self.writer)
+
+		self.system_out.write(msg, level)
+
+	def recordStdout(self, msg):
+		if msg:
+			self.log("Standard output:", level = 'quiet')
+			self.log(msg, level = 'quiet')
+
+	def recordStderr(self, msg):
+		if msg:
+			self.log("Standard error:", level = 'quiet')
+			self.log(msg, level = 'quiet')
+
+	def recordBuffer(self, msg):
+		if msg:
+			self.log(msg, level = 'quiet')
+
+	def logInfo(self, msg):
+		self.log(msg, level = 'info')
+
+	def logSuccess(self, msg = None):
+		self.log(msg, level = 'info')
 		self.setStatus('success')
 
 	def logFailure(self, msg):
-		self.system_out.write(msg, level = 'failure')
+		self.log(f"Failing: {msg}", level = 'failure')
 
 		if self.failure is None:
 			child = self.createChild("failure")
@@ -240,16 +294,34 @@ class ConstructedJournalTest(JournalTest):
 		self.setStatus('failure')
 
 	def logError(self, msg):
-		self.system_out.write(msg, level = 'error')
+		self.log(f"Error: {msg}", level = 'error')
+
+		if self.error is None:
+			child = self.createChild("error")
+			child.type = "randomError"
+			child.message = msg
 		self.setStatus('error')
 
-	def logSkipped(self, msg):
-		self.system_out.write(msg, level = 'skipped')
+	def logSkipped(self, msg = None):
+		if msg:
+			self.log(f"Skipping: {msg}", level = 'info')
 		self.setStatus('skipped')
 
-	def logDisabled(self, msg):
-		self.system_out.write(msg, level = 'disabled')
+	def logDisabled(self, msg = None):
+		self.log(msg, level = 'info')
 		self.setStatus('disabled')
+
+	def complete(self):
+		assert(self.status)
+
+		if self.writer:
+			if self.status == 'failure':
+				msg = self.failure.message
+			elif self.status == 'error':
+				msg = self.error.message
+			else:
+				msg = None
+			self.writer.logTestResult(self.classname, self.status, msg)
 
 class NodeWithStats(TimedNode):
 	attributes = TimedNode.attributes + [
@@ -315,8 +387,27 @@ class JournalGroup(NodeWithStats):
 	] + NodeWithStats.attributes
 	children = [
 		NodeSchema("properties", JournalProperties),
-		ListNodeSchema("testcase", JournalTest, ConstructedJournalTest),
+		ListNodeSchema("testcase", JournalTest),
 	]
+
+	def __init__(self, node):
+		super().__init__(node)
+		self.writer = None
+
+	def construct(self, writer = None, **kwargs):
+		super().construct(**kwargs)
+
+		self.tests = 0
+
+		if writer:
+			writer.beginGroupHeading(self.package)
+		self.writer = writer
+
+	def beginTest(self, name, description):
+		self.tests += 1
+
+		id = f"{self.package}.{name}"
+		return self.createChild("testcase", writer = self.writer, classname = id, name = description)
 
 	def finish(self):
 		self.clearStats()
@@ -325,30 +416,28 @@ class JournalGroup(NodeWithStats):
 				test.logError("BUG: test has no result")
 			self.account(test.status)
 
-class ConstructedJournalGroup(JournalGroup):
-	def __init__(self, node):
-		super().__init__(node)
-		self.tests = 0
-
-	def beginTest(self, name, description):
-		self.tests += 1
-
-		id = f"{self.package}.{name}"
-		return self.createChild("testcase", classname = id, name = description)
-
 class JournalRootNode(NodeWithStats):
 	attributes = NodeWithStats.attributes + [
 		AttributeSchema("name"),
 	] + NodeWithStats.attributes
 	children = [
-		ListNodeSchema("testsuite", JournalGroup, ConstructedJournalGroup),
+		ListNodeSchema("testsuite", JournalGroup),
 	]
+
+	def __init__(self, node, name = None, writer = None):
+		super().__init__(node)
+
+		if name is not None:
+			self.name = name
+		self.writer = writer
 
 	def __str__(self):
 		return f"{self.__class__.__name__}(name = {self.name})"
 
 	def beginGroup(self, name):
-		return self.createChild("testsuite", package = name)
+		id = f"{self.name}.{name}"
+		group = self.createChild("testsuite", writer = self.writer, package = id)
+		return group
 
 	def finish(self):
 		self.clearStats()
@@ -356,16 +445,30 @@ class JournalRootNode(NodeWithStats):
 			suite.finish()
 			self.accumulate(suite)
 
+		if self.writer:
+			self.writer.logStats(StatsWrapper(self),
+					self.listFailedTests())
+
+	def listFailedTests(self):
+		result = []
+		for suite in self.testsuite:
+			for test in suite.testcase:
+				if test.status in ('failure', 'error'):
+					result.append(test.classname)
+		return result
+
 class Journal:
 	def __init__(self, node = None, name = None):
 		if node:
 			self.root = JournalRootNode(node)
+			self.writer = None
 		else:
+			writer = StdoutWriter()
+
 			if not name:
 				name = "report"
 			node = ET.Element("testsuites")
-			self.root = JournalRootNode(node)
-			self.root.name = name
+			self.root = JournalRootNode(node, name, writer)
 
 	def save(self, filename):
 		import os
@@ -420,7 +523,66 @@ class Journal:
 		return self.root.beginGroup(*args, **kwargs)
 
 	def finish(self):
-		journal.root.finish()
+		self.root.finish()
+
+class StdoutWriter:
+	def hrule(self):
+		print("------------------------------------------------------------------")
+
+	def header(self, msg):
+		self.hrule()
+		print()
+		print(msg)
+		print()
+		self.hrule()
+
+	def beginGroupHeading(self, name):
+		self.header(f"GROUP: {name}")
+
+	def beginTestHeading(self, id, description):
+		self.header(f"TEST: {description or id}")
+
+	def logMessage(self, msg):
+		if msg:
+			print(msg)
+
+	def logTestResult(self, id, status, msg = None):
+		if status == 'success':
+			result = "SUCCESS"
+		elif status == 'failure':
+			result = f"FAILED"
+		elif status == 'error':
+			result = f"ERROR"
+		elif status == 'skipped':
+			result = f"SKIPPED"
+		elif status == 'disabled':
+			result = f"DISABLED"
+		else:
+			result = f"UNKNOWN STATUS {status}"
+
+		if msg:
+			print(f"RESULT: {result} ({msg})")
+		else:
+			print(f"RESULT: {result}")
+
+	def logStats(self, stats, failedTests):
+		self.hrule()
+		print()
+		print(f"  Test run stats:")
+		print(f"    Test cases:   {stats.tests}")
+		print(f"    Failed:       {stats.failures}")
+		print(f"    Errors:       {stats.errors}")
+		print(f"    Skipped:      {stats.skipped}")
+		print(f"    Disabled:     {stats.disabled}")
+
+		if failedTests:
+			print()
+			print(f"  The following tests failed:")
+			for id in failedTests:
+				print(f"    {id}")
+
+		print()
+		self.hrule()
 
 ##################################################################
 # These wrapper classes provide access to a junit xml report
@@ -464,9 +626,13 @@ class TestsuiteWrapper:
 	def __init__(self, suite):
 		self.suite = suite
 		self.stats = StatsWrapper(suite)
-		# FIXME: rename to id
-		self.stats.package = suite.package
-		self.properties = suite.properties.asDict()
+		self.id = suite.package
+
+		if suite.properties:
+			self.properties = suite.properties.asDict()
+		else:
+			self.properties = {}
+
 		self.hostname = suite.hostname
 		self.timestamp = suite.timestamp
 
