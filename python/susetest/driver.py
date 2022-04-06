@@ -241,10 +241,10 @@ class Driver:
 
 		return group.beginTest(*args, **kwargs)
 
-	def skipTest(self, *args, **kwargs):
+	def skipTest(self, msg = None):
 		test = self.currentTestLogger
 		if not test:
-			test = self.beginTest(*args, **kwargs)
+			raise ValueError("skipTest called outside of a test")
 
 		test.skip()
 

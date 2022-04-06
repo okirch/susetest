@@ -410,16 +410,18 @@ class TestsuiteInfo:
 		susetest.say("\nSkipping group %s" % group.name)
 		driver.beginGroup(group.name)
 		if group.setup:
-			driver.skipTest("setup-resources", group.setup.__doc__)
+			driver.beginTest("setup-resources", group.setup.__doc__)
+			driver.skipTest()
 		for test in group.tests:
-			driver.skipTest(test.name, test.description)
+			driver.beginTest(test.name, test.description)
+			driver.skipTest()
 		driver.endGroup()
 
 	def actionPerformTest(self, driver, test):
+		driver.beginTest(test.name, test.description)
 		if test.skip:
-			driver.skipTest(test.name, test.description)
+			driver.skipTest()
 		else:
-			driver.beginTest(test.name, test.description)
 			if not test.verifyResources(driver):
 				driver.skipTest()
 			else:
