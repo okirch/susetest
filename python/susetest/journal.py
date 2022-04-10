@@ -248,13 +248,13 @@ class JournalTest(TimedNode):
 			return
 		elif status != current:
 			# now it's an error
-			self.log("invalid test status changes from {current} to {status}", level = 'error')
+			self.logMessage("invalid test status changes from {current} to {status}", level = 'error')
 			status = 'error'
 
 		self.time = time.time() - self.startTime
 		self.status = status
 
-	def log(self, msg, level = None):
+	def logMessage(self, msg, level = None):
 		if not msg:
 			return
 
@@ -265,27 +265,27 @@ class JournalTest(TimedNode):
 
 	def recordStdout(self, msg):
 		if msg:
-			self.log("Standard output:", level = 'quiet')
-			self.log(msg, level = 'quiet')
+			self.logMessage("Standard output:", level = 'quiet')
+			self.logMessage(msg, level = 'quiet')
 
 	def recordStderr(self, msg):
 		if msg:
-			self.log("Standard error:", level = 'quiet')
-			self.log(msg, level = 'quiet')
+			self.logMessage("Standard error:", level = 'quiet')
+			self.logMessage(msg, level = 'quiet')
 
 	def recordBuffer(self, msg):
 		if msg:
-			self.log(msg, level = 'quiet')
+			self.logMessage(msg, level = 'quiet')
 
 	def logInfo(self, msg):
-		self.log(msg, level = 'info')
+		self.logMessage(msg, level = 'info')
 
 	def logSuccess(self, msg = None):
-		self.log(msg, level = 'info')
+		self.logMessage(msg, level = 'info')
 		self.setStatus('success')
 
 	def logFailure(self, msg):
-		self.log(f"Failing: {msg}", level = 'failure')
+		self.logMessage(f"Failing: {msg}", level = 'failure')
 
 		if self.failure is None:
 			child = self.createChild("failure")
@@ -294,7 +294,7 @@ class JournalTest(TimedNode):
 		self.setStatus('failure')
 
 	def logError(self, msg):
-		self.log(f"Error: {msg}", level = 'error')
+		self.logMessage(f"Error: {msg}", level = 'error')
 
 		if self.error is None:
 			child = self.createChild("error")
@@ -304,11 +304,11 @@ class JournalTest(TimedNode):
 
 	def logSkipped(self, msg = None):
 		if msg:
-			self.log(f"Skipping: {msg}", level = 'info')
+			self.logMessage(f"Skipping: {msg}", level = 'info')
 		self.setStatus('skipped')
 
 	def logDisabled(self, msg = None):
-		self.log(msg, level = 'info')
+		self.logMessage(msg, level = 'info')
 		self.setStatus('disabled')
 
 	def complete(self):
