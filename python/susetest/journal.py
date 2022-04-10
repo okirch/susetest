@@ -42,11 +42,10 @@ class FloatAttributeSchema(AttributeSchema):
 
 ##################################################################
 class NodeSchema:
-	def __init__(self, name, childClass, constructedChildClass = None):
+	def __init__(self, name, childClass):
 		self.name = name
 		self.attr_name = name.replace('-', '_')
 		self.childClass = childClass
-		self.constructedChildClass = constructedChildClass or childClass
 
 	def _initer(self, object):
 		setattr(object, self.attr_name, None)
@@ -57,7 +56,7 @@ class NodeSchema:
 	def _factory(self, object):
 		childObject = getattr(object, self.attr_name, None)
 		if childObject is None:
-			childObject = self.constructedChildClass(ET.SubElement(object.node, self.name))
+			childObject = self.childClass(ET.SubElement(object.node, self.name))
 			setattr(object, self.attr_name, childObject)
 		return childObject
 
@@ -70,7 +69,7 @@ class ListNodeSchema(NodeSchema):
 		current.append(childObject)
 
 	def _factory(self, object):
-		childObject = self.constructedChildClass(ET.SubElement(object.node, self.name))
+		childObject = self.childClass(ET.SubElement(object.node, self.name))
 		self._adder(object, childObject)
 		return childObject
 
