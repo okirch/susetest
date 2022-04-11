@@ -218,6 +218,14 @@ class TestLogger:
 		return self.ProcessWithPaperTrail(self, self._test, logHandle.id, process)
 
 	class ChatWithPaperTrail(ProcessWithPaperTrail):
+		@property
+		def found(self):
+			return self.process.found
+
+		@property
+		def consumed(self):
+			return self.process.consumed
+
 		def expect(self, values, **kwargs):
 			logHandle = self.commandContinuation
 
@@ -230,9 +238,9 @@ class TestLogger:
 
 			found = self.process.expect(values, **kwargs)
 			if found:
-				logHandle.recordChatReceived(self.process.found, self.process.consumed)
+				logHandle.recordChatReceived(self.found, self.consumed)
 			else:
-				logHandle.recordChatTimeout(self.process.consumed)
+				logHandle.recordChatTimeout(self.consumed)
 
 			return found
 
