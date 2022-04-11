@@ -99,10 +99,9 @@ class Driver:
 	#	If not specified, the resource is acquired for all nodes
 	#  temporary (bool): if set to true, the resource is released
 	#	when the test group completes
-	#  defer (bool): do not make the requested resource change
-	#	right away, even if we're in the middle of executing a
-	#	test. Instead, defer the change until the user calls
-	#	performDeferredResourceChanges()
+	#  defer (bool): create the resource, but do not acquire it right away.
+	#	Instead, it's the caller's responsibility to call
+	#	node.acquireResource(res, ...) later.
 	def requireUser(self, resourceName, nodeName = None, **stateArgs):
 		return self.acquireResource("user", resourceName, nodeName, **stateArgs)
 
@@ -128,9 +127,6 @@ class Driver:
 			result = node.acquireResourceTypeAndName(resourceType, resourceName, **stateArgs)
 
 		return result
-
-	def performDeferredResourceChanges(self):
-		return self.resourceManager.performDeferredChanges()
 
 	def getFeature(self, name):
 		return self._features.get(name)
@@ -164,14 +160,7 @@ class Driver:
 		if self._setup_complete:
 			raise Exception("Duplicate call to setup()")
 
-		# As part of the beginGroup call, we acquire all the resources
-		# that have been requested so far - see the _groupBeginCallback
-		# defined below
 		group = self.beginGroup("setup")
-
-		# FIXME: check for any failures in this group
-		if False:
-			self.fatal("Failures during test suite setup, giving up")
 
 		for node in self.targets:
 			for feature in node.features:
@@ -182,10 +171,6 @@ class Driver:
 		for target in self.targets:
 			target.configureApplications(self)
 
-		# Any resources that were brought up at this stage
-		# shall not be cleaned up automatically when done with this
-		# group (which is the default otherwise)
-		self.resourceManager.zapCleanups()
 		self.info("Setup complete")
 		self.info("")
 
@@ -202,36 +187,17 @@ class Driver:
 		return self._logger.currentTest
 
 	def beginGroup(self, name):
+		# Okay, resoure manager is now willing to talk business
+		self.resourceManager.unplug()
+
 		return self._logger.beginGroup(name)
 
-	def _groupBeginCallback(self, group):
-		# If we have pending resource activations, start
-		# a test case for these specifically. Without an
-		# active test case, most of the logging would otherwise
-		# go to the bit bucket.
-		if self.resourceManager.pending:
-			group.beginTest(name = "setup-resources", description = "setup resources required by test run")
-
-			# Perform any postponed resource changes,
-			# allow future resource changes to be executed right away
-			self.resourceManager.unplug()
-
-			group.endTest()
-		else:
-			# This doesn't do anything except change the status
-			# from plugged to unplugged.
-			self.resourceManager.unplug()
-
-		return True
-
 	def endGroup(self):
+		self.resourceManager.plug()
+
 		group = self.currentGroupLogger
 		if group:
 			group.end()
-
-	def _groupEndCallback(self, group):
-		self.resourceManager.cleanup()
-		self.resourceManager.plug()
 
 	def beginTest(self, *args, **kwargs):
 		group = self.currentGroupLogger
@@ -389,8 +355,6 @@ class Driver:
 			self.journal_path = os.path.join(self.workspace, "junit-results.xml")
 
 		self._logger = Logger(self.name, self.journal_path)
-		self._logger.addGroupBeginHook(self._groupBeginCallback)
-		self._logger.addGroupEndHook(self._groupEndCallback)
 
 	def _set_os_resources(self):
 		for node in self.targets:

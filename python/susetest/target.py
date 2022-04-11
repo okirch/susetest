@@ -298,7 +298,7 @@ class Target(twopence.Target):
 	def defineStringResource(self, name, value, **stateArgs):
 		res = self.instantiateResourceTypeAndName("string", name)
 
-		if res.is_active:
+		if res.value is not None and res.value != value:
 			raise ValueError("%s: unable to redefine active string resource \"%s\"" % (self.name, name))
 		res.value = value
 
@@ -337,9 +337,12 @@ class Target(twopence.Target):
 	def getAllResources(self, resourceType):
 		return list(self.resourceManager.filterResources(resourceType, self._resources.values()))
 
-	def acquireResourceTypeAndName(self, resourceType, resourceName, **stateArgs):
+	def acquireResourceTypeAndName(self, resourceType, resourceName, defer = False, **stateArgs):
 		res = self.instantiateResourceTypeAndName(resourceType, resourceName)
-		self.acquireResource(res, **stateArgs)
+
+		if not defer:
+			self.acquireResource(res, **stateArgs)
+
 		return res
 
 	def instantiateResourceTypeAndName(self, type, name, strict = True):

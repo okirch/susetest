@@ -226,7 +226,7 @@ class SELinux(Feature):
 			self.default_serole = selinuxUser.replace('_u', '_r')
 			self.default_setype = selinuxUser.replace('_u', '_t')
 
-		driver.performDeferredResourceChanges()
+		node.acquireResource(resource, mandatory = True)
 
 	def updateSEUser(self, node, selinuxPolicy, selinuxUser):
 		linuxUser = node.test_user

@@ -184,6 +184,7 @@ class StringValuedResource(Resource):
 	def __init__(self, value, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.value = value
+		self.state = Resource.STATE_ACTIVE
 
 	@property
 	def is_present(self):
@@ -1278,53 +1279,6 @@ class ResourceInventory:
 		# susetest.say(f"{node.name}: created resource {res}")
 		return res
 
-class ResourceAssertion:
-	def __init__(self, res, state, mandatory, temporary = False):
-		self.resource = res
-		self.state = state
-		self.mandatory = mandatory
-		self.temporary = temporary
-
-		if state == Resource.STATE_ACTIVE:
-			self.verb = "activate"
-			self.fn = res.acquire
-		elif state == Resource.STATE_INACTIVE:
-			self.verb = "deactivate"
-			self.fn = res.release
-		else:
-			raise ValueError("%s: unexpected state %d in assertion for resource %s" % (
-					res.target.name, state, res.name))
-
-	def __str__(self):
-		return "%s(%s %s)" % (self.__class__.__name__, self.verb, self.resource)
-
-	def perform(self, driver):
-		res = self.resource
-		node = res.target
-
-		if not res.is_present:
-			if self.mandatory:
-				node.logError("mandatory resource %s not present" % res.name)
-				return False
-
-			node.logInfo("optional resource %s not present" % res.name)
-			return True
-
-		if res.state == self.state:
-			return True
-
-		susetest.say("about to %s resource %s" % (self.verb, res))
-		ok = self.fn(driver)
-
-		if ok:
-			res.state = self.state
-		elif self.mandatory:
-			node.logError("unable to %s resource %s" % (self.verb, res.name))
-		else:
-			node.logInfo("unable to %s resource %s" % (self.verb, res.name))
-
-		return ok
-
 ##################################################################
 # Global registry of resource types
 #
@@ -1885,10 +1839,13 @@ class ResourceManager:
 		self.inventory = ResourceInventory()
 		self.loader = ResourceLoader()
 
-		self._assertions = []
-		self._cleanups = {}
-
 		self._plugged = True
+
+	def plug(self):
+		self._plugged = True
+
+	def unplug(self):
+		self._plugged = False
 
 	def loadPlatformResources(self, node, filenames):
 		print("Loading resources", filenames)
@@ -1931,88 +1888,49 @@ class ResourceManager:
 			if isinstance(res, klass):
 				yield res
 
-	@property
-	def pending(self):
-		return bool(self._assertions)
+	class ResourceAction:
+		def __init__(self, state, verb):
+			self.state = state
+			self.verb = verb
 
-	@property
-	def pendingCleanups(self):
-		return bool(self._cleanups)
+		def perform(self, driver, res, mandatory):
+			if mandatory:
+				desc = f"{self.verb} mandatory resource {res}"
+			else:
+				desc = f"{self.verb} optional resource {res}"
 
-	def acquire(self, res, mandatory, **kwargs):
-		self.requestState(res, Resource.STATE_ACTIVE, mandatory, **kwargs)
+			if not res.is_present:
+				return self.resourceTransitionFailed(res, f"unable to {desc}: resource not present", mandatory)
 
-	def release(self, res, mandatory, **kwargs):
-		self.requestState(res, Resource.STATE_INACTIVE, mandatory, **kwargs)
+			if res.state == self.state:
+				return True
 
-	def requestState(self, res, state, mandatory, defer = False):
-		assertion = ResourceAssertion(res, state, mandatory)
+			susetest.say(f"about to {desc}")
 
-		# If we're outside a test group, we do not evaluate the assertion right away
-		# but defer it until we do the beginGroup().
-		#
-		# Else evaluate them right away.
-		if self._plugged or defer:
-			self._assertions.append(assertion)
-		else:
-			assertion.perform(self.driver)
+			change_fn = getattr(res, self.verb)
+			ok = change_fn(driver)
 
-	def plug(self):
-		self._plugged = True
+			if ok:
+				# move to target state
+				res.state = self.state
+			else:
+				ok = self.resourceTransitionFailed(res, f"unable to {desc}", mandatory)
 
-	def unplug(self):
-		self._plugged = False
-		if self._assertions:
-			self.performDeferredChanges()
+			return ok
 
-	def performDeferredChanges(self):
-		if self._plugged:
-			susetest.say("%s: refusing to perform deferred resource changes while plugged" % self.__class__.__name__)
+		def resourceTransitionFailed(self, res, msg, mandatory):
+			if mandatory:
+				res.target.logError(msg)
+				return False
+
+			res.target.logInfo(msg)
 			return True
 
-		cool = True
+	_actionAcquire = ResourceAction(Resource.STATE_ACTIVE, "acquire")
+	_actionRelease = ResourceAction(Resource.STATE_INACTIVE, "release")
 
-		while cool and self._assertions:
-			deferred = self._assertions
-			self._assertions = []
+	def acquire(self, res, mandatory, **kwargs):
+		return self._actionAcquire.perform(self.driver, res, mandatory, **kwargs)
 
-			if False:
-				if deferred:
-					susetest.say("performing %d deferred resource changes" % len(deferred))
-					for assertion in deferred:
-						susetest.say("  %s" % assertion)
-
-			self._plugged = True
-
-			for assertion in deferred:
-				if assertion.temporary:
-					self.requestCleanup(res)
-
-				if not assertion.perform(self.driver):
-					cool = False
-
-			self._plugged = False
-
-		return cool
-
-	def requestCleanup(self, res):
-		if res in self._cleanups:
-			return
-
-		assertion = ResourceAssertion(res, res.state, mandatory = False)
-		self._cleanups[res] = assertion
-
-	def cleanup(self):
-		cleanups = self._cleanups.values()
-		self.zapCleanups()
-
-		for assertion in cleanups:
-			# self._perform_resource_assertion(assertion)
-			susetest.say("Ignoring cleanup of %s" % assertion)
-
-	def zapPending(self):
-		susetest.say("zapping pending assertions")
-		self._assertions = []
-
-	def zapCleanups(self):
-		self._cleanups = {}
+	def release(self, res, mandatory, **kwargs):
+		return self._actionRelease.perform(self.driver, res, mandatory, **kwargs)
