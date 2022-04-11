@@ -439,8 +439,9 @@ class Target(twopence.Target):
 	def _run(self, cmd, **kwargs):
 		if self.connectionDead:
 			self.logError("SUT is dead, not running command")
-			return twopence.Status(256, bytearray(), bytearray())
+			return twopence.Status(error = twopence.OPEN_SESSION_ERROR)
 
+		# FIXME: we should soft-fail instead
 		t0 = time.time()
 		try:
 			status = super().run(cmd, **kwargs)
@@ -469,60 +470,41 @@ class Target(twopence.Target):
 			for name, value in environ.items():
 				cmd.setenv(name, value)
 
-		info = []
-		if cmd.user:
-			info.append("user=%s" % cmd.user)
-		if cmd.timeout != 60:
-			info.append("timeout=%d" % cmd.timeout)
-		if cmd.background:
-			info.append("background")
-
-		env = cmd.environ
-		if env:
-			info += [("%s=\"%s\"" % kv) for kv in env]
-
-		if info:
-			info = "; " + ", ".join(info)
-		else:
-			info = ""
-
-		self.logInfo(cmd.commandline + info)
-
 		return cmd
 
-
-	def run(self, cmd, fail_on_error = False, **kwargs):
+	def run(self, cmd, **kwargs):
 		cmd = self._buildCommand(cmd, **kwargs)
+
+		logHandle = self.logger.logCommand(self.name, cmd)
 
 		status = self._run(cmd)
 
-		if isinstance(status, twopence.Process):
-			# The command was backgrounded, and there is no status yet.
-			self.logInfo("Command was backgrounded")
-			if fail_on_error:
-				self.logInfo("ignoring fail_on_error setting for backgrounded commands")
+		if isinstance(status, twopence.Status):
+			# Command completed
+			self.logger.logCommandStatus(logHandle, status)
 			return status
-
-		if not status:
-			msg = "command \"" + cmd.commandline + "\" failed: " + status.message
-			if fail_on_error:
-				self.logFailure(msg)
-			else:
-				self.logInfo(msg)
-
-		self.logger.recordStdout(status.stdout);
-		if status.stdout != status.stderr:
-			self.logger.recordStderr(status.stderr);
-
-		return status
+		else:
+			# The command was backgrounded, and there is no status yet.
+			# Wrap the process handle in a little facade object that
+			# takes care of logging.
+			assert(isinstance(status, twopence.Process))
+			return self.logger.wrapProcess(logHandle, status)
 
 	def runOrFail(self, cmd, **kwargs):
-		return self.run(cmd, fail_on_error = True, **kwargs)
+		st = self.run(cmd, **kwargs)
+		if not st:
+			self.logFailure(f"{cmd} failed: {st.message}")
+		return st
 
 	def chat(self, cmd, **kwargs):
 		cmd = self._buildCommand(cmd, **kwargs)
-		return super().chat(cmd)
 
+		logHandle = self.logger.logChatCommand(self.name, cmd)
+		chat = super().chat(cmd)
+
+		return self.logger.wrapChat(logHandle, chat)
+
+	# FIXME: timeoutOkay is a dud
 	def runChatScript(self, cmd, chat_script, timeoutOkay = False, **kwargs):
 		# if not explicitly set to False by the caller, this defaults to True
 		if 'tty' not in kwargs:
@@ -570,15 +552,13 @@ class Target(twopence.Target):
 		except: pass
 
 		st = chat.wait()
-		if st is not None:
-			self.logInfo(f"command status: {st.message}")
-			self.logger.recordStdout(st.stdout);
 		return twopence.Status(error = errorCode)
 
 	def runBackground(self, cmd, **kwargs):
 		kwargs['background'] = 1;
 		return self.run(cmd, **kwargs)
 
+	# Please try to avoid this function... its logging is not perfect.
 	def wait(self, cmd = None):
 		if cmd:
 			status = super(Target, self).wait(cmd)
@@ -594,9 +574,10 @@ class Target(twopence.Target):
 		else:
 			self.logInfo("backgrounded command \"" + cmd.commandline + "\" finished")
 
-		self.logger.recordStdout(status.stdout);
-		if status.stdout != status.stderr:
-			self.logger.recordStderr(status.stderr);
+		if False:
+			self.logger.recordStdout(status.stdout);
+			if status.stdout != status.stderr:
+				self.logger.recordStderr(status.stderr);
 
 		return status
 
@@ -645,8 +626,10 @@ class Target(twopence.Target):
 			self.logError("recvbuffer: you cannot specify a localfile!")
 			return None
 
-		self.logInfo("downloading " + remoteFilename)
+		logHandle = self.logger.logDownload(self.name, xfer, hideData = quiet)
+
 		try:
+			# FIXME: use softfail
 			status = super(Target, self).recvfile(xfer)
 		except:
 			self.logError("download failed with exception")
@@ -654,12 +637,8 @@ class Target(twopence.Target):
 
 			return None
 
-		if not status:
-			self.logFailure("download failed: " + status.message)
-			return None
+		self.logger.logTransferStatus(logHandle, status)
 
-		if not quiet:
-			self.logInfo("<<< --- Data: ---\n" + str(status.buffer) + "\n --- End of Data --->>>\n");
 		return status.buffer
 
 	def sendbuffer(self, remoteFilename, buffer, quiet = False, user = None, **kwargs):
@@ -673,14 +652,13 @@ class Target(twopence.Target):
 		if xfer.permissions < 0:
 			xfer.permissions = 0
 
-		self.logInfo("uploading data to " + remoteFilename)
-		if not quiet:
-			self.logInfo("<<< --- Data: ---\n" + str(xfer.data) + "\n --- End of Data --->>>\n");
+		logHandle = self.logger.logUpload(self.name, xfer, hideData = quiet)
 
 		if not isinstance(xfer.data, bytearray):
 			print("data is not a buffer")
 
 		try:
+			# FIXME: use softfail
 			return super(Target, self).sendfile(xfer)
 		except:
 			self.logError("upload failed with exception")

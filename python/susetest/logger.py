@@ -174,11 +174,128 @@ class TestLogger:
 	def logError(self, message):
 		self.logOutcome(self.outcomeError, message)
 
-	def recordStdout(self, data):
-		self._test.recordStdout(data)
+	# cmd is a twopence.Command instance
+	def logCommand(self, host, cmd):
+		kwargs = {}
+		if cmd.user:
+			kwargs['user'] = cmd.user
+		if cmd.timeout:
+			kwargs['timeout'] = cmd.timeout
+		if cmd.background:
+			kwargs['background'] = cmd.background
+		if cmd.tty:
+			kwargs['tty'] = cmd.tty
 
-	def recordStderr(self, data):
-		self._test.recordStderr(data)
+		logHandle = self._test.logCommand(host, cmdline = cmd.commandline, **kwargs)
+
+		# FIXME: if the caller set an environment, enter it into the log here
+		if cmd.environ:
+			pass
+
+		# Backgrounded commands need a handle to track future updates
+		if cmd.background:
+			logHandle.generateId()
+
+		return logHandle
+
+	# logHandle is the handle returned by logCommand above;
+	# st is a twopence.Status instance
+	def logCommandStatus(self, logHandle, st):
+		if not st:
+			logHandle.recordStatus(exit_code = st.exitStatus, exit_signal = st.exitSignal, message = st.message)
+		else:
+			logHandle.recordStatus(exit_code = st.exitStatus)
+
+		logHandle.recordStdout(st.stdout)
+		if st.stderr != st.stdout:
+			logHandle.recordStderr(st.stderr)
+
+		# Status.buffer is just for file transfers
+		assert(not st.buffer)
+
+	class ProcessWithPaperTrail:
+		def __init__(self, logger, test, id, process):
+			self.logger = logger
+			self.test = test
+			self.id = id
+			self.process = process
+
+		@property
+		def commandContinuation(self):
+			return self.test.logCommandContinuation(self.id)
+
+		def kill(self, signal):
+			# FIXME: log message. Would need a <signal> element in <command>
+			self.process.kill(signal)
+
+		def wait(self):
+			st = self.process.wait()
+			if st is not None:
+				logHandle = self.commandContinuation
+				self.logger.logCommandStatus(logHandle, st)
+			return st
+
+	def wrapProcess(self, logHandle, process):
+		return self.ProcessWithPaperTrail(self, self._test, logHandle.id, process)
+
+	class ChatWithPaperTrail(ProcessWithPaperTrail):
+		def expect(self, values, **kwargs):
+			logHandle = self.commandContinuation
+
+			if type(values) not in (list, tuple):
+				values = [values]
+
+			logHandle.recordChatExpectation(values)
+			if 'timeout' in kwargs:
+				logHandle.timeout = kwargs['timeout']
+
+			found = self.process.expect(values, **kwargs)
+			if found:
+				logHandle.recordChatReceived(self.process.found, self.process.consumed)
+			else:
+				logHandle.recordChatTimeout(self.process.consumed)
+
+			return found
+
+		def send(self, msg):
+			logHandle = self.commandContinuation
+			logHandle.recordChatSent(msg)
+
+			self.process.send(msg)
+
+	def wrapChat(self, logHandle, chat):
+		return self.ChatWithPaperTrail(self, self._test, logHandle.id, chat)
+
+	def logUpload(self, host, xfer, hideData = False):
+		kwargs = {}
+		if xfer.user:
+			kwargs['user'] = xfer.user
+		if xfer.timeout:
+			kwargs['timeout'] = xfer.timeout
+		if xfer.data:
+			kwargs['data'] = xfer.data
+		kwargs['hideData'] = hideData
+
+		return self._test.logUpload(host, xfer.remotefile, **kwargs)
+
+
+	def logDownload(self, host, xfer, hideData = False):
+		kwargs = {}
+		if xfer.user:
+			kwargs['user'] = xfer.user
+		if xfer.timeout:
+			kwargs['timeout'] = xfer.timeout
+		kwargs['hideData'] = hideData
+
+		return self._test.logDownload(host, xfer.remotefile, **kwargs)
+
+	# logHandle is the handle returned by logUpload/Download above;
+	# st is a twopence.Status instance
+	def logTransferStatus(self, logHandle, st):
+		if not st:
+			logHandle.recordError(error = st.localError, message = st.message)
+		elif logHandle.node.tag == 'download':
+			logHandle.recordData(st.buffer)
 
 	def setPredictedOutcome(self, status, reason):
 		if status == 'failure':
@@ -286,22 +403,31 @@ class Logger:
 
 		test.logError(message)
 
-	def recordStdout(self, data):
-		test = self.currentTest
-		if not test:
-			print(f"*** Calling recordStdout outside of a test case - data will be LOST: {data}")
-			return
+	def logCommand(self, host, cmd):
+		return self.currentTest.logCommand(host, cmd)
 
-		test.recordStdout(data)
+	def logChatCommand(self, host, cmd):
+		h = self.logCommand(host, cmd)
+		h.generateId()
+		return h
 
-	def recordStderr(self, data):
-		self._journal.recordStderr(data)
-		test = self.currentTest
-		if not test:
-			print(f"*** Calling recordStderr outside of a test case - data will be LOST: {data}")
-			return
+	def wrapProcess(self, logHandle, process):
+		return self.currentTest.wrapProcess(logHandle, process)
 
-		test.recordStderr(data)
+	def wrapChat(self, logHandle, chat):
+		return self.currentTest.wrapChat(logHandle, chat)
+
+	def logCommandStatus(self, logHandle, st):
+		self.currentTest.logCommandStatus(logHandle, st)
+
+	def logDownload(self, host, xfer, hideData = False):
+		return self.currentTest.logDownload(host, xfer, hideData)
+
+	def logUpload(self, host, xfer, hideData = False):
+		return self.currentTest.logUpload(host, xfer, hideData)
+
+	def logTransferStatus(self, logHandle, st):
+		self.currentTest.logTransferStatus(logHandle, st)
 
 	def addProperty(self, name, value):
 		self._journal.addProperty(name, value)
