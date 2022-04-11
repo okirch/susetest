@@ -204,20 +204,6 @@ class StringValuedResource(Resource):
 	def createDefaultInstance(klass, node, resourceName):
 		return ConcreteStringValuedResource(node, resourceName)
 
-class ResourceAddressIPv4(StringValuedResource):
-	name = "ipv4_address"
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(None, *args, **kwargs)
-		self.value = self.target.ipv4_address
-
-class ResourceAddressIPv6(StringValuedResource):
-	name = "ipv6_address"
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(None, *args, **kwargs)
-		self.value = self.target.ipv6_address
-
 class ConcreteStringValuedResource(StringValuedResource):
 	def __init__(self, target, name, value = None):
 		self.name = name
@@ -466,37 +452,6 @@ class UserResource(Resource):
 				return rv
 
 		return None
-
-class TestUserResource(UserResource):
-	name = "test-user"
-	login = "testuser"
-	password  = "test"
-	# encrypted_password = "$5$yWwV1dmWR7IqeEqm$sjrbgv7HiNp/19Nzlac5L5dxySAqLW9iqgZQDjpc8V7"
-
-	def acquire(self, driver):
-		node = self.target
-
-		# If the SUT configuration specifies a test user, use that
-		# login, otherwise use our class default.
-		if node.test_user is not None:
-			self.login = node.test_user
-
-		if not super().acquire(driver):
-			return False
-
-		node.test_user = self.login
-		return True
-
-class RootUserResource(UserResource):
-	name = "root-user"
-	login = "root"
-	password  = "guessme"
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-		self._uid = 0
-		self._gid = 0
-		self._home = "/root"
 
 class ConcreteUserResource(UserResource):
 	def __init__(self, target, name):
@@ -1747,13 +1702,6 @@ class ResourceLoader:
 
 		return desc
 
-	# FIXME: Obsolete?
-	def x__findResourceType(self, origin_file, tree, descGroup, type, klass):
-		for name in tree.get_children(type):
-			desc = descGroup.createResourceDescriptor(name, klass, origin_file)
-			self.buildResourceDescription(desc, tree.get_child(type, name))
-			# print("  %s %s" % (type, name))
-
 	def buildResourceDescription(self, desc, config):
 		klass = desc.klass
 		for name, type in klass.attributes.items():
@@ -1848,8 +1796,6 @@ class ResourceManager:
 		self._plugged = False
 
 	def loadPlatformResources(self, node, filenames):
-		print("Loading resources", filenames)
-
 		# Load resource definitions from the given list of resource files.
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
