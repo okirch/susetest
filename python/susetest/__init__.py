@@ -31,32 +31,6 @@ def say(msg):
 class CriticalResourceMissingError(TwopenceException):
 	pass
 
-# FIXME: deprecate this in favor of the new prediction support
-class ExpectedCommandResult:
-	def __init__(self, cmdname):
-		self.cmdname = cmdname
-
-class ExpectedCommandSuccess(ExpectedCommandResult):
-	def verify(self, st):
-		node = st.target
-
-		if not st:
-			node.logFailure(f"{self.cmdname} command failed: {st.message}")
-			return False
-
-		return True
-
-class ExpectedCommandFailure(ExpectedCommandResult):
-	def verify(self, st):
-		node = st.target
-
-		if st:
-			node.logFailure(f"{self.cmdname} command succeeded (expected error)")
-			return False
-
-		node.logInfo(f"{self.cmdname} command failed as expected: {st.message}")
-		return True
-
 def requireResource(resourceName, resourceType = None, nodeName = None, **kwargs):
 	TestDefinition.requireResource(resourceType, resourceName, nodeName, **kwargs)
 
