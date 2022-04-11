@@ -12,31 +12,12 @@ from .xmltree import XMLTree
 from .journal import load as loadJournal
 from .journal import create as createJournal
 
-def error(msg):
-	print(f"Error: {msg}")
-
 class TestLoggerHooks:
 	def __init__(self):
-		self._groupBeginHooks = []
-		self._groupEndHooks = []
 		self._postTestHooks = []
-
-	def addGroupBeginHook(self, fn):
-		self._groupBeginHooks.append(fn)
-
-	def addGroupEndHook(self, fn):
-		self._groupEndHooks.append(fn)
 
 	def addPostTestHook(self, fn):
 		self._postTestHooks.append(fn)
-
-	def runGroupBeginHooks(self, group):
-		for fn in self._groupBeginHooks:
-			fn(group)
-
-	def runGroupEndHooks(self, group):
-		for fn in self._groupEndHooks:
-			fn(group)
 
 	def runPostTestHooks(self):
 		for fn in self._postTestHooks:
@@ -73,8 +54,6 @@ class GroupLogger:
 	def end(self):
 		if self._active:
 			self.endTest()
-			self._hooks.runGroupEndHooks(self)
-			# self._journal.finishGroup()
 			self._active = False
 
 	@property
@@ -332,12 +311,6 @@ class Logger:
 			self._journal.save(self._path)
 			self._journal = None
 
-	def addGroupBeginHook(self, fn):
-		self._hooks.addGroupBeginHook(fn)
-
-	def addGroupEndHook(self, fn):
-		self._hooks.addGroupEndHook(fn)
-
 	def addPostTestHook(self, fn):
 		self._hooks.addPostTestHook(fn)
 
@@ -358,10 +331,6 @@ class Logger:
 
 		group = GroupLogger(self._journal, self._hooks, name)
 		self._currentGroup = group
-
-		# We need to call the hooks from here, after setting
-		# self._currentGroup
-		self._hooks.runGroupBeginHooks(group)
 
 		return group
 

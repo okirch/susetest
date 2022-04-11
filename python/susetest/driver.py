@@ -404,12 +404,6 @@ class Driver:
 					key = f"{node.name}:{attr_name}".replace('_', '-')
 					self._logger.addProperty(key, value)
 
-	def addGroupBeginHook(self, fn):
-		self._logger.addGroupBeginHook(fn)
-
-	def addGroupEndHook(self, fn):
-		self._logger.addGroupEndHook(fn)
-
 	def addPostTestHook(self, fn):
 		self._logger.addPostTestHook(fn)
 
