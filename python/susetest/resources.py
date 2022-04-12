@@ -1081,25 +1081,6 @@ class ApplicationManagerResource(APIResource):
 		return True
 
 ##################################################################
-# Manage all resources.
-# This is a bit convoluted, and involves several classes that
-# are needed to keep track.
-#
-# We distinguish between resource type, resource class and resource
-# instances.
-#
-# A resource type would be "executable", "user", etc. For each of
-# these, we define a python class (ExecutableResource, ...) above.
-#
-# A resource class is a subclass of any of these base classes.
-# For example, there may be a resource class for user "root".
-#
-# A resource instance represents the actual root user on an
-# actual system under test. A resource instance can be claimed
-# and released, or queried for specific attributes.
-##################################################################
-
-##################################################################
 # Global resource inventory
 ##################################################################
 class ResourceInventory:
