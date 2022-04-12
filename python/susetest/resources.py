@@ -1017,17 +1017,6 @@ class ResourceInventory:
 	def __init__(self):
 		# Define resource types string, user, executable etc.
 		self.__class__.classinit()
-
-		self.globalRegistry = globalResourceRegistry()
-
-		# Find all Resource classes defined in this module
-		self.globalRegistry.findResources(globals())
-
-		# If required, add more resource modules like this:
-		# self.globalRegistry.findResources(susetest.othermodule.__dict__)
-
-		self.nodeRegistry = {}
-
 		self.resources = []
 
 	@classmethod
@@ -1061,18 +1050,11 @@ class ResourceInventory:
 
 		klass._res_type_by_name[rsrc_class.resource_type] = rsrc_class
 
-	def getNodeRegistry(self, node, create = False):
-		registry = self.nodeRegistry.get(node.name)
-		if registry is None and create:
-			registry = ResourceRegistry()
-			self.nodeRegistry[node.name] = registry
-		return registry
-
 	def resolveType(self, resourceType):
 		if type(resourceType) == str:
 			resourceTypeName = resourceType
 			if not resourceType in self._res_type_by_name:
-				raise ValueError("%s: unknown resource type %s" % (self.__class__.__name__, resourceType))
+				raise ValueError(f"{self.__class__.__name__}: unknown resource type {resourceType}")
 			resourceType = self._res_type_by_name[resourceType]
 		return resourceType
 
@@ -1086,121 +1068,6 @@ class ResourceInventory:
 
 	def addResource(self, res):
 		self.resources.append(res)
-
-	def getResource(self, node, resourceType, resourceName, create = False):
-		resourceType = self.resolveType(resourceType)
-		resourceTypeName = resourceType.resource_type
-
-		for res in self.resources:
-			if resourceType and not isinstance(res, resourceType):
-				continue
-
-			if res.target == node and res.name == resourceName:
-				return res
-
-		if not create:
-			return None
-
-		print(f"instantiating {resourceTypeName} resource {resourceName}. type is {resourceType}")
-		res = resourceType(node, resourceName)
-		self.resources.append(res)
-		node.addResource(res)
-
-		# susetest.say(f"{node.name}: created resource {res}")
-		return res
-
-		resourceKlass = None
-
-		# Look at the node registry first
-		registry = self.nodeRegistry.get(node.name)
-		if registry:
-			resourceKlass = registry.getResourceClass(resourceType, resourceName)
-
-		# Finally, check the global registry
-		if resourceKlass is None:
-			resourceKlass = self.globalRegistry.getResourceClass(resourceType, resourceName)
-
-		if resourceKlass is not None:
-			res = resourceKlass(node)
-		elif resourceType is not None:
-			# Fallback for resource classes that can be configured via file
-			res = resourceType.createDefaultInstance(node, resourceName)
-		else:
-			res = None
-
-		if res is None:
-			raise KeyError("Unknown %s resource \"%s\"" % (resourceTypeName, resourceName))
-
-		self.resources.append(res)
-		node.addResource(res)
-
-		# susetest.say(f"{node.name}: created resource {res}")
-		return res
-
-##################################################################
-# Global registry of resource types
-#
-# self._classes is a dict of lists, so that we can define
-# different resources with the same name (eg executable rpcbind
-# as well as service rpcbind).
-##################################################################
-class ResourceRegistry:
-	_global_registry = None
-
-	def __init__(self):
-		self._classes = {}
-
-	def getResourceClass(self, res_type, res_name):
-		found = None
-		for klass in self._classes.get(res_name, []):
-			if res_type and not issubclass(klass, res_type):
-				continue
-			if found is not None:
-				raise KeyError("Cannot resolve ambiguous resource name %s: %s (%s) vs %s (%s)" % (
-						res_name,
-						found.resource_type, found,
-						klass.resource_type, klass))
-
-			found = klass
-
-		return found
-
-	def defineResourceClass(self, klass, name, verbose = False):
-		if verbose:
-			susetest.say("Define %s resource %s = %s" % (klass.resource_type, klass.name, klass.__name__))
-			if hasattr(klass, 'attributes'):
-				for attr_name in klass.attributes:
-					value = getattr(klass, attr_name)
-					print("  %s = %s" % (attr_name, value))
-		return
-
-		if klass.name not in self._classes:
-			self._classes[klass.name] = []
-
-		self._classes[klass.name].append(klass)
-
-	def findResources(self, ctx, verbose = False):
-		for klass in self._find_classes(ctx, Resource, "name"):
-			self.defineResourceClass(klass, verbose)
-
-	def _find_classes(self, ctx, baseKlass, required_attr = None):
-		class_type = type(self.__class__)
-
-		result = []
-		for thing in ctx.values():
-			if type(thing) is not class_type or not issubclass(thing, baseKlass):
-				continue
-
-			if required_attr and not hasattr(thing, required_attr):
-				continue
-
-			result.append(thing)
-		return result
-
-def globalResourceRegistry():
-	if ResourceRegistry._global_registry is None:
-		ResourceRegistry._global_registry = ResourceRegistry()
-	return ResourceRegistry._global_registry
 
 ##################################################################
 # Conditionals - a boolean expression
@@ -1544,7 +1411,6 @@ class ResourceLoader:
 		return found
 
 	def loadResourceGroup(self, name, file_must_exist):
-		import twopence
 		default_paths = [
 			twopence.user_config_dir,
 			twopence.global_config_dir,
@@ -1687,13 +1553,6 @@ class ResourceLoader:
 			else:
 				raise ResourceLoader.BadResource(desc, f"unknown child {child.type} {child.name}")
 
-	# This iterates over all resource descriptions and adds
-	# corresponding resources to a ResourceRegistry
-	def realize(self, group, registry, verbose = False):
-		for desc in group.resources:
-			klass = desc.klass
-			registry.defineResourceClass(klass, desc.name, verbose = verbose)
-
 ##################################################################
 # Keep track of desired state of resources
 ##################################################################
@@ -1714,21 +1573,11 @@ class ResourceManager:
 		self._plugged = False
 
 	def loadPlatformResources(self, node, filenames):
-		print("Loading resources from", filenames)
-
 		# Load resource definitions from the given list of resource files.
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
 		# in one file, and the selinux specific information in another one.
 		group = self.buildResourceChain(filenames)
-
-		# Create the resources defined by this one in the node's
-		# resource registry.
-		# This is not really pretty; we should probably do this
-		# per platform rather than per node.
-		registry = self.inventory.getNodeRegistry(node, create = True)
-		self.loader.realize(group, registry)
-
 		self.resourceDescriptions[node.name] = group
 
 	def buildResourceChain(self, names):
@@ -1761,7 +1610,7 @@ class ResourceManager:
 
 	# given a list of resources, return those that are of a given type
 	def filterResources(self, resourceType, resourceList):
-		klass = ResourceInventory._res_type_by_name.get(resourceType)
+		klass = self.inventory.resolveType(resourceType)
 		if klass is None:
 			twopence.warning(f"Unknown resource type {resourceType}")
 			return
