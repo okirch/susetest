@@ -311,6 +311,11 @@ class Driver:
 			target.defineStringResource("ipv4_loopback", "127.0.0.1")
 			target.defineStringResource("ipv6_loopback", "::1")
 
+			if nodeStatus.ipv4_address:
+				target.defineStringResource("ipv4_address", nodeStatus.ipv4_address)
+			if nodeStatus.ipv6_address:
+				target.defineStringResource("ipv6_address", nodeStatus.ipv6_address)
+
 			# we should probably have a Hostname resource that we can
 			# get and set
 			if False:
