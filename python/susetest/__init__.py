@@ -31,14 +31,29 @@ def say(msg):
 class CriticalResourceMissingError(TwopenceException):
 	pass
 
-def requireResource(resourceName, resourceType = None, nodeName = None, **kwargs):
+def requireResource(resourceName, resourceType = 'string', nodeName = None, **kwargs):
 	TestDefinition.requireResource(resourceType, resourceName, nodeName, **kwargs)
+
+def requireStringResource(resourceName, nodeName = None, **kwargs):
+	TestDefinition.requireResource('string', resourceName, nodeName, **kwargs)
+
+def requireAddressResource(resourceName, nodeName = None, **kwargs):
+	TestDefinition.requireResource('string', resourceName, nodeName, **kwargs)
 
 def requireExecutable(resourceName, nodeName = None, **kwargs):
 	TestDefinition.requireResource('executable', resourceName, nodeName, **kwargs)
 
-def optionalResource(resourceName, resourceType = None, nodeName = None, **kwargs):
+def requireService(resourceName, nodeName = None, **kwargs):
+	TestDefinition.requireResource('service', resourceName, nodeName, **kwargs)
+
+def optionalResource(resourceName, resourceType = 'string', nodeName = None, **kwargs):
 	TestDefinition.optionalResource(resourceType, resourceName, nodeName, **kwargs)
+
+def optionalStringResource(resourceName, nodeName = None, **kwargs):
+	TestDefinition.optionalResource('string', resourceName, nodeName, **kwargs)
+
+def optionalAddressResource(resourceName, nodeName = None, **kwargs):
+	TestDefinition.optionalResource('string', resourceName, nodeName, **kwargs)
 
 # You can use the following to annotate individual test cases. If the specified resource
 # not available, the test is skipped automatically.
