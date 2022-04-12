@@ -873,6 +873,7 @@ class LogResource(Resource):
 
 class AuditResource(LogResource):
 	resource_type = "audit"
+	name = "audit"
 
 	def acquire(self, driver):
 		node = self.target
@@ -912,6 +913,7 @@ class AuditResource(LogResource):
 
 class JournalResource(LogResource):
 	resource_type = "journal"
+	name = "journal"
 
 	def acquire(self, driver):
 		node = self.target
