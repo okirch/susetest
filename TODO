@@ -25,6 +25,9 @@ susetest:
 		start by dropping resource manager plugging
 		and the groupBegin callback
 
+	FEATURE: Separate the user creating in UserResource and move
+		it into a UserManager class
+
 	FIXME: unexpected audit messages should raise a warning
 	FEATURE: attach to SUT's journal event source
 	FEATURE: run-test should support --role-parameter

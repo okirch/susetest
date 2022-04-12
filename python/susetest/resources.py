@@ -283,12 +283,17 @@ class PackageResource(Resource):
 			node.logFailure(f"{self} does not define package name?!")
 			return False
 
-		if self.checkPackage(node, self.package):
+		packageManager = self.target.packageManager
+		if packageManager is None:
+			node.logInfo(f"Cannot install {self.package}: {node.name} does not have a package manager")
+			return False
+
+		if packageManager.checkPackage(node, self.package):
 			node.logInfo(f"Package {self.package} already installed on {node.name}")
 			return True
 
 		susetest.say(f"Trying to install package {self.package}")
-		if not self.installPackage(node, self.package):
+		if not packageManager.installPackage(node, self.package):
 			node.logError(f"Failed to install {self.package} on {node.name}")
 			return False
 
@@ -297,19 +302,6 @@ class PackageResource(Resource):
 	# Default implementation for PackageBackedResource.release
 	def release(self, driver):
 		return True
-
-	@property
-	def packageManager(self):
-		packageManager = self.target.packageManager
-		if packageManager is None:
-			raise NotImplementedError(f"{self.name}: node {self.target.name} does not have a package manager")
-		return packageManager
-
-	def checkPackage(self, node, package):
-		return self.packageManager.checkPackage(node, package)
-
-	def installPackage(self, node, package):
-		return self.packageManager.installPackage(node, package)
 
 class PackageBackedResource(Resource):
 	package = None
@@ -329,8 +321,8 @@ class PackageBackedResource(Resource):
 
 		if self.package is not None:
 			resource = self.target.optionalPackage(self.package)
-			if resource is None:
-				self.logError(f"resource {self} supposedly backed by package {self.package} - but this package is not defined, or could not be installed")
+			if resource is None or not resource.is_active:
+				self.target.logInfo(f"resource {self} supposedly backed by package {self.package} - but this package is not defined, or could not be installed")
 				return False
 
 			if self.detect():
@@ -377,9 +369,16 @@ class UserResource(Resource):
 			self.target.logInfo("found user %s; uid=%s" % (self.login, self.uid))
 			return True
 
-		cmd = self._build_useradd()
-		if not self.target.runOrFail(cmd, user = "root"):
-			self.target.logFailure("useradd %s failed" % self.login)
+		useradd = self.target.optionalExecutable("useradd")
+		if useradd is None or not useradd.is_active:
+			if self.createUserFallback(driver):
+				return True
+			self.target.logInfo(f"cannot provision {self} - cannot find useradd executable")
+			return False
+
+		options = self._build_useradd()
+		if not useradd.runOrFail(options, user = "root"):
+			self.target.logFailure(f"useradd {self.login} failed")
 			return False
 
 		self.target.logInfo("created user %s; uid=%s" % (self.login, self.uid))
@@ -448,7 +447,7 @@ class UserResource(Resource):
 		return self.encrypted_password
 
 	def _build_useradd(self):
-		useradd = ["useradd", "--create-home"]
+		useradd = ["--create-home"]
 
 		encrypted = self.encrypt_password()
 		if encrypted:
@@ -469,6 +468,59 @@ class UserResource(Resource):
 				return rv
 
 		return None
+
+	# It's really starting to look like we should wrap this stuff in a new
+	# UserManager class
+	def createUserFallback(self, driver, minUid = 1000):
+		passwd = self.target.optionalFile("system-passwd")
+		if not passwd or not passwd.is_active:
+			return False
+
+		editor = passwd.createEditor()
+
+		usedUids = set()
+		for e in editor.entries():
+			print(e)
+			usedUids.add(e.uid)
+
+		self._uid = None
+		while minUid < 6666:
+			if str(minUid) not in usedUids:
+				self._uid = str(minUid)
+				break
+			minUid += 1
+
+		if not self._uid:
+			self.target.logInfo("Did not find a free uid for {self.login}")
+			return False
+
+		self._gid = self.findGID("users")
+		if self._gid is None:
+			self._gid = "10000"
+
+		self._home = f"/home/{self.login}"
+
+		e = editor.makeEntry(name = self.login, passwd = "x",
+					uid = self._uid, gid = self._gid,
+					homedir = self._home,
+					shell = "/bin/bash");
+		editor.addOrReplaceEntry(e)
+		editor.commit()
+
+		self.target.run(f"mkdir -p {self._home}")
+		self.target.run(f"chown {self._uid}:{self._gid} {self._home}")
+
+		return True
+
+	def findGID(self, groupName):
+		group = self.target.optionalFile("system-group")
+		if not group or not group.is_active:
+			return False
+
+		editor = group.createReader()
+		e = editor.lookupEntry(name = "users")
+		if e is not None:
+			return e.gid
 
 class ExecutableResource(PackageBackedResource):
 	resource_type = "executable"
