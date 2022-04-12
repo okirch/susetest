@@ -12,7 +12,7 @@ import time
 import re
 import sys
 
-from .resources import ConcreteExecutableResource, ConcreteStringValuedResource, StringValuedResource
+from .resources import StringValuedResource
 from twopence import ConfigError
 
 class SimpleDictFacade:

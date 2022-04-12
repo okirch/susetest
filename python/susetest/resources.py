@@ -116,35 +116,42 @@ import re
 import crypt
 import functools
 import twopence
+from twopence.schema import *
 from .files import FileFormatRegistry
 
-class Resource:
+class Resource(NamedConfigurable):
+	static_resource = False
+
 	STATE_INACTIVE = 0
 	STATE_ACTIVE = 1
 
-	predictions = None
+	schema = []
 
-	def __init__(self, target, mandatory = False):
+	def __init__(self, target, name):
+		super().__init__(name)
+
 		self.target = target
-		self.mandatory = mandatory
 		self.state = Resource.STATE_INACTIVE
+		self.predictions = None
+		self.children = []
+
+	@property
+	def is_valid(self):
+		return True
+
+	@property
+	def is_present(self):
+		return True
 
 	@property
 	def is_active(self):
 		return self.state == Resource.STATE_ACTIVE
-
-	# By default, resources have no child resources
-	children = []
 
 	def __str__(self):
 		return "%s on %s" % (self.describe(), self.target.name)
 
 	def describe(self):
 		return self.name
-
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return None
 
 	class Prediction:
 		def __init__(self, status, conditionalName, conditional = None):
@@ -177,11 +184,11 @@ class Resource:
 class StringValuedResource(Resource):
 	resource_type = "string"
 
-	attributes = {
-		'value'			: str,
-	}
+	schema = [
+		StringAttributeSchema("value"),
+	]
 
-	def __init__(self, value, *args, **kwargs):
+	def __init__(self, *args, value = None, **kwargs):
 		super().__init__(*args, **kwargs)
 		self.value = value
 		self.state = Resource.STATE_ACTIVE
@@ -200,27 +207,12 @@ class StringValuedResource(Resource):
 	def release(self, driver):
 		return True
 
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteStringValuedResource(node, resourceName)
-
-class ConcreteStringValuedResource(StringValuedResource):
-	def __init__(self, target, name, value = None):
-		self.name = name
-		super().__init__(value, target)
-
-	def acquire(self, driver):
-		return True
-
 class SubsystemResource(Resource):
 	resource_type = "subsystem"
 
-	attributes = {
-		'packages'		: list,
-	}
-
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	schema = [
+		ListAttributeSchema("packages"),
+	]
 
 	@property
 	def is_present(self):
@@ -241,7 +233,10 @@ class SubsystemResource(Resource):
 class PackageResource(Resource):
 	resource_type = "package"
 
-	attributes = {}
+	schema = [
+		# without this, a call to PackageResource.configure() would raise an exception
+		StringAttributeSchema("dummy"),
+	]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -293,8 +288,11 @@ class PackageResource(Resource):
 class PackageBackedResource(Resource):
 	package = None
 
+	schema = [
+		StringAttributeSchema("package"),
+	]
+
 	def __init__(self, *args, **kwargs):
-		assert('package' in self.__class__.attributes)
 		super().__init__(*args, **kwargs)
 
 	# Default implementation for PackageBackedResource.acquire
@@ -322,16 +320,13 @@ class PackageBackedResource(Resource):
 class UserResource(Resource):
 	resource_type = "user"
 
-	attributes = {
-		'password'		: str,
-	}
-
-	password = None
-	encrypted_password = None
+	schema = [
+		StringAttributeSchema("login"),
+		StringAttributeSchema("password"),
+		StringAttributeSchema("encrypted-password"),
+	]
 
 	def __init__(self, *args, **kwargs):
-		assert(self.is_valid_user_class())
-
 		super().__init__(*args, **kwargs)
 
 		self._uid = None
@@ -340,9 +335,9 @@ class UserResource(Resource):
 		self._home = None
 		self._forced = False
 
-	@classmethod
-	def is_valid_user_class(klass):
-		return bool(getattr(klass, 'login', None))
+	@property
+	def is_valid(self):
+		return bool(self.login)
 
 	@property
 	def is_present(self):
@@ -350,10 +345,6 @@ class UserResource(Resource):
 
 	def describe(self):
 		return "user(%s)" % self.login
-
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteUserResource(node, resourceName)
 
 	def acquire(self, driver):
 		if self.uid is not None:
@@ -453,31 +444,12 @@ class UserResource(Resource):
 
 		return None
 
-class ConcreteUserResource(UserResource):
-	def __init__(self, target, name):
-		self.name = name
-		self.login = name
-
-		super().__init__(target)
-
 class ExecutableResource(PackageBackedResource):
 	resource_type = "executable"
 
-	attributes = {
-		'executable'		: str,
-		'selinux_label_domain'	: str,
-		'selinux_process_domain': str,
-		'selinux_test_interactive' : bool,
-		'selinux_test_service'	: str,
-		'selinux_test_command'	: str,
-		'interactive'		: bool,
-		'package'		: str,
-	}
-
-	# Derived classes can specify an executable name;
-	# if omitted, we will just use klass.name
-	executable = None
-
+	# executable: resource descriptions can specify an
+	#	executable name; if omitted, we will just use
+	#	klass.name
 	# selinux_label_domain: if specified, this is
 	#	the domain part of the executable's label
 	#	(eg sshd_exec_t, passwd_exec_t, etc)
@@ -496,12 +468,15 @@ class ExecutableResource(PackageBackedResource):
 	#	is interactive and starts it accordingly.
 	#	Note, SELinux label testing currently does
 	#	not work for non-interactive commands.
-	selinux_label_domain = None
-	selinux_process_domain = None
-	selinux_test_interactive = False
-	selinux_test_command = None
-	selinux_test_service = None
-	interactive = False
+	schema = PackageBackedResource.schema + [
+		StringAttributeSchema("executable"),
+		StringAttributeSchema("selinux-label-domain"),
+		StringAttributeSchema("selinux-process-domain"),
+		BooleanAttributeSchema("selinux-test-interactive"),
+		StringAttributeSchema("selinux-test-service"),
+		StringAttributeSchema("selinux-test-command"),
+		BooleanAttributeSchema("interactive"),
+	]
 
 	PATH = "/sbin:/usr/sbin:/bin:/usr/bin"
 
@@ -511,16 +486,8 @@ class ExecutableResource(PackageBackedResource):
 		self.path = None
 		self._default_user = None
 
-	@property
-	def is_present(self):
-		return True
-
 	def describe(self):
 		return "executable(%s)" % self.name
-
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteExecutableResource(node, resourceName)
 
 	def acquire(self, driver):
 		if super().acquire(driver):
@@ -571,50 +538,29 @@ class ExecutableResource(PackageBackedResource):
 
 		return self.target.runOrFail("%s %s" % (self.path, " ".join(args)), **kwargs)
 
-class ConcreteExecutableResource(ExecutableResource):
-	def __init__(self, target, name, executable = None):
-		self.name = name
-		self.executable = executable
-
-		super().__init__(target)
-
 class ServiceResource(PackageBackedResource):
 	resource_type = "service"
 
-	attributes = {
-		'daemon_path'		: str,
-		'executable'		: str,
-		'systemd_unit'		: str,
-		'systemd_activate'	: list,
-		'package'		: str,
-	}
-
-	executable = None
-	daemon_path = None
-	systemd_activate = []
-
-	def __init__(self, *args, **kwargs):
-		assert(self.is_valid_service_class())
-
-		super().__init__(*args, **kwargs)
-
-	@classmethod
-	def is_valid_service_class(klass):
-		if not klass.daemon_path and not klass.executable:
-			return False
-
-		if not klass.systemd_unit:
-			return False
-
-		if not getattr(klass, "systemd_activate", None):
-			klass.systemd_activate = [klass.systemd_unit]
-
-		return True
-
+	schema = PackageBackedResource.schema + [
+		StringAttributeSchema("daemon-path"),
+		StringAttributeSchema("executable"),
+		StringAttributeSchema("systemd-unit"),
+		ListAttributeSchema("systemd-activate"),
+	]
 
 	@property
-	def is_present(self):
+	def is_valid(self):
+		if not self.daemon_path and not self.executable:
+			return False
+
+		if not self.systemd_unit:
+			return False
+
+		if not systemd_activate:
+			self.systemd_activate = [self.systemd_unit]
+
 		return True
+
 
 	def describe(self):
 		return "service(%s)" % self.name
@@ -659,12 +605,14 @@ class ServiceResource(PackageBackedResource):
 		return self.serviceManager.getServiceUser(self)
 
 class PathResource(PackageBackedResource):
-	path = None
-	volume = None
-	selinux_label_domain = None
-	dac_user = None
-	dac_group = None
-	dac_permissions = None
+	schema = PackageBackedResource.schema + [
+		StringAttributeSchema("path"),
+		StringAttributeSchema("volume"),
+		StringAttributeSchema("selinux-label-domain"),
+		StringAttributeSchema("dac-user"),
+		StringAttributeSchema("dac-group"),
+		StringAttributeSchema("dac-permissions"),
+	]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -735,18 +683,9 @@ class PathResource(PackageBackedResource):
 class DirectoryResource(PathResource):
 	resource_type = "directory"
 
-	attributes = {
-		# for PackageBackedResource
-		'package'		: str,
-
-		# for PathResource
-		'path'			: str,
-		'volume'		: str,
-		'selinux_label_domain'	: str,
-		'dac_user'		: str,
-		'dac_group'		: str,
-		'dac_permissions'	: str,
-	}
+	schema = PathResource.schema + [
+		# we do not add any attributes of our own
+	]
 
 	# inherit default acquire/release methods from PackageBackedResource
 	# acquire will call our .detect() to see if the file is already
@@ -759,35 +698,12 @@ class DirectoryResource(PathResource):
 		st = self.target.run("test -d '%s'" % self.path, user = "root")
 		return bool(st)
 
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteDirectoryResource(node, resourceName)
-
-class ConcreteDirectoryResource(DirectoryResource):
-	def __init__(self, target, name):
-		self.name = name
-		super().__init__(target)
-
 class FileResource(PathResource):
 	resource_type = "file"
 
-	attributes = {
-		# for PackageBackedResource
-		'package'		: str,
-
-		# for PathResource
-		'path'			: str,
-		'volume'		: str,
-		'selinux_label_domain'	: str,
-		'dac_user'		: str,
-		'dac_group'		: str,
-		'dac_permissions'	: str,
-
-		# file:
-		'format'		: str,
-	}
-
-	format = None
+	schema = PathResource.schema + [
+		StringAttributeSchema("format"),
+	]
 
 	# inherit default acquire/release methods from PackageBackedResource
 	# acquire will call our .detect() to see if the file is already
@@ -832,15 +748,6 @@ class FileResource(PathResource):
 
 		return editor
 
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteFileResource(node, resourceName)
-
-class ConcreteFileResource(FileResource):
-	def __init__(self, target, name):
-		self.name = name
-		super().__init__(target)
-
 # Interface for message filters
 class MessageFilter:
 	# Analyze the message (of class Message above)
@@ -849,14 +756,12 @@ class MessageFilter:
 		pass
 
 class LogResource(Resource):
+	static_resource = True
+
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 
 		self._filters = []
-
-	@property
-	def is_present(self):
-		return True
 
 	def describe(self):
 		return self.__class__.name
@@ -877,8 +782,6 @@ class LogResource(Resource):
 
 class AuditResource(LogResource):
 	resource_type = "audit"
-	name = "audit"
-	attributes = {}
 
 	def acquire(self, driver):
 		node = self.target
@@ -918,8 +821,6 @@ class AuditResource(LogResource):
 
 class JournalResource(LogResource):
 	resource_type = "journal"
-	name = "journal"
-	attributes = {}
 
 	def acquire(self, driver):
 		node = self.target
@@ -997,16 +898,15 @@ class ApplicationResource(Resource):
 
 class ApplicationVolumeResource(ApplicationResource):
 	resource_type = "volume"
-	attributes = {}
 
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteApplicationVolumeResource(node, resourceName)
+	schema = ApplicationResource.schema + [
+		StringAttributeSchema("mountpoint"),
+		StringAttributeSchema("fstype"),
+		StringAttributeSchema("host-path"),
+	]
 
-class ConcreteApplicationVolumeResource(ApplicationVolumeResource):
-	def __init__(self, target, name):
-		self.name = name
-		super().__init__(target)
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
 		self.mountpoint = None
 		self.fstype = None
 
@@ -1015,16 +915,14 @@ class ConcreteApplicationVolumeResource(ApplicationVolumeResource):
 
 class ApplicationPortResource(ApplicationResource):
 	resource_type = "port"
-	attributes = {}
 
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		return ConcreteApplicationPortResource(node, resourceName)
+	schema = ApplicationResource.schema + [
+		StringAttributeSchema("internal-port"),
+		StringAttributeSchema("protocol"),
+	]
 
-class ConcreteApplicationPortResource(ApplicationPortResource):
-	def __init__(self, target, name):
-		self.name = name
-		super().__init__(target)
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
 		self.port = None
 		self.protocol = None
 		self.expose = None
@@ -1038,17 +936,10 @@ class ConcreteApplicationPortResource(ApplicationPortResource):
 # certain management APIs.
 ##################################################################
 class APIResource(Resource):
-	attributes = {
-		'class_id'		: str,
-		'module'		: str,
-	}
-
-	class_id = None
-	module = None
-
-	@property
-	def is_present(self):
-		return True
+	schema = [
+		StringAttributeSchema("class-id"),
+		StringAttributeSchema("module"),
+	]
 
 	def acquire(self, driver):
 		return True
@@ -1095,18 +986,6 @@ class ApplicationManagerResource(APIResource):
 
 	def release(self, driver):
 		return True
-
-	@classmethod
-	def createDefaultInstance(klass, node, resourceName):
-		print("Creating ConcreteApplicationManagerResource")
-		return ConcreteApplicationManagerResource(node, resourceName)
-
-class ConcreteApplicationManagerResource(ApplicationManagerResource):
-	def __init__(self, target, name):
-		self.name = name
-		super().__init__(target)
-		self.class_id = None
-		self.module = None
 
 ##################################################################
 # Manage all resources.
@@ -1171,12 +1050,14 @@ class ResourceInventory:
 		klass.defineResourceType(ApplicationPortResource)
 		klass.defineResourceType(ApplicationManagerResource)
 
+		print(klass._res_type_by_name)
+
 	@classmethod
 	def defineResourceType(klass, rsrc_class):
-		if not hasattr(rsrc_class, 'attributes'):
-			import twopence
-			twopence.error(f"{klass.__name__}: please define valid attributes for class {rsrc_class.__name__}")
-			raise NotImplementedError()
+		if False:
+			if not rsrc_class.schema and not rsrc_class.static_resource:
+				twopence.error(f"{klass.__name__}: please define a resource schema for class {rsrc_class.__name__}")
+				raise NotImplementedError()
 
 		klass._res_type_by_name[rsrc_class.resource_type] = rsrc_class
 
@@ -1187,14 +1068,28 @@ class ResourceInventory:
 			self.nodeRegistry[node.name] = registry
 		return registry
 
-	def getResource(self, node, resourceType, resourceName, create = False):
+	def resolveType(self, resourceType):
 		if type(resourceType) == str:
 			resourceTypeName = resourceType
 			if not resourceType in self._res_type_by_name:
 				raise ValueError("%s: unknown resource type %s" % (self.__class__.__name__, resourceType))
 			resourceType = self._res_type_by_name[resourceType]
-		elif resourceType is not None:
-			resourceTypeName = resourceType.resource_type
+		return resourceType
+
+	def findResource(self, node, resourceType, resourceName):
+		for res in self.resources:
+			if resourceType and not isinstance(res, resourceType):
+				continue
+
+			if res.target == node and res.name == resourceName:
+				return res
+
+	def addResource(self, res):
+		self.resources.append(res)
+
+	def getResource(self, node, resourceType, resourceName, create = False):
+		resourceType = self.resolveType(resourceType)
+		resourceTypeName = resourceType.resource_type
 
 		for res in self.resources:
 			if resourceType and not isinstance(res, resourceType):
@@ -1205,6 +1100,14 @@ class ResourceInventory:
 
 		if not create:
 			return None
+
+		print(f"instantiating {resourceTypeName} resource {resourceName}. type is {resourceType}")
+		res = resourceType(node, resourceName)
+		self.resources.append(res)
+		node.addResource(res)
+
+		# susetest.say(f"{node.name}: created resource {res}")
+		return res
 
 		resourceKlass = None
 
@@ -1262,13 +1165,14 @@ class ResourceRegistry:
 
 		return found
 
-	def defineResourceClass(self, klass, verbose = False):
+	def defineResourceClass(self, klass, name, verbose = False):
 		if verbose:
 			susetest.say("Define %s resource %s = %s" % (klass.resource_type, klass.name, klass.__name__))
 			if hasattr(klass, 'attributes'):
 				for attr_name in klass.attributes:
 					value = getattr(klass, attr_name)
 					print("  %s = %s" % (attr_name, value))
+		return
 
 		if klass.name not in self._classes:
 			self._classes[klass.name] = []
@@ -1483,9 +1387,13 @@ class ResourceLoader:
 			self.klass = klass
 			self.file = file
 			self.override = override
+			self.settings = ConfigOpaque()
 			self.attrs = {}
 			self.children = []
 			self.predictions = []
+
+		def configure(self, data):
+			self.settings.configure(data)
 
 		def setAttribute(self, name, value):
 			self.attrs[name] = value
@@ -1529,8 +1437,8 @@ class ResourceLoader:
 		def __str__(self):
 			return "ResourceDescriptionSet(%s)" % ", ".join(self._resources.keys());
 
-		def getResourceDescriptor(self, name):
-			return self._resources.get(name)
+		def getResourceDescriptor(self, key):
+			return self._resources.get(key)
 
 		def createResourceDescriptor(self, name, klass, origin_file):
 			key = '%s:%s' % (klass.resource_type, name)
@@ -1541,6 +1449,20 @@ class ResourceLoader:
 			else:
 				assert(desc.klass == klass)
 			return desc
+
+		def lookupResourceDescriptor(self, name, klass):
+			key = '%s:%s' % (klass.resource_type, name)
+			return self._resources.get(key)
+
+		def configureResource(self, res):
+			desc = self.lookupResourceDescriptor(res.name, res.__class__)
+			if desc:
+				if not res.schema:
+					twopence.error(f"Cannot configure resource {res} with {desc.settings}")
+				res.configure(desc.settings)
+				if False:
+					print(f"configured resource {res}")
+					res.publishToPath("/dev/stdout")
 
 		def getResourceConditional(self, name):
 			return self._conditionals.get(name)
@@ -1636,7 +1558,7 @@ class ResourceLoader:
 			path = os.path.join(path, "resource.d", name + ".conf")
 			# print("Trying to load %s" % path)
 			if os.path.isfile(path):
-				group = self.load(descGroup, path)
+				self.load(descGroup, path)
 				found = True
 
 		if file_must_exist and not found:
@@ -1695,7 +1617,7 @@ class ResourceLoader:
 		type = node.type
 		klass = ResourceInventory._res_type_by_name.get(node.type)
 		if klass is None:
-			raise NotImplementedError("Unknown resource type \"%s\" in %s" % (node.type, node))
+			raise NotImplementedError(f"Unknown resource type \"{node.type}\" in {node}")
 
 		desc = descGroup.createResourceDescriptor(node.name, klass, path)
 		self.buildResourceDescription(desc, node)
@@ -1703,6 +1625,10 @@ class ResourceLoader:
 		return desc
 
 	def buildResourceDescription(self, desc, config):
+		desc.configure(config)
+		# FIXME: do the children later
+		return
+
 		klass = desc.klass
 		for name, type in klass.attributes.items():
 			config_name = name.replace('_', '-')
@@ -1766,16 +1692,7 @@ class ResourceLoader:
 	def realize(self, group, registry, verbose = False):
 		for desc in group.resources:
 			klass = desc.klass
-			new_class_name = "Userdef%s_%s" % (klass.__name__, desc.name)
-			new_klass = type(new_class_name, (klass, ), desc.attrs)
-			new_klass.name = desc.name
-
-			if desc.predictions:
-				new_klass.predictions = desc.predictions
-
-			new_klass.children = desc.children
-
-			registry.defineResourceClass(new_klass, verbose = verbose)
+			registry.defineResourceClass(klass, desc.name, verbose = verbose)
 
 ##################################################################
 # Keep track of desired state of resources
@@ -1786,6 +1703,7 @@ class ResourceManager:
 
 		self.inventory = ResourceInventory()
 		self.loader = ResourceLoader()
+		self.resourceDescriptions = {}
 
 		self._plugged = True
 
@@ -1796,6 +1714,8 @@ class ResourceManager:
 		self._plugged = False
 
 	def loadPlatformResources(self, node, filenames):
+		print("Loading resources from", filenames)
+
 		# Load resource definitions from the given list of resource files.
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
@@ -1809,6 +1729,8 @@ class ResourceManager:
 		registry = self.inventory.getNodeRegistry(node, create = True)
 		self.loader.realize(group, registry)
 
+		self.resourceDescriptions[node.name] = group
+
 	def buildResourceChain(self, names):
 		result = ResourceLoader.ResourceDescriptionSet()
 		for name in names:
@@ -1820,8 +1742,22 @@ class ResourceManager:
 
 		return result
 
-	def getResource(self, *args, **kwargs):
-		return self.inventory.getResource(*args, **kwargs)
+	def getResource(self, node, resourceType, resourceName, create = False):
+		resourceType = self.inventory.resolveType(resourceType)
+
+		res = self.inventory.findResource(node, resourceType, resourceName)
+		if res is None and create:
+			# Instantiante the resource...
+			res = resourceType(node, resourceName)
+			self.inventory.addResource(res)
+			node.addResource(res)
+
+			# ... and apply the resource definitions from file
+			group = self.resourceDescriptions.get(node.name)
+			if group:
+				group.configureResource(res)
+
+		return res
 
 	# given a list of resources, return those that are of a given type
 	def filterResources(self, resourceType, resourceList):
@@ -1880,3 +1816,9 @@ class ResourceManager:
 
 	def release(self, res, mandatory, **kwargs):
 		return self._actionRelease.perform(self.driver, res, mandatory, **kwargs)
+
+##################################################################
+# This must happen at the very end of the file:
+##################################################################
+Schema.initializeAll(globals())
+
