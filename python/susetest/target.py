@@ -605,16 +605,17 @@ class Target(twopence.Target):
 		if user is None:
 			user = self.defaultUser
 
-		self.logInfo("downloading " + remotefile)
-		try:
-			status = super(Target, self).recvfile(remotefile, user = user, **kwargs)
-		except:
-			self.logError("download failed with exception")
-			self._logInfo(self.describeException())
-			return None
+		self.logInfo(f"downloading {remotefile}")
+
+		xfer = twopence.Transfer(remoteFilename, user = user, **kwargs)
+		xfer.softfail = True
+
+		status = super(Target, self).recvfile(xfer)
+
+		self.logger.logTransferStatus(logHandle, status)
 
 		if not status:
-			self.logFailure("download failed: " + status.message)
+			self.logFailure(f"failed to download {xfer.remotefile}: {status.message}")
 
 		return status
 
@@ -624,6 +625,7 @@ class Target(twopence.Target):
 			user = self.defaultUser
 
 		xfer = twopence.Transfer(remoteFilename, user = user, **kwargs)
+		xfer.softfail = True
 
 		if xfer.localfile:
 			self.logError("recvbuffer: you cannot specify a localfile!")
@@ -631,16 +633,13 @@ class Target(twopence.Target):
 
 		logHandle = self.logger.logDownload(self.name, xfer, hideData = quiet)
 
-		try:
-			# FIXME: use softfail
-			status = super(Target, self).recvfile(xfer)
-		except:
-			self.logError("download failed with exception")
-			self._logInfo(self.describeException())
-
-			return None
+		status = super(Target, self).recvfile(xfer)
 
 		self.logger.logTransferStatus(logHandle, status)
+
+		if not status:
+			self.logFailure(f"failed to download {xfer.remotefile}: {status.message}")
+			return None
 
 		return status.buffer
 
