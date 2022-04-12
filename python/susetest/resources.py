@@ -119,17 +119,20 @@ import twopence
 from twopence.schema import *
 from .files import FileFormatRegistry
 
-class Prediction:
-	def __init__(self, status, conditionalName, conditional = None):
-		self.status = status
-		self.conditionalName = conditionalName
-		self.conditional = conditional
+class Expectation(NamedConfigurable):
+	status = "undefined"
+
+	def __init__(self, conditionalName, config = None):
+		super().__init__(conditionalName)
+		self.conditional = None
+		self.reason = None
+
+		if config:
+			self.configure(config)
 
 	@property
-	def reason(self):
-		if self.conditional.reason:
-			return self.conditional.reason
-		return f"conditional {conditionalName}"
+	def conditionalName(self):
+		return self.name
 
 	def __str__(self):
 		return f"predicted outcome = {self.status} because of {self.reason}"
@@ -137,6 +140,24 @@ class Prediction:
 	def applies(self, context):
 		assert(self.conditional)
 		return self.conditional.eval(context)
+
+	def configure(self, config):
+		self.settings = config
+		self.conditional = ResourceConditional.fromConfig(config)
+		self.reason = config.get_value("reason")
+
+	@classmethod
+	def fromConditional(klass, other):
+		result = klass(other.name)
+		result.reason = other.reason
+		result.conditional = other.conditional
+		return result
+
+class ExpectedFailure(Expectation):
+	status = "failure"
+
+class ExpectedError(Expectation):
+	status = "error"
 
 class Resource(NamedConfigurable):
 	static_resource = False
@@ -151,7 +172,6 @@ class Resource(NamedConfigurable):
 
 		self.target = target
 		self.state = Resource.STATE_INACTIVE
-		self.predictions = None
 		self.children = []
 
 	@property
@@ -172,10 +192,16 @@ class Resource(NamedConfigurable):
 	def describe(self):
 		return self.name
 
+	@property
+	def predictions(self):
+		return []
+
 	def predictOutcome(self, driver, variables):
-		if self.predictions:
+		predictions = self.predictions
+
+		if predictions:
 			context = TargetEvalContext(driver, self.target, variables)
-			for prediction in self.predictions:
+			for prediction in predictions:
 				if prediction.applies(context):
 					return prediction
 
@@ -476,6 +502,12 @@ class ExecutableResource(PackageBackedResource):
 		StringAttributeSchema("selinux-test-service"),
 		StringAttributeSchema("selinux-test-command"),
 		BooleanAttributeSchema("interactive"),
+
+		ListAttributeSchema("_expected_failures_by_name", key = "expected-failure"),
+		ListAttributeSchema("_expected_errors_by_name", key = "expected-error"),
+
+		ListNodeSchema("_expected_failures", key = "expected-failure", itemClass = ExpectedFailure),
+		ListNodeSchema("_expected_errors", key = "expected-error", itemClass = ExpectedError),
 	]
 
 	PATH = "/sbin:/usr/sbin:/bin:/usr/bin"
@@ -486,8 +518,15 @@ class ExecutableResource(PackageBackedResource):
 		self.path = None
 		self._default_user = None
 
+	def configure(self, config):
+		super().configure(config)
+
 	def describe(self):
 		return "executable(%s)" % self.name
+
+	@property
+	def predictions(self):
+		return self._expected_failures + self._expected_errors
 
 	def acquire(self, driver):
 		if super().acquire(driver):
@@ -1039,8 +1078,6 @@ class ResourceInventory:
 		klass.defineResourceType(ApplicationPortResource)
 		klass.defineResourceType(ApplicationManagerResource)
 
-		print(klass._res_type_by_name)
-
 	@classmethod
 	def defineResourceType(klass, rsrc_class):
 		if False:
@@ -1154,19 +1191,6 @@ class ResourceConditional:
 		def eval(self, context):
 			return not self.term.eval(context)
 
-
-	def __init__(self, name, origin, term, reason = None):
-		self.name = name
-		self.origin = origin
-		self.term = term
-		self.reason = reason
-
-	def __str__(self):
-		return f"{self.__class__.__name__}({self.name} = [{self.term.dump()}])"
-
-	def eval(self, context):
-		return self.term.eval(context)
-
 	@staticmethod
 	def fromConfig(node, termClass = AND):
 		term = termClass()
@@ -1253,23 +1277,18 @@ class ResourceLoader:
 			self.name = name
 			self.klass = klass
 			self.file = file
+			# Note, we're currently never setting this. But we should.
 			self.override = override
 			self.settings = ConfigOpaque()
-			self.attrs = {}
-			self.children = []
-			self.predictions = []
 
 		def configure(self, data):
 			self.settings.configure(data)
 
 		def setAttribute(self, name, value):
-			self.attrs[name] = value
+			self.settings.set_value(name, value)
 
 		def getAttribute(self, name):
-			return self.attrs.get(name)
-
-		def addPrediction(self, prediction):
-			self.predictions.append(prediction)
+			self.settings.get_value(name)
 
 		def update(self, other):
 			assert(isinstance(other, self.__class__))
@@ -1277,8 +1296,7 @@ class ResourceLoader:
 			# If override is set, to not accept any updates
 			# from more generic resource files.
 			if not self.override:
-				self.attrs.update(other.attrs)
-				self.predictions += other.predictions
+				self.settings.mergeNoOverride(other.settings)
 				self.override = other.override
 
 		@property
@@ -1331,16 +1349,28 @@ class ResourceLoader:
 					print(f"configured resource {res}")
 					res.publishToPath("/dev/stdout")
 
+				# Now see if the resource references any conditionals
+				if isinstance(res, ExecutableResource):
+					for name in res._expected_failures_by_name:
+						cond = self._conditionals.get(name)
+						if cond is None:
+							raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
+						res._expected_failures.append(ExpectedFailure.fromConditional(cond))
+					for name in res._expected_errors_by_name:
+						cond = self._conditionals.get(name)
+						if cond is None:
+							raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
+						res._expected_errors.append(ExpectedError.fromConditional(cond))
+
 		def getResourceConditional(self, name):
 			return self._conditionals.get(name)
 
-		def createResourceConditional(self, name, origin, term, reason = None):
-			if self._conditionals.get(name):
+		def createResourceConditional(self, node):
+			if self._conditionals.get(node.name):
 				raise ResourceLoader.BadConditional(node.name, node.origin, f"duplicate definition of resource conditional {name}")
 
-			cond = ResourceConditional(name, origin, term, reason)
-			self._conditionals[name] = cond
-			return term
+			cond = Expectation(node.name, node)
+			self._conditionals[node.name] = cond
 
 		def update(self, other):
 			for key, desc in other._resources.items():
@@ -1365,23 +1395,6 @@ class ResourceLoader:
 
 				self._conditionals[cond.name] = cond
 
-		def resolveConditionals(self):
-			for desc in self.resources:
-				for prediction in desc.predictions:
-					if prediction.conditional is not None:
-						# this conditional was specified inline, eg
-						#   predicted-failure blabla {
-						#	feature "fips";
-						#   }
-						continue
-
-					conditional = self.getResourceConditional(prediction.conditionalName)
-					if conditional is None:
-						raise ResourceLoader.BadResource(desc, f"unable to resolve conditional {prediction.conditionalName}")
-					prediction.conditional = conditional
-
-				# print(", ".join(str(cond) for cond in desc.predictions))
-
 	class BadResource(Exception):
 		def __init__(self, desc, *args):
 			msg = "bad resource %s (defined in %s)" % (desc.name, desc.file)
@@ -1400,6 +1413,7 @@ class ResourceLoader:
 
 	def __init__(self):
 		self.resourceGroups = {}
+		self.namedConditionals = {}
 
 	def getResourceGroup(self, name, file_must_exist):
 		name = name.lower()
@@ -1436,38 +1450,26 @@ class ResourceLoader:
 		config = curly.Config(path)
 		tree = config.tree()
 
-		# FIXME: drop the path argument from calls below; use child.origin instead
 		for child in tree:
 			if child.type == "package":
-				self.loadPackage(descGroup, path, child)
+				self.loadPackage(descGroup, child)
 			elif child.type == "conditional":
-				self.loadConditional(descGroup, path, child)
+				self.loadConditional(descGroup, child)
 			else:
-				self.loadResource(descGroup, path, child)
+				self.loadResource(descGroup, child)
 
-	class FakeCurlyNode:
-		def __init__(self, type, name):
-			self.type = type
-			self.name = name
-
-		def __iter__(self):
-			return iter([])
-
-		def get_value(self, name):
-			return None
-
-		def get_attributes(self):
-			return []
-
-	def loadPackage(self, descGroup, path, node):
+	# The way we handle the relationship between packages and the resources
+	# they contain is currently still a bit clumsy.
+	def loadPackage(self, descGroup, node):
 		packageName = node.name
+		children = []
 
-		pkgDesc = descGroup.createResourceDescriptor(packageName, PackageResource, path)
+		pkgDesc = descGroup.createResourceDescriptor(packageName, PackageResource, node.origin)
 		for child in node:
-			desc = self.loadResource(descGroup, path, child)
-			pkgDesc.children.append(desc)
+			desc = self.loadResource(descGroup, child)
+			children.append(desc)
 
-		for desc in pkgDesc.children:
+		for desc in children:
 			otherPackageName = desc.getAttribute("package")
 			if otherPackageName and otherPackageName != packageName:
 				raise ResourceLoader.BadResource(desc, "conflicting package names %s vs %s" % (otherPackageName, packageName))
@@ -1475,83 +1477,18 @@ class ResourceLoader:
 			# print("Package %s defines %s(%s)" % (packageName, desc.type, desc.name))
 			desc.setAttribute("package", packageName)
 
-	def loadConditional(self, descGroup, path, node):
-		term = ResourceConditional.fromConfig(node)
-		descGroup.createResourceConditional(node.name, node.origin, term, node.get_value("reason"))
+	def loadConditional(self, descGroup, node):
+		descGroup.createResourceConditional(node)
 
-	def loadResource(self, descGroup, path, node):
+	def loadResource(self, descGroup, node):
 		type = node.type
 		klass = ResourceInventory._res_type_by_name.get(node.type)
 		if klass is None:
 			raise NotImplementedError(f"Unknown resource type \"{node.type}\" in {node}")
 
-		desc = descGroup.createResourceDescriptor(node.name, klass, path)
-		self.buildResourceDescription(desc, node)
-
+		desc = descGroup.createResourceDescriptor(node.name, klass, node.origin)
+		desc.configure(node)
 		return desc
-
-	def buildResourceDescription(self, desc, config):
-		desc.configure(config)
-		# FIXME: do the children later
-		return
-
-		klass = desc.klass
-		for name, type in klass.attributes.items():
-			config_name = name.replace('_', '-')
-			value = config.get_value(config_name)
-			# print("%s = %s" % (config_name, value))
-
-			if not value:
-				continue
-
-			if type == str:
-				pass
-			elif type == bool:
-				if value.lower() in ('on', 'yes', 'true', '1'):
-					value = True
-				elif value.lower() in ('off', 'no', 'false', '0'):
-					value = False
-				else:
-					raise ResourceLoader.BadResource(desc, "bad value for attribute %s: expected a boolean value not \"%s\"" % (
-								config_name, value))
-			elif type == list:
-				value = config.get_values(config_name)
-			else:
-				raise NotImplementedError("cannot set resource attr %s of type %s" % (name, type))
-
-			desc.setAttribute(name, value)
-
-		# Check for spelling mistakes or unknown attributes in the config file
-		for attr in config.attributes:
-			if attr.name == 'override':
-				value = attr.value
-				desc.override = value.lower() in ('on', 'yes', 'true', '1')
-				continue
-
-			if attr.name == 'failif' or attr.name == 'expected-failure':
-				for name in attr.values:
-					desc.addPrediction(Prediction('failure', name))
-				continue
-
-			if attr.name == 'errorif' or attr.name == 'expected-error':
-				for name in attr.values:
-					desc.addPrediction(Prediction('error', name))
-				continue
-
-			attr_name = attr.name.replace('-', '_')
-			if attr_name not in klass.attributes:
-				raise ResourceLoader.BadResource(desc, "unknown attribute %s (%s is not a class attribute of %s)" % (
-								attr.name, attr_name, klass.__name__))
-
-		for child in config:
-			if child.type in ('expected-failure', 'expected-error'):
-				term = ResourceConditional.fromConfig(child)
-				conditional = ResourceConditional(child.name, child.origin, term, child.get_value("reason"))
-
-				outcome = child.type[9:]
-				desc.addPrediction(Prediction(outcome, child.name, conditional))
-			else:
-				raise ResourceLoader.BadResource(desc, f"unknown child {child.type} {child.name}")
 
 ##################################################################
 # Keep track of desired state of resources
@@ -1587,17 +1524,17 @@ class ResourceManager:
 			if group:
 				result.update(group)
 
-		result.resolveConditionals()
-
 		return result
 
 	def getResource(self, node, resourceType, resourceName, create = False):
-		resourceType = self.inventory.resolveType(resourceType)
+		resourceKlass = self.inventory.resolveType(resourceType)
+		if resourceKlass is None:
+			raise ValueError(f"Undefined resource type {resourceType}")
 
-		res = self.inventory.findResource(node, resourceType, resourceName)
+		res = self.inventory.findResource(node, resourceKlass, resourceName)
 		if res is None and create:
 			# Instantiante the resource...
-			res = resourceType(node, resourceName)
+			res = resourceKlass(node, resourceName)
 			self.inventory.addResource(res)
 			node.addResource(res)
 
