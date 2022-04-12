@@ -230,6 +230,9 @@ class JournalMessages(JournalEvent):
 		# text = f"<![CDATA[{text}]]>"
 		self.node.text = text
 
+		if self.writer:
+			self.writer.logMessage(msg)
+
 class JournalCommandStatus(XMLBackedNode):
 	attributes = [
 		IntAttributeSchema("exit-code"),
@@ -499,7 +502,7 @@ class JournalTest(TimedNode):
 			return
 		elif status != current:
 			# now it's an error
-			self.logMessage("invalid test status changes from {current} to {status}", severity = 'error')
+			self.logMessage(f"invalid test status changes from {current} to {status}", severity = 'error')
 			status = 'error'
 
 		self.time = time.time() - self.startTime
