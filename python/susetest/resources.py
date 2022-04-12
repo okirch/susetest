@@ -119,6 +119,25 @@ import twopence
 from twopence.schema import *
 from .files import FileFormatRegistry
 
+class Prediction:
+	def __init__(self, status, conditionalName, conditional = None):
+		self.status = status
+		self.conditionalName = conditionalName
+		self.conditional = conditional
+
+	@property
+	def reason(self):
+		if self.conditional.reason:
+			return self.conditional.reason
+		return f"conditional {conditionalName}"
+
+	def __str__(self):
+		return f"predicted outcome = {self.status} because of {self.reason}"
+
+	def applies(self, context):
+		assert(self.conditional)
+		return self.conditional.eval(context)
+
 class Resource(NamedConfigurable):
 	static_resource = False
 
@@ -152,25 +171,6 @@ class Resource(NamedConfigurable):
 
 	def describe(self):
 		return self.name
-
-	class Prediction:
-		def __init__(self, status, conditionalName, conditional = None):
-			self.status = status
-			self.conditionalName = conditionalName
-			self.conditional = conditional
-
-		@property
-		def reason(self):
-			if self.conditional.reason:
-				return self.conditional.reason
-			return f"conditional {conditionalName}"
-
-		def __str__(self):
-			return f"predicted outcome = {self.status} because of {self.reason}"
-
-		def applies(self, context):
-			assert(self.conditional)
-			return self.conditional.eval(context)
 
 	def predictOutcome(self, driver, variables):
 		if self.predictions:
@@ -1530,12 +1530,12 @@ class ResourceLoader:
 
 			if attr.name == 'failif' or attr.name == 'expected-failure':
 				for name in attr.values:
-					desc.addPrediction(Resource.Prediction('failure', name))
+					desc.addPrediction(Prediction('failure', name))
 				continue
 
 			if attr.name == 'errorif' or attr.name == 'expected-error':
 				for name in attr.values:
-					desc.addPrediction(Resource.Prediction('error', name))
+					desc.addPrediction(Prediction('error', name))
 				continue
 
 			attr_name = attr.name.replace('-', '_')
@@ -1549,7 +1549,7 @@ class ResourceLoader:
 				conditional = ResourceConditional(child.name, child.origin, term, child.get_value("reason"))
 
 				outcome = child.type[9:]
-				desc.addPrediction(Resource.Prediction(outcome, child.name, conditional))
+				desc.addPrediction(Prediction(outcome, child.name, conditional))
 			else:
 				raise ResourceLoader.BadResource(desc, f"unknown child {child.type} {child.name}")
 
