@@ -57,11 +57,6 @@ def optionalTestResource(resourceType, resourceName, nodeName = None):
 
 	return wrapper
 
-# susetest.resource decorator
-def resource(klass):
-	TestDefinition.defineResource(klass)
-	return klass
-
 # susetest.setup decorator
 def setup(f):
 	TestDefinition.defineSetup(f)

@@ -15,7 +15,6 @@ import functools
 
 from .target import Target
 from .driver import Driver
-from .resources import globalResourceRegistry
 import susetest
 
 class Name:
@@ -562,11 +561,6 @@ class TestsuiteInfo:
 					test.skip = True
 
 class TestDefinition:
-	@staticmethod
-	def defineResource(*args, **kwargs):
-		registry = globalResourceRegistry()
-		registry.defineResource(*args, **kwargs, verbose = True)
-
 	@staticmethod
 	def requireResource(*args, **kwargs):
 		TestsuiteInfo.instance().requireResource(*args, **kwargs)
