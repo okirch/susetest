@@ -203,6 +203,10 @@ class TestLogger:
 		def commandContinuation(self):
 			return self.test.logCommandContinuation(self.id)
 
+		@property
+		def selinux_context(self):
+			return self.process.selinux_context
+
 		def kill(self, signal):
 			# FIXME: log message. Would need a <signal> element in <command>
 			self.process.kill(signal)
