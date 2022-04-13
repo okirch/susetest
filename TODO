@@ -21,10 +21,6 @@ provisioning:
 		even if the vagrant directory is gone
 
 susetest:
-	FIXME: Rewrite resource handling to make it saner
-		start by dropping resource manager plugging
-		and the groupBegin callback
-
 	FEATURE: Separate the user creating in UserResource and move
 		it into a UserManager class
 

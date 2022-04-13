@@ -126,6 +126,7 @@ class Expectation(NamedConfigurable):
 		super().__init__(conditionalName)
 		self.conditional = None
 		self.reason = None
+		self.origin = None
 
 		if config:
 			self.configure(config)
@@ -137,11 +138,19 @@ class Expectation(NamedConfigurable):
 	def __str__(self):
 		return f"predicted outcome = {self.status} because of {self.reason}"
 
+	@property
+	def longdesc(self):
+		desc = f"conditional({self.name})"
+		if self.origin:
+			desc += " defined in {self.origin}"
+		return desc
+
 	def applies(self, context):
 		assert(self.conditional)
 		return self.conditional.eval(context)
 
 	def configure(self, config):
+		self.origin = config.origin
 		self.settings = config
 		self.conditional = ResourceConditional.fromConfig(config)
 		self.reason = config.get_value("reason")
@@ -1100,7 +1109,7 @@ class ResourceSettings(ConfigOpaque):
 	def setBackingPackage(self, packageName):
 		currentValue = self.get_value("package")
 		if currentValue and currentValue != packageName:
-			raise ResourceLoader.BadResource(self, "conflicting package names {currentValue} vs {packageName}")
+			raise BadResource(f"{self.longdesc}: conflicting package names {currentValue} vs {packageName}")
 
 		self.set_value("package", packageName)
 
@@ -1251,7 +1260,7 @@ class ResourceContext(ResourceCollection):
 		for cond in other.conditionals:
 			have = self._conditionals.get(cond.name)
 			if have is not None:
-				raise ResourceLoader.BadConditional(cond.name, cond.origin, f"duplicate definition of resource conditional (also defined in {have.origin})")
+				raise BadConditional(f"{cond.name} from {cond.origin}: duplicate definition of resource conditional (also defined in {have.origin})")
 
 			self._conditionals.add(cond)
 
@@ -1289,63 +1298,20 @@ class ResourceContext(ResourceCollection):
 			for name in res._expected_failures_by_name:
 				cond = self._conditionals.get(name)
 				if cond is None:
-					raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
+					raise BadConditional(f"{cond.longdesc}: {res} references unknown conditional {name}")
 				res._expected_failures.append(ExpectedFailure.fromConditional(cond))
 			for name in res._expected_errors_by_name:
 				cond = self._conditionals.get(name)
 				if cond is None:
-					raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
+					raise BadConditional(f"{cond.longdesc}: {res} references unknown conditional {name}")
 				res._expected_errors.append(ExpectedError.fromConditional(cond))
 
 ##################################################################
 # Global resource inventory
 ##################################################################
 class ResourceInventory:
-	# After class initiazation, this holds a dict mapping
-	# strings ("executable") to resource types (ExecutableResource)
-	_res_type_by_name = None
-
 	def __init__(self):
-		# Define resource types string, user, executable etc.
-		self.__class__.classinit()
 		self.resources = []
-
-	@classmethod
-	def classinit(klass):
-		if klass._res_type_by_name is not None:
-			return
-
-		klass._res_type_by_name = {}
-		klass.defineResourceType(StringValuedResource)
-		klass.defineResourceType(ExecutableResource)
-		klass.defineResourceType(UserResource)
-		klass.defineResourceType(ServiceResource)
-		klass.defineResourceType(FileResource)
-		klass.defineResourceType(DirectoryResource)
-		klass.defineResourceType(JournalResource)
-		klass.defineResourceType(AuditResource)
-		klass.defineResourceType(PackageResource)
-		klass.defineResourceType(SubsystemResource)
-		klass.defineResourceType(ApplicationVolumeResource)
-		klass.defineResourceType(ApplicationPortResource)
-		klass.defineResourceType(ApplicationManagerResource)
-
-	@classmethod
-	def defineResourceType(klass, rsrc_class):
-		if False:
-			if not rsrc_class.schema and not rsrc_class.static_resource:
-				twopence.error(f"{klass.__name__}: please define a resource schema for class {rsrc_class.__name__}")
-				raise NotImplementedError()
-
-		klass._res_type_by_name[rsrc_class.resource_type] = rsrc_class
-
-	def resolveType(self, resourceType):
-		if type(resourceType) == str:
-			resourceTypeName = resourceType
-			if not resourceType in self._res_type_by_name:
-				raise ValueError(f"{self.__class__.__name__}: unknown resource type {resourceType}")
-			resourceType = self._res_type_by_name[resourceType]
-		return resourceType
 
 	def findResource(self, node, resourceType, resourceName):
 		for res in self.resources:
@@ -1454,7 +1420,7 @@ class ResourceConditional:
 			elif attr.name == 'parameter':
 				test = ResourceConditional.resourceConditionalBuildParameterTest(attr.values)
 				if test is None:
-					raise ResourceLoader.BadConditional(node.name, node.origin, "unable to parse parameter test")
+					raise BadConditional(f"{node.name} from {node.origin}: unable to parse parameter test")
 
 				term.add(test)
 			else:
@@ -1469,7 +1435,7 @@ class ResourceConditional:
 				test = ResourceConditional.fromConfig(child)
 				term.add(ResourceConditional.NOT(test))
 			else:
-				raise ResourceLoader.BadConditional(child.name, child.origin, f"don't know how to handle conditional {child.type}")
+				raise BadConditional(f"{node.name} from {node.origin}: don't know how to handle conditional {child.type}")
 
 		# print("Parsed conditional %s: %s" % (node.name, term.dump()))
 		return term
@@ -1518,150 +1484,17 @@ class TargetEvalContext:
 
 		return actual in values
 
+class BadResource(Exception):
+	pass
+
+class BadConditional(Exception):
+	pass
+
 ##################################################################
 # Resource loader - load OS specific resource definitions
 # from one or more config files.
 ##################################################################
 class ResourceLoader:
-	class ResourceDescription:
-		def __init__(self, name, klass, file, override = False):
-			self.name = name
-			self.klass = klass
-			self.file = file
-			# Note, we're currently never setting this. But we should.
-			self.override = override
-			self.settings = ConfigOpaque()
-
-		def configure(self, data):
-			self.settings.configure(data)
-
-		def setAttribute(self, name, value):
-			self.settings.set_value(name, value)
-
-		def getAttribute(self, name):
-			self.settings.get_value(name)
-
-		def update(self, other):
-			assert(isinstance(other, self.__class__))
-
-			# If override is set, to not accept any updates
-			# from more generic resource files.
-			if not self.override:
-				self.settings.mergeNoOverride(other.settings)
-				self.override = other.override
-
-		@property
-		def type(self):
-			return self.klass.__name__
-
-	class ResourceDescriptionSet:
-		def __init__(self):
-			self._resources = {}
-			self._conditionals = {}
-
-		@property
-		def resources(self):
-			return self._resources.values()
-
-		@property
-		def conditionals(self):
-			return self._conditionals.values()
-
-		def __bool__(self):
-			return bool(self._resources)
-
-		def __str__(self):
-			return "ResourceDescriptionSet(%s)" % ", ".join(self._resources.keys());
-
-		def getResourceDescriptor(self, key):
-			return self._resources.get(key)
-
-		def createResourceDescriptor(self, name, klass, origin_file):
-			key = '%s:%s' % (klass.resource_type, name)
-			desc = self._resources.get(key)
-			if desc is None:
-				desc = ResourceLoader.ResourceDescription(name, klass, origin_file)
-				self._resources[key] = desc
-			else:
-				assert(desc.klass == klass)
-			return desc
-
-		def lookupResourceDescriptor(self, name, klass):
-			key = '%s:%s' % (klass.resource_type, name)
-			return self._resources.get(key)
-
-		def configureResource(self, res):
-			desc = self.lookupResourceDescriptor(res.name, res.__class__)
-			if desc:
-				if not res.schema:
-					twopence.error(f"Cannot configure resource {res} with {desc.settings}")
-				res.configure(desc.settings)
-				if False:
-					print(f"configured resource {res}")
-					res.publishToPath("/dev/stdout")
-
-				# Now see if the resource references any conditionals
-				if isinstance(res, ExecutableResource):
-					for name in res._expected_failures_by_name:
-						cond = self._conditionals.get(name)
-						if cond is None:
-							raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
-						res._expected_failures.append(ExpectedFailure.fromConditional(cond))
-					for name in res._expected_errors_by_name:
-						cond = self._conditionals.get(name)
-						if cond is None:
-							raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
-						res._expected_errors.append(ExpectedError.fromConditional(cond))
-
-		def getResourceConditional(self, name):
-			return self._conditionals.get(name)
-
-		def createResourceConditional(self, node):
-			if self._conditionals.get(node.name):
-				raise ResourceLoader.BadConditional(node.name, node.origin, f"duplicate definition of resource conditional {name}")
-
-			cond = Expectation(node.name, node)
-			self._conditionals[node.name] = cond
-
-		def update(self, other):
-			for key, desc in other._resources.items():
-				mine = self.getResourceDescriptor(key)
-				if mine is None:
-					self._resources[key] = desc
-					continue
-
-				if mine.klass != desc.klass:
-					raise ResourceLoader.BadResource(desc, "conflicting definitions (type %s vs %s)" % (
-							desc.type, mine.type))
-
-				mine.update(desc)
-
-			# We could also do just a simple dict.update() and be done with it.
-			# For robustness, we make sure the user does not define multiple conditionals
-			# with the same name in different files.
-			for cond in other.conditionals:
-				have = self.getResourceConditional(cond.name)
-				if have is not None:
-					raise ResourceLoader.BadConditional(cond.name, cond.origin, f"duplicate definition of resource conditional (also defined in {have.origin})")
-
-				self._conditionals[cond.name] = cond
-
-	class BadResource(Exception):
-		def __init__(self, desc, *args):
-			msg = "bad resource %s (defined in %s)" % (desc.name, desc.file)
-			if args:
-				msg += ": "
-
-			super().__init__(msg + " ".join(args))
-
-	class BadConditional(Exception):
-		def __init__(self, name, origin, *args):
-			msg = f"bad conditional {name} (defined in {origin})"
-			if args:
-				msg += ": "
-
-			super().__init__(msg + " ".join(args))
-
 	def __init__(self):
 		self.namedConditionals = {}
 
@@ -1673,71 +1506,23 @@ class ResourceLoader:
 			twopence.global_config_dir,
 		]
 
-		descGroup = self.ResourceDescriptionSet()
-		found = False
-
 		context = ResourceContext(name)
+		found = False
 
 		for path in default_paths:
 			path = os.path.expanduser(path)
 			path = os.path.join(path, "resource.d", name + ".conf")
 			# print("Trying to load %s" % path)
 			if os.path.isfile(path):
-				self.load(descGroup, path)
-				found = True
-
 				context.configureFromPath(path)
+				found = True
 
 		if file_must_exist and not found:
 			raise KeyError(f"Unable to find {name}.conf")
 
 		context.resolvePackages()
 
-		return descGroup, context
-
-	def load(self, descGroup, path):
-		config = curly.Config(path)
-		tree = config.tree()
-
-		for child in tree:
-			if child.type == "package":
-				self.loadPackage(descGroup, child)
-			elif child.type == "conditional":
-				self.loadConditional(descGroup, child)
-			else:
-				self.loadResource(descGroup, child)
-
-	# The way we handle the relationship between packages and the resources
-	# they contain is currently still a bit clumsy.
-	def loadPackage(self, descGroup, node):
-		packageName = node.name
-		children = []
-
-		pkgDesc = descGroup.createResourceDescriptor(packageName, PackageResource, node.origin)
-		for child in node:
-			desc = self.loadResource(descGroup, child)
-			children.append(desc)
-
-		for desc in children:
-			otherPackageName = desc.getAttribute("package")
-			if otherPackageName and otherPackageName != packageName:
-				raise ResourceLoader.BadResource(desc, "conflicting package names %s vs %s" % (otherPackageName, packageName))
-
-			# print("Package %s defines %s(%s)" % (packageName, desc.type, desc.name))
-			desc.setAttribute("package", packageName)
-
-	def loadConditional(self, descGroup, node):
-		descGroup.createResourceConditional(node)
-
-	def loadResource(self, descGroup, node):
-		type = node.type
-		klass = ResourceInventory._res_type_by_name.get(node.type)
-		if klass is None:
-			raise NotImplementedError(f"Unknown resource type \"{node.type}\" in {node}")
-
-		desc = descGroup.createResourceDescriptor(node.name, klass, node.origin)
-		desc.configure(node)
-		return desc
+		return context
 
 ##################################################################
 # Keep track of desired state of resources
@@ -1748,7 +1533,6 @@ class ResourceManager:
 
 		self.inventory = ResourceInventory()
 		self.loader = ResourceLoader()
-		self.resourceDescriptions = {}
 		self.resourceContexts = {}
 
 		self._plugged = True
@@ -1771,16 +1555,11 @@ class ResourceManager:
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
 		# in one file, and the selinux specific information in another one.
-		nodeResources = ResourceLoader.ResourceDescriptionSet()
 		nodeContext = self.getNodeResourceContext(target)
 		for name in filenames:
-			group, context = self.loader.getResourceGroup(name, file_must_exist = True)
-			if group:
-				nodeResources.update(group)
+			context = self.loader.getResourceGroup(name, file_must_exist = True)
 			if context:
 				nodeContext.merge(context)
-
-		self.resourceDescriptions[target.name] = nodeResources
 
 	def getResource(self, node, resourceType, resourceName, create = False):
 		res = self.inventory.findResource(node, resourceType, resourceName)
@@ -1795,13 +1574,8 @@ class ResourceManager:
 
 	# given a list of resources, return those that are of a given type
 	def filterResources(self, resourceType, resourceList):
-		klass = self.inventory.resolveType(resourceType)
-		if klass is None:
-			twopence.warning(f"Unknown resource type {resourceType}")
-			return
-
 		for res in resourceList:
-			if isinstance(res, klass):
+			if res.resource_type == resourceType:
 				yield res
 
 	class ResourceAction:
