@@ -1443,19 +1443,11 @@ class ResourceLoader:
 			super().__init__(msg + " ".join(args))
 
 	def __init__(self):
-		self.resourceGroups = {}
 		self.namedConditionals = {}
 
 	def getResourceGroup(self, name, file_must_exist):
 		name = name.lower()
 
-		found = self.resourceGroups.get(name)
-		if found is None:
-			found = self.loadResourceGroup(name, file_must_exist)
-			self.resourceGroups[name] = found
-		return found
-
-	def loadResourceGroup(self, name, file_must_exist):
 		default_paths = [
 			twopence.user_config_dir,
 			twopence.global_config_dir,
