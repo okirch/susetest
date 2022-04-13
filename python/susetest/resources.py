@@ -170,10 +170,10 @@ class Resource(NamedConfigurable):
 
 	schema = []
 
-	def __init__(self, target, name):
+	def __init__(self, name):
 		super().__init__(name)
 
-		self.target = target
+		self.target = None
 		self.state = Resource.STATE_INACTIVE
 
 	@property
@@ -189,7 +189,10 @@ class Resource(NamedConfigurable):
 		return self.state == Resource.STATE_ACTIVE
 
 	def __str__(self):
-		return "%s on %s" % (self.describe(), self.target.name)
+		result = self.describe()
+		if self.target:
+			result += " on " + self.target.name
+		return result
 
 	def describe(self):
 		return self.name
@@ -1562,7 +1565,7 @@ class ResourceManager:
 		res = self.inventory.findResource(node, resourceKlass, resourceName)
 		if res is None and create:
 			# Instantiante the resource...
-			res = resourceKlass(node, resourceName)
+			res = resourceKlass(resourceName)
 			self.inventory.addResource(res)
 			node.addResource(res)
 
@@ -1570,6 +1573,10 @@ class ResourceManager:
 			group = self.resourceDescriptions.get(node.name)
 			if group:
 				group.configureResource(res)
+
+			if res.target is None:
+				res.target = node
+			assert(res.target == node)
 
 		return res
 
