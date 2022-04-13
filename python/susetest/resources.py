@@ -1077,6 +1077,227 @@ class ApplicationManagerResource(APIResource):
 		return True
 
 ##################################################################
+# Classes that describe the high level structure of a
+# resource file
+##################################################################
+class ResourceSettings(ConfigOpaque):
+	origin = None
+
+	def __str__(self):
+		return f"{self.__class__.__name__}({self.name})"
+
+	@property
+	def longdesc(self):
+		desc = str(self)
+		if self.origin:
+			desc += f" from {self.origin}"
+		return desc
+
+	@property
+	def isPackageBacked(self):
+		return issubclass(self.resourceClass, PackageBackedResource)
+
+	def setBackingPackage(self, packageName):
+		currentValue = self.get_value("package")
+		if currentValue and currentValue != packageName:
+			raise ResourceLoader.BadResource(self, "conflicting package names {currentValue} vs {packageName}")
+
+		self.set_value("package", packageName)
+
+	def configure(self, data):
+		self.origin = data.origin
+		super().configure(data)
+
+def wrapKlass(klass):
+	new_class_name = f"{klass.__name__}Settings"
+	new_klass = type(new_class_name, (ResourceSettings, ), {'resourceClass': klass})
+
+	return new_klass
+
+# Given a resource class like ExecutableResource, create the schema for a dict of
+# these resources.
+# The dict will be attached to its container as _executables, and will accept config file
+# entries of the form "executable foobar {... }". These will be converted to an instance
+# of type ExecutableResourceSettings.
+#
+# To allow for easier handling, we also attach the original ExecutableResource class as
+# _resourceKlass, and the newly created ExecutableResourceSettings as _settingsKlass
+def makeResourceDict(resoureKlass, settingsKlass = None):
+	resourceTypeName = resoureKlass.resource_type
+	if settingsKlass is None:
+		settingsKlass = wrapKlass(resoureKlass)
+
+	settingsKlass.resource_type = resoureKlass.resource_type
+
+	dictSchema = DictNodeSchema(f"_{resourceTypeName}s", key = resourceTypeName, itemClass = settingsKlass)
+	dictSchema._resourceKlass = resoureKlass
+	dictSchema._settingsKlass = settingsKlass
+
+	return dictSchema
+
+class ResourceCollection(NamedConfigurable):
+	resource_type = "collection"
+
+	schema = [
+		makeResourceDict(StringValuedResource),
+		makeResourceDict(ExecutableResource),
+		makeResourceDict(UserResource),
+		makeResourceDict(ServiceResource),
+		makeResourceDict(FileResource),
+		makeResourceDict(DirectoryResource),
+		makeResourceDict(JournalResource),
+		makeResourceDict(AuditResource),
+#		makeResourceDict(PackageResource),
+		makeResourceDict(SubsystemResource),
+		makeResourceDict(ApplicationVolumeResource),
+		makeResourceDict(ApplicationPortResource),
+		makeResourceDict(ApplicationManagerResource),
+	]
+
+	_initializedDictAccessors = set()
+
+	def __init__(self, *args, **argv):
+		super().__init__(*args, **argv)
+
+		self.initializedDictAccessors()
+
+		self._resourcesByType = {}
+		for child in self._nodes.values():
+			resourceKlass = getattr(child, "_resourceKlass", None)
+			if resourceKlass is None:
+				continue
+
+			nodeDict = child.getObjectMember(self)
+			self._resourcesByType[child.key] = nodeDict
+
+	def __str__(self):
+		return f"{self.__class__.__name__}({self.name})"
+
+	@classmethod
+	def initializedDictAccessors(klass):
+		if klass in ResourceCollection._initializedDictAccessors:
+			return
+		ResourceCollection._initializedDictAccessors.add(klass)
+
+		for item in klass.schema:
+			if not isinstance(item, DictNodeSchema):
+				continue
+
+			settingsKlass = getattr(item, "_settingsKlass", None)
+			if not settingsKlass:
+				continue
+
+			# I hate copy'n'paste coding, so let's make it easier for me
+			# and more complicated for anyone debugging this:
+			# for a resource type named "package", create a property
+			# named "packages" that returns self._packages.values()
+			dictIteratorName = f"{item.key}s"
+			setattr(klass, dictIteratorName, property(item.dictValuesGetter))
+
+			# print(f"Defined {klass.__name__}.{dictIteratorName}; returns list of {settingsKlass.__name__}")
+
+	@property
+	def allResources(self):
+		return functools.reduce(lambda a, b: a + b,
+				[list(dictNode.values()) for dictNode in self._resourcesByType.values()],
+				[])
+
+	def addResourceSettings(self, resInfo):
+		typeDict = self._resourcesByType[resInfo.resource_type]
+		typeDict.mergeItem(resInfo)
+
+class PackageResourceSettings(ResourceCollection):
+	resource_type = "package"
+
+	def mergeNoOverride(self, other):
+		pass
+
+class ResourceContext(ResourceCollection):
+	resource_type = "context"
+
+	schema = [
+		makeResourceDict(PackageResource, PackageResourceSettings),
+		DictNodeSchema("_conditionals", "conditional", Expectation),
+	]
+
+	@property
+	def conditionals(self):
+		return self._conditionals.values()
+
+	# A package is a collection of resources. We want all resources
+	# defined by it to refer back to the containing package by name,
+	# so that we can later automatically install the package if they're
+	# absent from the SUT.
+	def resolvePackages(self):
+		# print(self.name)
+		for pkg in self.packages:
+			# print(pkg)
+			for resInfo in pkg.allResources:
+				if resInfo.isPackageBacked:
+					# print(f"  {resInfo} package = {pkg.name}")
+					resInfo.setBackingPackage(pkg.name)
+
+				self.addResourceSettings(resInfo)
+
+	def merge(self, other):
+		assert(isinstance(other, ResourceContext))
+
+		for key, nodeDict in other._resourcesByType.items():
+			self._resourcesByType[key].merge(nodeDict)
+
+		# We could also do just a simple dict.update() and be done with it.
+		# For robustness, we make sure the user does not define multiple conditionals
+		# with the same name in different files.
+		for cond in other.conditionals:
+			have = self._conditionals.get(cond.name)
+			if have is not None:
+				raise ResourceLoader.BadConditional(cond.name, cond.origin, f"duplicate definition of resource conditional (also defined in {have.origin})")
+
+			self._conditionals.add(cond)
+
+
+	def createResource(self, node, resourceType, resourceName):
+		# Given a name like "executable", retrieve the ExecutableResource class
+		typeDict = self._resourcesByType.get(resourceType)
+		if typeDict is None:
+			raise ValueError(f"Undefined resource type {resourceType}")
+
+		resourceKlass = typeDict.item_class.resourceClass
+
+		# Instantiante the resource...
+		res = resourceKlass(resourceName)
+
+		# ... and apply the resource definitions from file
+		settings = typeDict.get(resourceName)
+		if settings:
+			res.configure(settings)
+			if False:
+				print(f"configured resource {res}")
+				res.publishToPath("/dev/stdout")
+
+		# Now see if the resource references any conditionals
+		self.resolveConditionals(res)
+
+		res.target = node
+
+		print(f"Returning {res}")
+		assert(isinstance(res, Resource))
+		return res
+
+	def resolveConditionals(self, res):
+		if isinstance(res, ExecutableResource):
+			for name in res._expected_failures_by_name:
+				cond = self._conditionals.get(name)
+				if cond is None:
+					raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
+				res._expected_failures.append(ExpectedFailure.fromConditional(cond))
+			for name in res._expected_errors_by_name:
+				cond = self._conditionals.get(name)
+				if cond is None:
+					raise ResourceLoader.BadConditional(node.name, desc.file, f"{res} references unknown conditional {name}")
+				res._expected_errors.append(ExpectedError.fromConditional(cond))
+
+##################################################################
 # Global resource inventory
 ##################################################################
 class ResourceInventory:
@@ -1128,10 +1349,9 @@ class ResourceInventory:
 
 	def findResource(self, node, resourceType, resourceName):
 		for res in self.resources:
-			if resourceType and not isinstance(res, resourceType):
-				continue
-
-			if res.target == node and res.name == resourceName:
+			if res.target == node \
+			   and res.resource_type == resourceType \
+			   and res.name == resourceName:
 				return res
 
 	def addResource(self, res):
@@ -1456,6 +1676,8 @@ class ResourceLoader:
 		descGroup = self.ResourceDescriptionSet()
 		found = False
 
+		context = ResourceContext(name)
+
 		for path in default_paths:
 			path = os.path.expanduser(path)
 			path = os.path.join(path, "resource.d", name + ".conf")
@@ -1464,10 +1686,14 @@ class ResourceLoader:
 				self.load(descGroup, path)
 				found = True
 
+				context.configureFromPath(path)
+
 		if file_must_exist and not found:
 			raise KeyError(f"Unable to find {name}.conf")
 
-		return descGroup
+		context.resolvePackages()
+
+		return descGroup, context
 
 	def load(self, descGroup, path):
 		config = curly.Config(path)
@@ -1523,6 +1749,7 @@ class ResourceManager:
 		self.inventory = ResourceInventory()
 		self.loader = ResourceLoader()
 		self.resourceDescriptions = {}
+		self.resourceContexts = {}
 
 		self._plugged = True
 
@@ -1532,39 +1759,37 @@ class ResourceManager:
 	def unplug(self):
 		self._plugged = False
 
+	def getNodeResourceContext(self, target):
+		context = self.resourceContexts.get(target.name)
+		if context is None:
+			context = ResourceContext(target.name)
+			self.resourceContexts[target.name] = context
+		return context
+
 	def loadPlatformResources(self, target, filenames):
 		# Load resource definitions from the given list of resource files.
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
 		# in one file, and the selinux specific information in another one.
 		nodeResources = ResourceLoader.ResourceDescriptionSet()
+		nodeContext = self.getNodeResourceContext(target)
 		for name in filenames:
-			group = self.loader.getResourceGroup(name, file_must_exist = True)
+			group, context = self.loader.getResourceGroup(name, file_must_exist = True)
 			if group:
 				nodeResources.update(group)
+			if context:
+				nodeContext.merge(context)
 
 		self.resourceDescriptions[target.name] = nodeResources
 
 	def getResource(self, node, resourceType, resourceName, create = False):
-		resourceKlass = self.inventory.resolveType(resourceType)
-		if resourceKlass is None:
-			raise ValueError(f"Undefined resource type {resourceType}")
-
-		res = self.inventory.findResource(node, resourceKlass, resourceName)
+		res = self.inventory.findResource(node, resourceType, resourceName)
 		if res is None and create:
-			# Instantiante the resource...
-			res = resourceKlass(resourceName)
+			nodeContext = self.getNodeResourceContext(node)
+			res = nodeContext.createResource(node, resourceType, resourceName)
+
 			self.inventory.addResource(res)
 			node.addResource(res)
-
-			# ... and apply the resource definitions from file
-			group = self.resourceDescriptions.get(node.name)
-			if group:
-				group.configureResource(res)
-
-			if res.target is None:
-				res.target = node
-			assert(res.target == node)
 
 		return res
 
