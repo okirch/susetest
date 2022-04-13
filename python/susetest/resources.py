@@ -1540,22 +1540,18 @@ class ResourceManager:
 	def unplug(self):
 		self._plugged = False
 
-	def loadPlatformResources(self, node, filenames):
+	def loadPlatformResources(self, target, filenames):
 		# Load resource definitions from the given list of resource files.
 		# Then collapse these into one set of resource definitions.
 		# This allows you to define the generic info on say sudo
 		# in one file, and the selinux specific information in another one.
-		group = self.buildResourceChain(filenames)
-		self.resourceDescriptions[node.name] = group
-
-	def buildResourceChain(self, names):
-		result = ResourceLoader.ResourceDescriptionSet()
-		for name in names:
+		nodeResources = ResourceLoader.ResourceDescriptionSet()
+		for name in filenames:
 			group = self.loader.getResourceGroup(name, file_must_exist = True)
 			if group:
-				result.update(group)
+				nodeResources.update(group)
 
-		return result
+		self.resourceDescriptions[target.name] = nodeResources
 
 	def getResource(self, node, resourceType, resourceName, create = False):
 		resourceKlass = self.inventory.resolveType(resourceType)
