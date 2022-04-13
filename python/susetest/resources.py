@@ -159,6 +159,9 @@ class ExpectedFailure(Expectation):
 class ExpectedError(Expectation):
 	status = "error"
 
+##################################################################
+# Resource base class
+##################################################################
 class Resource(NamedConfigurable):
 	static_resource = False
 
@@ -172,7 +175,6 @@ class Resource(NamedConfigurable):
 
 		self.target = target
 		self.state = Resource.STATE_INACTIVE
-		self.children = []
 
 	@property
 	def is_valid(self):
@@ -258,11 +260,6 @@ class SubsystemResource(Resource):
 
 class PackageResource(Resource):
 	resource_type = "package"
-
-	schema = [
-		# without this, a call to PackageResource.configure() would raise an exception
-		StringAttributeSchema("dummy"),
-	]
 
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -546,7 +543,7 @@ class ExecutableResource(PackageBackedResource):
 	#	is interactive and starts it accordingly.
 	#	Note, SELinux label testing currently does
 	#	not work for non-interactive commands.
-	schema = PackageBackedResource.schema + [
+	schema = [
 		StringAttributeSchema("executable"),
 		StringAttributeSchema("selinux-label-domain"),
 		StringAttributeSchema("selinux-process-domain"),
@@ -632,7 +629,7 @@ class ExecutableResource(PackageBackedResource):
 class ServiceResource(PackageBackedResource):
 	resource_type = "service"
 
-	schema = PackageBackedResource.schema + [
+	schema = [
 		StringAttributeSchema("daemon-path"),
 		StringAttributeSchema("executable"),
 		StringAttributeSchema("systemd-unit"),
@@ -696,7 +693,7 @@ class ServiceResource(PackageBackedResource):
 		return self.serviceManager.getServiceUser(self)
 
 class PathResource(PackageBackedResource):
-	schema = PackageBackedResource.schema + [
+	schema = [
 		StringAttributeSchema("path"),
 		StringAttributeSchema("volume"),
 		StringAttributeSchema("selinux-label-domain"),
@@ -774,10 +771,6 @@ class PathResource(PackageBackedResource):
 class DirectoryResource(PathResource):
 	resource_type = "directory"
 
-	schema = PathResource.schema + [
-		# we do not add any attributes of our own
-	]
-
 	# inherit default acquire/release methods from PackageBackedResource
 	# acquire will call our .detect() to see if the file is already
 	# present. If not, it will try to install the package named by
@@ -792,7 +785,7 @@ class DirectoryResource(PathResource):
 class FileResource(PathResource):
 	resource_type = "file"
 
-	schema = PathResource.schema + [
+	schema = [
 		StringAttributeSchema("format"),
 	]
 
@@ -992,7 +985,7 @@ class ApplicationResource(Resource):
 class ApplicationVolumeResource(ApplicationResource):
 	resource_type = "volume"
 
-	schema = ApplicationResource.schema + [
+	schema = [
 		StringAttributeSchema("mountpoint"),
 		StringAttributeSchema("fstype"),
 		StringAttributeSchema("host-path"),
@@ -1009,7 +1002,7 @@ class ApplicationVolumeResource(ApplicationResource):
 class ApplicationPortResource(ApplicationResource):
 	resource_type = "port"
 
-	schema = ApplicationResource.schema + [
+	schema = [
 		StringAttributeSchema("internal-port"),
 		StringAttributeSchema("protocol"),
 	]
