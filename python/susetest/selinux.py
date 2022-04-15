@@ -13,7 +13,7 @@
 # policy violations that occurred during system startup.
 #
 ##################################################################
-from .resources import MessageFilter, ExecutableResource, FileResource, PackageResource, SubsystemResource, ServiceResource
+from .resources import MessageFilter, ExecutableResource, PathResource, PackageResource, SubsystemResource, ServiceResource
 from .feature import Feature
 import susetest
 import twopence
@@ -332,7 +332,7 @@ class SELinux(Feature):
 			if res.selinux_process_domain:
 				self.verifyExecutableProcessDomain(driver, node, res)
 				tested = True
-		elif isinstance(res, FileResource):
+		elif isinstance(res, PathResource):
 			if not res.path:
 				# When defining this test case via susetest.template(), this will automatically
 				# ensure that we try to claim the resource during testsuite setup.
@@ -364,16 +364,17 @@ class SELinux(Feature):
 				tested = True
 		elif isinstance(res, PackageResource):
 			susetest.say(f"\n*** SELinux: verifying package {res.name} ***")
+			susetest.say(f"children = {res.children}")
 			# First, verify services, then everything else
 			ordered = []
 			for desc in res.children:
-				if desc.klass == ServiceResource:
+				if desc.resourceType == 'service':
 					ordered.insert(0, desc)
 				else:
 					ordered.append(desc)
 
 			for desc in ordered:
-				childResource = node.acquireResourceTypeAndName(desc.klass.resource_type, desc.name, mandatory = True)
+				childResource = node.acquireResourceTypeAndName(desc.resourceType, desc.resourceName, mandatory = True)
 				self.resourceVerifyPolicyImpl(driver, node, childResource)
 				tested = True
 

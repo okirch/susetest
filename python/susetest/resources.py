@@ -169,6 +169,14 @@ class ExpectedError(Expectation):
 	status = "error"
 
 ##################################################################
+# Refer to a resource
+##################################################################
+class ResourceReference:
+	def __init__(self, resourceType, resourceName):
+		self.resourceType = resourceType
+		self.resourceName = resourceName
+
+##################################################################
 # Resource base class
 ##################################################################
 class Resource(NamedConfigurable):
@@ -489,7 +497,6 @@ class UserResource(Resource):
 
 		usedUids = set()
 		for e in editor.entries():
-			print(e)
 			usedUids.add(e.uid)
 
 		self._uid = None
@@ -656,7 +663,7 @@ class ServiceResource(PackageBackedResource):
 		if not self.systemd_unit:
 			return False
 
-		if not systemd_activate:
+		if not self.systemd_activate:
 			self.systemd_activate = [self.systemd_unit]
 
 		return True
@@ -1215,11 +1222,29 @@ class ResourceCollection(NamedConfigurable):
 		typeDict = self._resourcesByType[resInfo.resource_type]
 		typeDict.mergeItem(resInfo)
 
+	def merge(self, other):
+		assert(isinstance(other, ResourceCollection))
+
+		for key, nodeDict in other._resourcesByType.items():
+			self._resourcesByType[key].merge(nodeDict)
+
 class PackageResourceSettings(ResourceCollection):
 	resource_type = "package"
+	resourceClass = PackageResource
+
+	@property
+	def children(self):
+		return self.allResources
+
+	@property
+	def attributes(self):
+		return []
+
+	def __iter__(self):
+		return iter([])
 
 	def mergeNoOverride(self, other):
-		pass
+		self.merge(other)
 
 class ResourceContext(ResourceCollection):
 	resource_type = "context"
@@ -1246,13 +1271,14 @@ class ResourceContext(ResourceCollection):
 					# print(f"  {resInfo} package = {pkg.name}")
 					resInfo.setBackingPackage(pkg.name)
 
+				# FIXME: the information from a package should probably
+				# override the settings defined outside of a package.
 				self.addResourceSettings(resInfo)
 
 	def merge(self, other):
 		assert(isinstance(other, ResourceContext))
 
-		for key, nodeDict in other._resourcesByType.items():
-			self._resourcesByType[key].merge(nodeDict)
+		super().merge(other)
 
 		# We could also do just a simple dict.update() and be done with it.
 		# For robustness, we make sure the user does not define multiple conditionals
@@ -1263,7 +1289,6 @@ class ResourceContext(ResourceCollection):
 				raise BadConditional(f"{cond.name} from {cond.origin}: duplicate definition of resource conditional (also defined in {have.origin})")
 
 			self._conditionals.add(cond)
-
 
 	def createResource(self, node, resourceType, resourceName):
 		# Given a name like "executable", retrieve the ExecutableResource class
@@ -1284,12 +1309,19 @@ class ResourceContext(ResourceCollection):
 				print(f"configured resource {res}")
 				res.publishToPath("/dev/stdout")
 
+			if isinstance(settings, ResourceCollection):
+				res.children = []
+				for childInfo in settings.allResources:
+					res.children.append(ResourceReference(childInfo.resource_type, childInfo.name))
+
+		if not res.is_valid:
+			pass
+
 		# Now see if the resource references any conditionals
 		self.resolveConditionals(res)
 
 		res.target = node
 
-		print(f"Returning {res}")
 		assert(isinstance(res, Resource))
 		return res
 
