@@ -68,7 +68,7 @@ class SELinuxMessageFilter(MessageFilter):
 		if not self._match(m, target):
 			self.previous = None
 
-	selinux_socket_classes = ('socket', 'tcp_socket', 'udp_socket', 'rawip_socket', 'netlink_selinux_socket', 'unix_stream_socket', 'unix_dgram_socket',)
+	selinux_socket_classes = ('socket', 'tcp_socket', 'udp_socket', 'rawip_socket', 'netlink_selinux_socket', 'unix_stream_socket', 'unix_dgram_socket', 'icmp_socket',)
 	selinux_file_classes = ('file', 'dir', 'fd', 'lnk_file', 'chr_file', 'blk_file', 'sock_file', 'fifo_file',)
 	selinux_ipc_classes = ('sem', 'msg', 'msgq', 'shm', 'ipc',)
 	selinx_known_classes = selinux_socket_classes + selinux_file_classes + selinux_ipc_classes + (
@@ -79,8 +79,7 @@ class SELinuxMessageFilter(MessageFilter):
 		violation = self.parseViolation(m.message)
 
 		if violation and violation.tclass not in self.selinx_known_classes:
-			target.logInfo("parsed unknown SELinux violation tclass=%s (%s)" % (
-					violation.tclass, dir(violation)))
+			target.logInfo(f"parsed unknown SELinux violation tclass={violation.tclass}")
 			violation = None
 
 		if violation is None:
@@ -364,7 +363,6 @@ class SELinux(Feature):
 				tested = True
 		elif isinstance(res, PackageResource):
 			susetest.say(f"\n*** SELinux: verifying package {res.name} ***")
-			susetest.say(f"children = {res.children}")
 			# First, verify services, then everything else
 			ordered = []
 			for desc in res.children:
