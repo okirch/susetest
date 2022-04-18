@@ -230,6 +230,11 @@ class TestLogger:
 		def consumed(self):
 			return self.process.consumed
 
+		@property
+		def command(self):
+			susetest.say(self.process.command)
+			return self.process.command
+
 		def expect(self, values, **kwargs):
 			logHandle = self.commandContinuation
 

@@ -442,7 +442,7 @@ class Target(twopence.Target):
 	def _run(self, cmd, **kwargs):
 		if self.connectionDead:
 			self.logError("SUT is dead, not running command")
-			return twopence.Status(error = twopence.OPEN_SESSION_ERROR)
+			return twopence.Status(error = twopence.OPEN_SESSION_ERROR, command = cmd)
 
 		# FIXME: we should soft-fail instead
 		t0 = time.time()
@@ -555,7 +555,7 @@ class Target(twopence.Target):
 		except: pass
 
 		st = chat.wait()
-		return twopence.Status(error = errorCode)
+		return twopence.Status(error = errorCode, command = chat.command)
 
 	def runBackground(self, cmd, **kwargs):
 		kwargs['background'] = 1;
