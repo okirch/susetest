@@ -22,6 +22,7 @@ class ServiceManager(Feature):
 		pass
 
 	def activate(self, driver, node):
+		node.logInfo(f"Setting service manager to {self.name}")
 		node.setServiceManager(self)
 
 class ServiceManagerSystemd(ServiceManager):

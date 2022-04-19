@@ -19,6 +19,7 @@ class PackageManager(Feature):
 		pass
 
 	def activate(self, driver, node):
+		node.logInfo(f"Setting package manager to {self.name}")
 		node.setPackageManager(self)
 
 	def run(self, node, cmd, **kwargs):

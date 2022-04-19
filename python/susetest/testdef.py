@@ -364,30 +364,24 @@ class TestsuiteInfo:
 
 		return tc
 
-	def requestResources(self, driver):
-		if not self._resources:
-			return
-
-		driver.beginGroup("__resources__")
-		for req in self._resources:
-			driver.beginTest(req.testID, "acquire %s resource %s" % (req.resourceType or "*", req.resourceName))
-			req.request(driver)
-			driver.endTest()
-		driver.endGroup()
-
 	def actionSetup(self, driver, dummy = None):
 		# First set up everything the drivers needs/thinks we need
 		# This includes setup of features, like SELinux
-		driver.setup()
+		driver.beginSetup()
 
 		# Request all resources that the user specified in the test
 		# script using susetest.requireResource() and friends
-		self.requestResources(driver)
+		for req in self._resources:
+			driver.beginTest(req.testID, f"acquire {req.resourceType} resource {req.resourceName}")
+			req.request(driver)
+			driver.endTest()
 
 		# Last, run the setup function the user decorated with
 		# @susetest.setup (if any).
 		if self.setup:
 			self.setup(driver)
+
+		driver.setupComplete()
 
 	def actionBeginGroup(self, driver, group):
 		if self._failing:
@@ -435,6 +429,9 @@ class TestsuiteInfo:
 
 			if group.skip:
 				result.append([self.actionSkipGroup, group])
+				continue
+
+			if group.empty:
 				continue
 
 			result.append([self.actionBeginGroup, group])

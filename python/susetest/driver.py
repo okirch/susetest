@@ -156,9 +156,9 @@ class Driver:
 	def setParameter(self, name, value):
 		self._parameters[name] = value
 
-	def setup(self):
+	def beginSetup(self):
 		if self._setup_complete:
-			raise Exception("Duplicate call to setup()")
+			raise Exception("Duplicate call to beginSetup()")
 
 		group = self.beginGroup("setup")
 
@@ -171,9 +171,8 @@ class Driver:
 		for target in self.targets:
 			target.configureApplications(self)
 
-		self.info("Setup complete")
-		self.info("")
-
+	def setupComplete(self):
+		susetest.say("Setup complete")
 		self.endGroup()
 
 		self._setup_complete = True
