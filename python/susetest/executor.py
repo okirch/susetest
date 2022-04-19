@@ -317,36 +317,52 @@ class TestThing:
 		return True
 
 class Context:
-	def __init__(self, workspace, logspace, parent = None,
-			backend = None, parameters = [],
-			dryrun = False, debug = False, debug_schema = False, quiet = False, clobber = False,
-			update_images = False,
-			roles = {},
-			results = None):
+	class Options:
+		def __init__(self, args):
+			self.backend = args.backend
+			self.dryrun = args.dry_run
+			self.debug = args.debug
+			self.debug_schema = args.debug_schema
+			self.quiet = args.quiet
 
+			# default value None here means: let the backend decide
+			self.update_images = self.evalTriStateOption(args, "--update-images", None)
+			self.clobber = self.evalTriStateOption(args, "--clobber", True)
+
+		def evalTriStateOption(self, args, name, defValue):
+			name = name.lstrip("-").replace("-", "_")
+			if getattr(args, name):
+				return True
+			if getattr(args, "no_" + name):
+				return False
+			return defValue
+
+	@staticmethod
+	def makeToplevel(args, roles):
+		testrun = args.testrun
+		workspace = args.workspace
+		logspace = args.logspace
+
+		if workspace is None:
+			workspace = os.path.expanduser("~/susetest/work")
+		if logspace is None:
+			logspace = os.path.expanduser("~/susetest/logs")
+
+		if testrun:
+			workspace = os.path.join(workspace, testrun)
+			logspace = os.path.join(logspace, testrun)
+
+		options = Context.Options(args)
+
+		return Context(testrun, workspace, logspace, roles, args.parameter, options)
+
+	def __init__(self, testrun, workspace, logspace, roles, parameters, options, results = None):
+		self.testrun = testrun
 		self.workspace = workspace
 		self.logspace = logspace
+		self.options = options
 		self.results = results
-
-		if parent:
-			self.roles = parent.roles
-
-			self.backend = parent.backend
-			self.dryrun = parent.dryrun
-			self.debug = parent.debug
-			self.debug_schema = parent.debug_schema
-			self.quiet = parent.quiet
-			self.clobber = parent.clobber
-			self.update_images = parent.update_images
-		else:
-			self.roles = roles
-			self.backend = backend
-			self.dryrun = dryrun
-			self.debug = debug
-			self.debug_schema = debug_schema
-			self.quiet = quiet
-			self.clobber = clobber
-			self.update_images = update_images
+		self.roles = roles
 
 		self.parameters = []
 		if parameters:
@@ -373,12 +389,13 @@ class Context:
 		else:
 			results = None
 
-		return Context(
-			parent = self,
+		return Context(self.testrun,
 			workspace = os.path.join(self.workspace, *extra_path),
 			logspace = os.path.join(self.logspace, *extra_path),
-			results = results,
-			parameters = self.parameters + extra_parameters)
+			roles = self.roles,
+			parameters = self.parameters + extra_parameters,
+			options = self.options,
+			results = results)
 
 	def mergeTestReport(self, testReport):
 		if self.results is not None:
@@ -401,7 +418,7 @@ class Context:
 		config = curly.Config()
 		tree = config.tree()
 
-		tree.set_value("backend", self.backend)
+		tree.set_value("backend", self.options.backend)
 
 		for role in self.roles.values():
 			node = tree.add_child("role", role.name)
@@ -436,9 +453,11 @@ class Context:
 		return path
 
 	def attachResults(self, results):
-		results.attachToLogspace(self.logspace, clobber = self.clobber)
+		results.attachToLogspace(self.logspace, clobber = self.options.clobber)
 		self.results = results
 
+		# This records our command line in the results.xml file
+		# so that the HTML renderer can display it later.
 		results.invocation = " ".join(sys.argv)
 
 	def _makedir(self, path):
@@ -460,11 +479,7 @@ class Testcase(TestThing):
 
 		self.workspace = context.createWorkspaceFor(name)
 		self.logspace = context.createLogspaceFor(name)
-		self.dryrun = context.dryrun
-		self.debug = context.debug
-		self.debug_schema = context.debug_schema
-		self.quiet = context.quiet
-		self.update_images = context.update_images
+		self.options = context.options
 
 		self.isCompatible = True
 
@@ -569,9 +584,9 @@ class Testcase(TestThing):
 
 		info("Provisioning test nodes")
 		argv = ["create"]
-		if self.update_images is True:
+		if self.context.update_images is True:
 			argv.append("--update-images")
-		if self.update_images is False:
+		if self.context.update_images is False:
 			argv.append("--no-update-images")
 
 		if self.runProvisioner(*argv) != 0:
@@ -672,7 +687,7 @@ class Testcase(TestThing):
 		if not self.is_test_complete:
 			return
 
-		if self.dryrun:
+		if self.options.dryrun:
 			return
 
 		# at a minimum, we should try to load the junit results and check if they're
@@ -733,9 +748,9 @@ class Testcase(TestThing):
 
 	def runCommand(self, cmd, *args, usePty = False):
 		argv = [cmd]
-		if self.debug:
+		if self.options.debug:
 			argv.append("--debug")
-		if self.debug_schema:
+		if self.options.debug_schema:
 			argv.append("--debug-schema")
 
 		argv += args
@@ -748,10 +763,10 @@ class Testcase(TestThing):
 			cmd = self.PtyCommand(argv)
 			return cmd.execute()
 
-		if self.dryrun:
+		if self.options.dryrun:
 			return 0
 
-		if self.quiet:
+		if self.options.quiet:
 			cmd += " >/dev/null 2>&1"
 
 		return os.system(cmd)
@@ -995,7 +1010,8 @@ class Runner:
 		self.setBackend(args.backend)
 
 		self.definePlatforms(args)
-		self.buildTestContext(args)
+
+		self.context = Context.makeToplevel(args, self._roles)
 
 		self.pipeline = Pipeline(self.context)
 		if self.mode == self.MODE_TESTS:
@@ -1152,43 +1168,13 @@ class Runner:
 		role.setResolution(bestMatch)
 		return bestMatch
 
-	def buildTestContext(self, args):
-		self.testrun = args.testrun
-		self.workspace = args.workspace
-		self.logspace = args.logspace
+	@property
+	def workspace(self):
+		return self.context.workspace
 
-		if self.workspace is None:
-			self.workspace = os.path.expanduser("~/susetest/work")
-		if self.logspace is None:
-			self.logspace = os.path.expanduser("~/susetest/logs")
-
-		if self.testrun:
-			self.workspace = os.path.join(self.workspace, self.testrun)
-			self.logspace = os.path.join(self.logspace, self.testrun)
-
-		def evalTriStateOption(args, name, defValue):
-			name = name.lstrip("-").replace("-", "_")
-			if getattr(args, name):
-				return True
-			if getattr(args, "no_" + name):
-				return False
-			return defValue
-
-		# default value None here means: let the backend decide
-		update_images = evalTriStateOption(args, "--update-images", None)
-		clobber = evalTriStateOption(args, "--clobber", True)
-
-		self.context = Context(self.workspace, self.logspace,
-				roles = self._roles,
-				backend = args.backend,
-				parameters = args.parameter,
-				dryrun = args.dry_run,
-				debug = args.debug,
-				debug_schema = args.debug_schema,
-				clobber = clobber,
-				update_images = update_images)
-
-		return
+	@property
+	def logspace(self):
+		return self.context.logspace
 
 	def validate(self):
 		if not self.valid:
