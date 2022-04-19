@@ -522,21 +522,21 @@ class JournalTest(TimedNode):
 		self.logMessage(msg, severity = 'info')
 		self.setStatus('success')
 
-	def logFailure(self, msg):
+	def logFailure(self, msg, type = None):
 		self.logMessage(f"Failing: {msg}", severity = 'failure')
 
 		if self.failure is None:
 			child = self.createChild("failure")
-			child.type = "randomFailure"
+			child.type = type
 			child.message = msg
 		self.setStatus('failure')
 
-	def logError(self, msg):
+	def logError(self, msg, type = None):
 		self.logMessage(f"Error: {msg}", severity = 'error')
 
 		if self.error is None:
 			child = self.createChild("error")
-			child.type = "randomError"
+			child.type = type
 			child.message = msg
 		self.setStatus('error')
 
