@@ -1527,34 +1527,35 @@ class BadConditional(Exception):
 # from one or more config files.
 ##################################################################
 class ResourceLoader:
-	def __init__(self):
-		self.namedConditionals = {}
-
-	def getResourceGroup(self, name, file_must_exist):
+	def loadResources(self, name):
 		name = name.lower()
 
+		found = self.findResourceFiles(name)
+		if not found:
+			raise KeyError(f"Unable to find {name}.conf")
+
+		context = ResourceContext(name)
+		for path in found:
+			context.configureFromPath(path)
+		context.resolvePackages()
+
+		return context
+
+	def findResourceFiles(self, name):
 		default_paths = [
 			twopence.user_config_dir,
 			twopence.global_config_dir,
 		]
 
-		context = ResourceContext(name)
-		found = False
-
+		found = []
 		for path in default_paths:
 			path = os.path.expanduser(path)
 			path = os.path.join(path, "resource.d", name + ".conf")
 			# print("Trying to load %s" % path)
 			if os.path.isfile(path):
-				context.configureFromPath(path)
-				found = True
+				found.append(path)
 
-		if file_must_exist and not found:
-			raise KeyError(f"Unable to find {name}.conf")
-
-		context.resolvePackages()
-
-		return context
+		return found
 
 ##################################################################
 # Keep track of desired state of resources
@@ -1589,7 +1590,7 @@ class ResourceManager:
 		# in one file, and the selinux specific information in another one.
 		nodeContext = self.getNodeResourceContext(target)
 		for name in filenames:
-			context = self.loader.getResourceGroup(name, file_must_exist = True)
+			context = self.loader.loadResources(name)
 			if context:
 				nodeContext.merge(context)
 
