@@ -57,6 +57,7 @@ class SELinuxMessageFilter(MessageFilter):
 
 	def __init__(self):
 		self.previous = None
+		self.violationLogger = None
 		self._checks = []
 
 	def match(self, m, target):
@@ -78,30 +79,26 @@ class SELinuxMessageFilter(MessageFilter):
 	def _match(self, m, target):
 		violation = self.parseViolation(m.message)
 
-		if violation and violation.tclass not in self.selinx_known_classes:
-			target.logInfo(f"parsed unknown SELinux violation tclass={violation.tclass}")
-			violation = None
-
-		if violation is None:
-			target.logInfo("SELinux policy violation (unable to parse)")
-			target.logInfo(m.message)
+		if violation is None or violation.tclass not in self.selinx_known_classes:
+			vlogger = target.logger.createSecurityViolation("SELinux", severity = "warning")
+			vlogger.write("Unknown or unparseable SELinux violation")
+			vlogger.write(m.message)
 			return
 
-		if violation.sameProcess(self.previous):
-			# This is the same process triggering another policy violation
-			pass
+		rating = self.rateViolation(violation, target) or "info"
+
+		# IF this is not the same process triggering another policy violation, we want
+		# to identify the offending process
+		if violation.sameProcess(self.previous) and self.violationLogger.severity == rating:
+			vlogger = self.violationLogger
 		else:
-			rating = self.rateViolation(violation)
-			if rating == "info":
-				target.logInfo("SELinux policy violation (ignored)")
-			else:
-				target.logInfo("SELinux policy violation")
-			target.logInfo("  by %s (pid=%s; context=%s; permissive=%s)" % (
+			vlogger = target.logger.createSecurityViolation("SELinux", severity = rating)
+			vlogger.write("  by %s (pid=%s; context=%s; permissive=%s)" % (
 						violation.comm, violation.pid, violation.scontext, violation.permissive))
 
 		# ioctls will also have ioctlcmd=0xNNNN
 		if violation.tclass in self.selinux_file_classes:
-			target.logInfo("    %s access to %s %s (dev=%s; ino=%s; context=%s)" % (
+			vlogger.write("    %s access to %s %s (dev=%s; ino=%s; context=%s)" % (
 						violation.op,
 						violation.tclass,
 						violation.path or violation.name,
@@ -109,28 +106,36 @@ class SELinuxMessageFilter(MessageFilter):
 						violation.ino,
 						violation.tcontext))
 		elif violation.tclass in self.selinux_socket_classes:
-			target.logInfo("    %s access to %s %s (context=%s)" % (
+			vlogger.write("    %s access to %s %s (context=%s)" % (
 						violation.op,
 						violation.tclass,
 						violation.src,
 						violation.tcontext))
 		else:
-			target.logInfo("    %s access to %s (context=%s)" % (
+			vlogger.write("    %s access to %s (context=%s)" % (
 						violation.op,
 						violation.tclass,
 						violation.tcontext))
 
 		self.previous = violation
+		self.violationLogger = vlogger
 		return True
 
 	def addCheck(self, fn):
 		self._checks.append(fn)
 
-	def rateViolation(self, violation):
+	def rateViolation(self, violation, target):
 		for fn in self._checks:
 			r = fn(violation)
 			if r is not None:
 				return r
+
+		# If the test did not predict the current command to fail, we color
+		# ourselves surprised and log this violation as Warning
+		testLogger = target.logger.currentTest
+		if not testLogger or testLogger.predictedStatus != 'failure':
+			return "warning"
+
 		return None
 
 	def parseViolation(self, msg):

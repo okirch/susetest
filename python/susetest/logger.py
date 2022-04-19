@@ -309,6 +309,15 @@ class TestLogger:
 		outcome.reason = reason
 		self._predict = outcome
 
+	@property
+	def predictedStatus(self):
+		if not self._predict:
+			return None
+		return self._predict.noun
+
+	def createSecurityViolation(self, *args, **kwargs):
+		return self._test.createSecurityViolation(*args, **kwargs)
+
 class Logger:
 	def __init__(self, name, path):
 		susetest.say(f"Writing journal to {path}")
@@ -414,6 +423,14 @@ class Logger:
 
 	def logTransferStatus(self, logHandle, st):
 		self.currentTest.logTransferStatus(logHandle, st)
+
+	def createSecurityViolation(self, subsystem, **kwargs):
+		test = self.currentTest
+		if test:
+			return test.createSecurityViolation(subsystem, **kwargs)
+
+		print(f"*** Calling createSecurityViolation outside of a test case - messages will be LOST")
+		return self._journal.createSecurityViolation(subsystem, **kwargs)
 
 	def addProperty(self, name, value):
 		self._journal.addProperty(name, value)

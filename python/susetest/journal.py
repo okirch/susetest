@@ -212,6 +212,10 @@ class JournalMessages(JournalEvent):
 		self.writer = writer
 
 	@property
+	def severity(self):
+		return self.node.tag
+
+	@property
 	def text(self):
 		if not self.node.text:
 			return ""
@@ -517,6 +521,7 @@ class JournalTest(TimedNode):
 
 		m = self.log.createMessage(severity)
 		m.write(msg, **kwargs)
+		return m
 
 	def logInfo(self, msg):
 		self.logMessage(msg, severity = 'info')
@@ -624,6 +629,17 @@ class JournalTest(TimedNode):
 		if data:
 			xfer.recordData(data)
 		return xfer
+
+	def createSecurityViolation(self, subsystem, severity = "info"):
+		m = self.logMessage(f"{subsystem} policy violation", severity = severity)
+		m.type = "security"
+
+		# If an otherwise successful test has a security warning, its result should be
+		# set to "warning", too
+		if severity in VALID_TEST_STATES:
+			self.setStatus(severity)
+
+		return m
 
 	def complete(self):
 		assert(self.status)
