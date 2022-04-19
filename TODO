@@ -40,8 +40,6 @@ Results processing:
 	FEATURE: comparison of two test runs (regression analysis)
 
 html rendering:
-	FEATURE: check box to hide/show certain result types (eg
-		hide success; hide skipped)
 	FEATURE: more grouping of activities (such as file editing).
 		Display these as HTML collapsibles
 

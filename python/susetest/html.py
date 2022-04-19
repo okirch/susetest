@@ -15,8 +15,8 @@ html_preamble = '''
 table, th, td {
   border: 1px solid;
 }
-table.params {
-  width: 30em;
+table {
+  width: 62em;
 }
 th, td {
   padding: 2px;
@@ -35,7 +35,46 @@ font.warning { color: red; }
 tr:hover {background-color: lightgreen;}
 </style>
 
+<script>
+function showAllRows() {
+  hideRowsWithClassname("imadoofus");
+}
+
+function hideSuccessful() {
+  hideRowsWithClassname("success");
+}
+
+function hideRowsWithClassname(className) {
+  tables = document.getElementsByClassName("results-table");
+  for (let table of tables) {
+    var rowList = table.getElementsByTagName("tr");
+    for (let row of rowList) {
+      if (row.className == className) {
+        row.style.display = "none";
+      } else {
+        row.style.display = "table-row";
+      }
+    }
+  }
+}
+
+</script>
+
 <body>
+'''
+
+html_results_radiobuttons = '''
+
+<fieldset style="width: 60em">
+<legend>Table filter</legend>
+<input type='radio' id='all' name='row-filter' onclick='showAllRows()' checked="checked">
+ <label for='all'>Show all rows</label><br>
+<input type='radio' id='success' name='row-filter' onclick='hideSuccessful()'>
+ <label for='success'>Hide successful rows</label>
+</input>
+</fieldset>
+<p>
+
 '''
 
 html_trailer = '''
@@ -101,8 +140,8 @@ class HTMLRenderer(Renderer):
 		print = self.print
 
 		print("<h2>Table of test results</h2>")
-		# print("<center>")
-		print("<table>")
+		print(html_results_radiobuttons)
+		print("<table class='results-table'>")
 
 		print(" <th>")
 		for name in matrix.columns:
@@ -121,7 +160,9 @@ class HTMLRenderer(Renderer):
 				print(f"  <td colspan={numColumns} class='caption'>{testName}</td>")
 				print(" </tr>")
 
-			print(" <tr>")
+			className = self.getTableRowClass(matrix.get(rowName, colName) for colName in matrix.columns)
+
+			print(f" <tr class='{className}'>")
 			desc = self.describeRow(matrix, rowName)
 			print(f"  <td>{desc}</td>")
 			for colName in matrix.columns:
@@ -130,7 +171,6 @@ class HTMLRenderer(Renderer):
 			print(" </tr>")
 
 		print("</table>")
-		# print("</center>")
 
 		for matrixColumn in parameters.columns:
 			print(f"<h2 id='col:{matrixColumn}'>Matrix parameters for column {matrixColumn}</h2>")
@@ -145,7 +185,9 @@ class HTMLRenderer(Renderer):
 	def renderVector(self, vector, referenceMap):
 		print = self.print
 
-		print("<center><table>")
+		print("<h2>Test results</h2>")
+		print(html_results_radiobuttons)
+		print("<table class='results-table'>")
 
 		cellRenderer = self.CellStatusRenderer(referenceMap)
 		currentTestName = None
@@ -157,11 +199,13 @@ class HTMLRenderer(Renderer):
 				print(f"  <td colspan=2 class='caption'>{testName}</td>")
 				print(" </tr>")
 
-			cell = cellRenderer.render(vector.get(rowName), rowName)
+			status = vector.get(rowName)
+
+			cell = cellRenderer.render(status, rowName)
 			description = self.describeRow(vector, rowName)
 
-			print(f"  <tr><td>{description}</td><td>{cell}</td>")
-		print("</table></center>")
+			print(f"  <tr class='{status}'><td>{description}</td><td>{cell}</td>")
+		print("</table>")
 
 	def describeRow(self, matrix, id):
 		description = matrix.getRowInfo(id)
@@ -176,6 +220,22 @@ class HTMLRenderer(Renderer):
 			else:
 				description = id
 		return description
+
+	orderOfStates = ('success', 'warning', 'failure', 'error', 'skipped', 'disabled')
+
+	def getTableRowClass(self, states):
+		className = None
+		classPrio = -1
+
+		for state in states:
+			if state not in self.orderOfStates:
+				return state
+			prio = self.orderOfStates.index(state)
+			if prio > classPrio:
+				className = state
+				classPrio = prio
+
+		return state or "success"
 
 	##########################################################
 	# Render junit test report as HTML
@@ -241,6 +301,7 @@ class HTMLRenderer(Renderer):
 		print("<table>")
 		print(f"<tr><td colspan='3' class='caption'>Stats</td></tr>")
 		print(f"<tr><td colspan='2'>Status</td><td><p class='{test.status}'>{test.status}</p></td></tr>")
+		# FIXME: look for test.error or test.failure, which should contain a message and a type attribute
 		print(f"<tr><td colspan='2'>Duration</td><td>{time}</td></tr>")
 
 		if test.log.events:
