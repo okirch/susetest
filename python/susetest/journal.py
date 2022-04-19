@@ -10,6 +10,11 @@
 import xml.etree.ElementTree as ET
 import time
 
+# Accepted test states.
+# Order is important because it determines whether status A may later be overridden
+# by status B.
+VALID_TEST_STATES = ('success', 'warning', 'failure', 'error', 'skipped', 'disabled')
+
 __all__ = ['load', 'create']
 
 ##################################################################
@@ -491,23 +496,17 @@ class JournalTest(TimedNode):
 		self.createChild("log", writer = self.writer)
 
 	def setStatus(self, status):
-		assert(status in ('success', 'warning', 'failure', 'error', 'skipped', 'disabled'))
+		if status not in VALID_TEST_STATES:
+			self.logMessage(f"invalid test status {status}", severity = 'error')
+			status = 'error'
 
 		current = self.status
-		if current is None:
-			pass
-		elif status == 'error':
-			# test suite errors always win
-			pass
-		elif status == 'success':
-			# someone hasn't been paying attention
-			return
-		elif current == 'warning' and status == 'failure':
-			pass
-		elif status != current:
-			# now it's an error
-			self.logMessage(f"invalid test status changes from {current} to {status}", severity = 'error')
-			status = 'error'
+		if current is not None:
+			oldPrio = VALID_TEST_STATES.index(current)
+			newPrio = VALID_TEST_STATES.index(status)
+
+			if newPrio < oldPrio:
+				return
 
 		self.time = time.time() - self.startTime
 		self.status = status
