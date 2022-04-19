@@ -526,6 +526,10 @@ class Testcase(TestThing):
 		self.testConfigPath = info.config
 		self.testScriptPath = info.script
 
+		# parse testcase.conf and extract the list of node names
+		testConfig = info.open()
+		self._nodes = [node.name for node in testConfig.nodes]
+
 		return True
 
 	def perform(self, testrunConfig, console = None):
@@ -555,12 +559,7 @@ class Testcase(TestThing):
 			"--config", testrunConfig,
 			"--config", self.testConfigPath)
 
-		# FIXME: TestBase should parse the testconfig file...
-		config = curly.Config(self.testConfigPath)
-		tree = config.tree()
-		self._nodes = []
-		for name in tree.get_children("node"):
-			self._nodes.append(name)
+		assert(self._nodes)
 
 		self.stage = self.STAGE_INITIALIZED
 
