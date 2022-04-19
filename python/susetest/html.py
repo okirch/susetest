@@ -31,6 +31,7 @@ td.caption {
 font.success { color: blue; }
 font.error { color: red; }
 font.failure { color: red; }
+font.warning { color: red; }
 tr:hover {background-color: lightgreen;}
 </style>
 
@@ -81,7 +82,7 @@ class HTMLRenderer(Renderer):
 		def render(self, value, rowName, colName = None):
 			cell = value
 
-			if value in ('success', 'failure', 'error'):
+			if value in ('success', 'warning', 'failure', 'error'):
 				cell = f"<font class='{value}'>{cell}</font>"
 
 			if self.hrefMap is not None:
@@ -192,6 +193,7 @@ class HTMLRenderer(Renderer):
 
 		print(f"<tr><td colspan='2'>Statistics</td></tr>")
 		print(f"<tr><td>Tests run</td><td>{log.stats.tests}</td></tr>")
+		print(f"<tr><td>  warnings</td><td>{log.stats.warnings}</td></tr>")
 		print(f"<tr><td>  failures</td><td>{log.stats.failures}</td></tr>")
 		print(f"<tr><td>  skipped</td><td>{log.stats.skipped}</td></tr>")
 		print(f"<tr><td>  errors</td><td>{log.stats.errors}</td></tr>")
@@ -220,6 +222,7 @@ class HTMLRenderer(Renderer):
 
 		print(f"<tr><td colspan='2'>Statistics</td></tr>")
 		print(f"<tr><td>Tests run</td><td>{group.stats.tests}</td></tr>")
+		print(f"<tr><td>  warnings</td><td>{group.stats.warnings}</td></tr>")
 		print(f"<tr><td>  failures</td><td>{group.stats.failures}</td></tr>")
 		print(f"<tr><td>  skipped</td><td>{group.stats.skipped}</td></tr>")
 		print(f"<tr><td>  errors</td><td>{group.stats.errors}</td></tr>")
@@ -254,15 +257,14 @@ class HTMLRenderer(Renderer):
 		for event in test.log.events:
 			if self.t0 is None:
 				self.t0 = event.timestamp
-				self._print(event)
 
 			rts = event.timestamp - self.t0
 			frac = ("%.2f" % (rts % 1)).lstrip("0")
 			self.timestamp = "%02d:%02d%s" % (int(rts / 60), rts % 60, frac)
 
 			eventType = event.eventType
-			if eventType == "info":
-				self.renderInfoEvent(event)
+			if eventType in ("info", "error", "failure", "warning"):
+				self.renderMessageEvent(event)
 			elif eventType == "download" or eventType == "upload":
 				self.renderTransfer(event)
 			elif eventType == "command":
@@ -271,8 +273,8 @@ class HTMLRenderer(Renderer):
 				self.renderUnknownEvent(event)
 		print("</table>")
 
-	def renderInfoEvent(self, event):
-		self.renderLine("info", f"<pre>{event.text}</pre>")
+	def renderMessageEvent(self, event):
+		self.renderLine(event.eventType, f"<pre>{event.text}</pre>")
 
 	def renderCommandEvent(self, event):
 		if not event.cmdline:

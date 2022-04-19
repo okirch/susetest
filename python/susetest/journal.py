@@ -416,6 +416,7 @@ class JournalLog(XMLBackedNode):
 	children = [
 		ListNodeSchema("info", JournalMessages),
 		ListNodeSchema("failure", JournalMessages),
+		ListNodeSchema("warning", JournalMessages),
 		ListNodeSchema("error", JournalMessages),
 		ListNodeSchema("command", JournalCommand),
 		ListNodeSchema("upload", JournalFileTransfer),
@@ -472,6 +473,7 @@ class JournalTest(TimedNode):
 	] + TimedNode.attributes
 	children = [
 		NodeSchema("system-out", JournalMessages),
+		NodeSchema("warning", JournalMessages),
 		NodeSchema("failure", JournalMessages),
 		NodeSchema("error", JournalMessages),
 		NodeSchema("log", JournalLog),
@@ -489,7 +491,7 @@ class JournalTest(TimedNode):
 		self.createChild("log", writer = self.writer)
 
 	def setStatus(self, status):
-		assert(status in ('success', 'failure', 'error', 'skipped', 'disabled'))
+		assert(status in ('success', 'warning', 'failure', 'error', 'skipped', 'disabled'))
 
 		current = self.status
 		if current is None:
@@ -500,6 +502,8 @@ class JournalTest(TimedNode):
 		elif status == 'success':
 			# someone hasn't been paying attention
 			return
+		elif current == 'warning' and status == 'failure':
+			pass
 		elif status != current:
 			# now it's an error
 			self.logMessage(f"invalid test status changes from {current} to {status}", severity = 'error')
@@ -530,6 +534,15 @@ class JournalTest(TimedNode):
 			child.type = type
 			child.message = msg
 		self.setStatus('failure')
+
+	def logWarning(self, msg, type = None):
+		self.logMessage(f"Warning: {msg}", severity = 'warning')
+
+		if self.warning is None:
+			child = self.createChild("warning")
+			child.type = type
+			child.message = msg
+		self.setStatus('warning')
 
 	def logError(self, msg, type = None):
 		self.logMessage(f"Error: {msg}", severity = 'error')
@@ -631,6 +644,7 @@ class NodeWithStats(TimedNode):
 		IntAttributeSchema("failures"),
 		IntAttributeSchema("disabled"),
 		IntAttributeSchema("skipped"),
+		IntAttributeSchema("warnings"),
 		IntAttributeSchema("errors"),
 	]
 
@@ -639,6 +653,7 @@ class NodeWithStats(TimedNode):
 		if self.tests is None:
 			self.tests = 0
 		self.failures = 0
+		self.warnings = 0
 		self.errors = 0
 		self.skipped = 0
 		self.disabled = 0
@@ -648,6 +663,8 @@ class NodeWithStats(TimedNode):
 			pass
 		elif status == 'failure':
 			self.failures += 1
+		elif status == 'warning':
+			self.warnings += 1
 		elif status == 'error':
 			self.errors += 1
 		elif status == 'skipped':
@@ -662,6 +679,7 @@ class NodeWithStats(TimedNode):
 		self.failures += other.failures
 		self.disabled += other.disabled
 		self.skipped += other.skipped
+		self.warnings += other.warnings
 		self.errors += other.errors
 
 class JournalProperty(XMLBackedNode):
@@ -891,6 +909,7 @@ class StdoutWriter:
 		print(f"  Test run stats:")
 		print(f"    Test cases:   {stats.tests}")
 		print(f"    Failed:       {stats.failures}")
+		print(f"    Warnings:     {stats.warnings}")
 		print(f"    Errors:       {stats.errors}")
 		print(f"    Skipped:      {stats.skipped}")
 		print(f"    Disabled:     {stats.disabled}")
@@ -940,6 +959,7 @@ class TestcaseWrapper:
 				return MessagesWrapper(msgNode)
 
 		self.systemOut = wrapMessages(test.system_out)
+		self.warning = wrapMessages(test.warning)
 		self.failure = wrapMessages(test.failure)
 		self.error = wrapMessages(test.error)
 
