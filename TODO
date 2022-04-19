@@ -8,6 +8,9 @@ twopence:
 	FIXME: NUL termination problem somewhere in the audit message passing
 		(permissive=0rminal=?)
 
+	Sometimes, we receive a spurious core dump on exit. Could be related
+	to libcurlies...
+
 provisioning:
 	FEATURE: rewrite the provisioning from doing it with scripts to
 		doing it through twopence. The only bit that needs to be
@@ -15,24 +18,34 @@ provisioning:
 		repo and install the test server
 
 	FEATURE: support for rmt/smt proxy
+	FEATURE: logging to file
 	FIXME: test compatibility handling is broken & currently disabled
 	FIXME: topology teardown should only consult status.conf
 	FEATURE: offer a "brutal" mode to topology teardown that works
 		even if the vagrant directory is gone
+	FEATURE: distinguish between provisioner and image library
+		(we already do this for container, but we should do this
+		for virt images as well)
+	FEATURE: implement pure libvirt provisioner than can consume
+		vagrant images, too
 
 susetest:
-	FEATURE: Separate the user creating in UserResource and move
+	FEATURE: Separate the user creation in UserResource and move
 		it into a UserManager class
 
-	FIXME: unexpected audit messages should raise a warning
 	FEATURE: attach to SUT's journal event source
 	FEATURE: run-test should support --role-parameter
 
 Results processing:
 	FEATURE: comparison of two test runs (regression analysis)
 
-SELinux:
+html rendering:
+	FEATURE: check box to hide/show certain result types (eg
+		hide success; hide skipped)
+	FEATURE: more grouping of activities (such as file editing).
+		Display these as HTML collapsibles
 
+SELinux:
 	FEATURE: SELinux resources should specify domains and who
 	is allowed to transition to them (simple)
 
