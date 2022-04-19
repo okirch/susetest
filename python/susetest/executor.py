@@ -146,6 +146,22 @@ class Interaction(object):
 		for s in testcase.schedule:
 			print(s)
 
+	def debug(self, testcase, *args):
+		'''debug: turn debugging on/off'''
+		if len(args) != 1 or args[0] not in ("on", "off"):
+			print("usage: debug on/off")
+			return
+
+		testcase.options.debug = (args[0] == "on")
+
+	def debug_schema(self, testcase, *args):
+		'''debug-schema: turn schema debugging on/off'''
+		if len(args) != 1 or args[0] not in ("on", "off"):
+			print("usage: debug_schema on/off")
+			return
+
+		testcase.options.debug_schema = (args[0] == "on")
+
 	class OnlyCommand(ScheduleControlCommandBase):
 		def __init__(self):
 			super().__init__("only", "execute just the matching test cases, none other", self.perform)
@@ -612,6 +628,8 @@ class Testcase(TestThing):
 	def buildScriptInvocation(self):
 		argv = [self.testScriptPath]
 
+		self.argvMaybeAddDebugging(argv)
+
 		# This is hard-coded, and we "just know" where it is.
 		# If this ever changes, use
 		#  twopence provision --workspace BLAH show status-file
@@ -718,7 +736,14 @@ class Testcase(TestThing):
 		self.stage = self.STAGE_DESTROYED
 
 	def runProvisioner(self, *args, **kwargs):
-		return self.runCommand("twopence", "provision", "--workspace", self.workspace, *args, **kwargs)
+		argv = ["twopence", "provision"]
+		self.argvMaybeAddDebugging(argv)
+
+		argv += ["--workspace", self.workspace]
+		if args:
+			argv += list(args)
+
+		return self.runCommand(*argv, **kwargs)
 
 	class PtyCommand:
 		def __init__(self, argv):
@@ -746,14 +771,14 @@ class Testcase(TestThing):
 				self.winszChanged = False
 			return os.read(fd, 1024)
 
-	def runCommand(self, cmd, *args, usePty = False):
-		argv = [cmd]
+	def argvMaybeAddDebugging(self, argv):
 		if self.options.debug:
 			argv.append("--debug")
 		if self.options.debug_schema:
 			argv.append("--debug-schema")
 
-		argv += args
+	def runCommand(self, *args, usePty = False):
+		argv = list(args)
 
 		# info("Executing command:")
 		cmd = " ".join(argv)

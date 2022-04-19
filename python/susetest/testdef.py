@@ -600,6 +600,8 @@ class TestDefinition:
 			help = "Suppress test case output")
 		p.add_option('--debug', action = 'store_true', default = False,
 			help = "Enable debugging at the provisioning layer")
+		p.add_option('--debug-schema', action = 'store_true', default = False,
+			help = "Enable debugging for config schema")
 		p.add_option('--twopence-debug', action = 'store_true', default = False,
 			help = "Enable debugging at the twopence layer")
 		p.add_option('--config',
@@ -612,6 +614,11 @@ class TestDefinition:
 		(opts, args) = p.parse_args()
 
 		if opts.debug:
+			twopence.logger.enableLogLevel('debug')
+		if opts.debug_schema:
+			from twopence.schema import Schema
+			Schema.debug.enabled = True
+
 			twopence.logger.enableLogLevel('debug')
 
 		if opts.twopence_debug:
