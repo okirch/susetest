@@ -987,7 +987,11 @@ class JournalWrapper:
 		self.journal = journal
 		self.name = journal.root.name
 		self.stats = StatsWrapper(journal.root)
-		self.properties = journal.root.properties
+
+		if journal.root.properties:
+			self.properties = journal.root.properties.asDict()
+		else:
+			self.properties = {}
 
 	@property
 	def groups(self):

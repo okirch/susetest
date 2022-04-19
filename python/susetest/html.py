@@ -189,21 +189,7 @@ class HTMLRenderer(Renderer):
 		print(html_preamble)
 		print(f"<h1>Test Results</h1>")
 
-		print("<table>")
-
-		print(f"<tr><td colspan='2'>Statistics</td></tr>")
-		print(f"<tr><td>Tests run</td><td>{log.stats.tests}</td></tr>")
-		print(f"<tr><td>  warnings</td><td>{log.stats.warnings}</td></tr>")
-		print(f"<tr><td>  failures</td><td>{log.stats.failures}</td></tr>")
-		print(f"<tr><td>  skipped</td><td>{log.stats.skipped}</td></tr>")
-		print(f"<tr><td>  errors</td><td>{log.stats.errors}</td></tr>")
-		print(f"<tr><td>  disabled</td><td>{log.stats.disabled}</td></tr>")
-
-		if log.properties:
-			print(f"<tr><td colspan='2'>Properties</td></tr>")
-			for key, value in log.properties.asDict().items():
-				print(f"<tr><td>{key}</td><td>{value}</td></tr>")
-		print("</table>")
+		self.renderMetadata(log.stats, log.properties)
 
 		for group in log.groups:
 			if not group.tests:
@@ -218,19 +204,24 @@ class HTMLRenderer(Renderer):
 		print = self.print
 
 		print(f"<h2>Test Group {group.id}</h2>")
+		self.renderMetadata(group.stats, group.properties)
+
+	def renderMetadata(self, stats, properties):
+		print = self.print
+
 		print("<table>")
 
 		print(f"<tr><td colspan='2'>Statistics</td></tr>")
-		print(f"<tr><td>Tests run</td><td>{group.stats.tests}</td></tr>")
-		print(f"<tr><td>  warnings</td><td>{group.stats.warnings}</td></tr>")
-		print(f"<tr><td>  failures</td><td>{group.stats.failures}</td></tr>")
-		print(f"<tr><td>  skipped</td><td>{group.stats.skipped}</td></tr>")
-		print(f"<tr><td>  errors</td><td>{group.stats.errors}</td></tr>")
-		print(f"<tr><td>  disabled</td><td>{group.stats.disabled}</td></tr>")
+		print(f"<tr><td>Tests run</td><td>{stats.tests}</td></tr>")
+		print(f"<tr><td>  warnings</td><td>{stats.warnings or 0}</td></tr>")
+		print(f"<tr><td>  failures</td><td>{stats.failures}</td></tr>")
+		print(f"<tr><td>  skipped</td><td>{stats.skipped}</td></tr>")
+		print(f"<tr><td>  errors</td><td>{stats.errors}</td></tr>")
+		print(f"<tr><td>  disabled</td><td>{stats.disabled}</td></tr>")
 
-		if group.properties:
+		if properties:
 			print(f"<tr><td colspan='2'>Properties</td></tr>")
-			for key, value in group.properties.items():
+			for key, value in properties.items():
 				print(f"<tr><td>{key}</td><td>{value}</td></tr>")
 
 		print("</table>")
