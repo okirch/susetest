@@ -468,9 +468,9 @@ class Testcase(TestThing):
 
 		self.isCompatible = True
 
-		self.testConfig = None
-		self.testScript = None
-		self.testReport = None
+		self.testConfigPath = None
+		self.testScriptPath = None
+		self.testReportPath = None
 
 		self.stage = self.STAGE_LARVAL
 		self._nodes = []
@@ -523,8 +523,8 @@ class Testcase(TestThing):
 			return False
 
 		self.info = info
-		self.testConfig = info.config
-		self.testScript = info.script
+		self.testConfigPath = info.config
+		self.testScriptPath = info.script
 
 		return True
 
@@ -553,10 +553,10 @@ class Testcase(TestThing):
 			"init",
 			"--logspace", self.logspace,
 			"--config", testrunConfig,
-			"--config", self.testConfig)
+			"--config", self.testConfigPath)
 
 		# FIXME: TestBase should parse the testconfig file...
-		config = curly.Config(self.testConfig)
+		config = curly.Config(self.testConfigPath)
 		tree = config.tree()
 		self._nodes = []
 		for name in tree.get_children("node"):
@@ -596,7 +596,7 @@ class Testcase(TestThing):
 		self.runProvisioner("status")
 
 	def buildScriptInvocation(self):
-		argv = [self.testScript]
+		argv = [self.testScriptPath]
 
 		# This is hard-coded, and we "just know" where it is.
 		# If this ever changes, use
@@ -691,7 +691,7 @@ class Testcase(TestThing):
 			error("cannot find test report document at {reportPath}")
 			return
 
-		self.testReport = reportPath
+		self.testReportPath = reportPath
 
 	def destroyCluster(self):
 		# in any but the larval state, we have cleanup to do
@@ -783,7 +783,7 @@ class Testcase(TestThing):
 		self.interact(InteractionPostTestRun(self, msg))
 
 	def inspect(self):
-		if self.runCommand(self.testScript, "info") != 0:
+		if self.runCommand(self.testScriptPath, "info") != 0:
 			info("Test script return non-zero exit status")
 
 class Testsuite(TestThing):
@@ -1262,10 +1262,10 @@ class Runner:
 				okayToContinue = False
 				break
 
-			if test.testReport:
-				info(f"Test report can be found in {test.testReport}")
+			if test.testReportPath:
+				info(f"Test report can be found in {test.testReportPath}")
 
-				report = LogParser(test.testReport)
+				report = LogParser(test.testReportPath)
 				context.mergeTestReport(report)
 
 		os.remove(testrunConfig)
