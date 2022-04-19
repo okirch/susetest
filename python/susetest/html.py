@@ -316,11 +316,16 @@ class HTMLRenderer(Renderer):
 	def renderChatInfo(self, chat):
 		if chat.sent:
 			self.renderLine("chat", f"<pre>Sent: {chat.sent.text}</pre>")
-		if not (len(chat.expect) == 1 and chat.expect[0].string == chat.received.text):
+
+		received = None
+		if chat.received:
+			received = chat.received.text
+
+		if not (len(chat.expect) == 1 and chat.expect[0].string == received):
 			for expect in chat.expect:
 				self.renderLine("chat", f"<pre>Expected: {expect.string}</pre>")
-		if chat.received:
-			self.renderLine("chat", f"<pre>Received: {chat.received.text}</pre>")
+		if received:
+			self.renderLine("chat", f"<pre>Received: {received}</pre>")
 
 	def renderCommandStatus(self, status):
 		messages = []
