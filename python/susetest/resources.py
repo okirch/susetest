@@ -1435,8 +1435,12 @@ class ResourceContext(ResourceCollection):
 				# override the settings defined outside of a package.
 				self.addResourceSettings(resInfo)
 
-	def merge(self, other):
+	def mergeContext(self, other):
+		twopence.debug(f"Merging {other}")
+
 		assert(isinstance(other, ResourceContext))
+
+		other.resolvePackages()
 
 		super().merge(other)
 
@@ -1449,6 +1453,12 @@ class ResourceContext(ResourceCollection):
 				raise BadConditional(f"{cond.name} from {cond.origin}: duplicate definition of resource conditional (also defined in {have.origin})")
 
 			self._conditionals.add(cond)
+
+	def merge(self, other):
+		self.mergeContext(other)
+
+		for child in other.contexts:
+			self.mergeContext(child)
 
 	def createResource(self, node, resourceType, resourceName):
 		# Given a name like "executable", retrieve the ExecutableResource class
@@ -1497,6 +1507,17 @@ class ResourceContext(ResourceCollection):
 				if cond is None:
 					raise BadConditional(f"{cond.longdesc}: {res} references unknown conditional {name}")
 				res._expected_errors.append(ExpectedError.fromConditional(cond))
+
+class ResourceFile(ResourceContext):
+	resource_type = "resources"
+
+	schema = [
+		DictNodeSchema("_contexts", "context", ResourceContext),
+	]
+
+	@property
+	def contexts(self):
+		return self._contexts.values()
 
 ##################################################################
 # Global resource inventory
@@ -1584,12 +1605,11 @@ class ResourceLoader:
 				raise KeyError(f"Unable to load resources from {path} - invalid path name")
 			found = [path]
 
-		context = ResourceContext(name)
+		file = ResourceFile(name)
 		for path in found:
-			context.configureFromPath(path)
-		context.resolvePackages()
+			file.configureFromPath(path)
 
-		return context
+		return file
 
 	def findResourceFiles(self, name):
 		default_paths = [
