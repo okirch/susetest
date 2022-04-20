@@ -4,9 +4,8 @@ Critical bugs:
 
 twopence:
 	FEATURE: server needs journal support
-	FEATURE: server should set /proc/self/loginuid between fork and exec
-	FIXME: NUL termination problem somewhere in the audit message passing
-		(permissive=0rminal=?)
+
+	FIXME: server should use SO_REUSEADDR for TCP sockets
 
 	Sometimes, we receive a spurious core dump on exit. Could be related
 	to libcurlies...
@@ -35,6 +34,8 @@ susetest:
 
 	FEATURE: attach to SUT's journal event source
 	FEATURE: run-test should support --role-parameter
+	FEATURE: <properties> should reflect the image/application
+		name and exact version
 
 Results processing:
 	FEATURE: comparison of two test runs (regression analysis)
@@ -49,7 +50,6 @@ SELinux:
 
 
 Farthings:
-	FEATURE: keep resources in the same place as the source code of a test
 	FIXME: change ntp to use file editing provided by resource mechanism
 	FEATURE: reimplement ntp as applications
 	FEATURE: mariadb test case
