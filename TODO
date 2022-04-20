@@ -49,6 +49,7 @@ SELinux:
 
 
 Farthings:
+	FEATURE: keep resources in the same place as the source code of a test
 	FIXME: change ntp to use file editing provided by resource mechanism
 	FEATURE: reimplement ntp as applications
 	FEATURE: mariadb test case

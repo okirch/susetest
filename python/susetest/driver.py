@@ -37,6 +37,7 @@ class Driver:
 		self._logger = None
 
 		self.resourceManager = ResourceManager(self)
+		self.testResourcePath = None
 
 		if self.name is None:
 			path = self._caller_frame.filename
@@ -363,6 +364,10 @@ class Driver:
 	def _set_os_resources(self):
 		for node in self.targets:
 			self.resourceManager.loadPlatformResources(node, node.resource_files)
+
+			if self.testResourcePath:
+				self.resourceManager.loadTestResources(node, self.name, self.testResourcePath)
+
 			node.configureApplicationResources()
 
 	def _update_hosts_files(self):

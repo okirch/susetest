@@ -251,6 +251,15 @@ class TestsuiteInfo:
 
 		self._name = name
 
+		# Load testcase.conf
+		info = twopence.TestBase().findTestCase(name)
+
+		# Most test cases come with their own resource definitions
+		# We need to load them
+		self.testResources = None
+		if info:
+			self.testResources = info.resources
+
 		# List of resource requirements
 		# Scripts can specify these via
 		#  susetest.requireResource("foo", [node = "client"])
@@ -452,6 +461,16 @@ class TestsuiteInfo:
 
 			result.append([self.actionEndGroup, group])
 		return result
+
+	def prepare(self, driver):
+		# If the test case comes with its own resource definitions,
+		# we need to inform the driver so that it can load them
+		driver.testResourcePath = self.testResources
+
+		driver.loadTopologyStatus()
+
+		# skip any tests whose requirements are not met
+		self.verifyRequirements(driver)
 
 	def perform(self, driver):
 		steps = self.enumerateSteps()
@@ -705,15 +724,11 @@ class TestDefinition:
 		if not suite or suite.empty:
 			raise ValueError("susetest.perform() invoked, but the script does not seem to define any test cases")
 
-		driver = Driver(suite.name)
+		driver = Driver(suite.name, config_path = opts.config)
 
 		driver.verbose = not opts.quiet
-		driver.config_path = opts.config
 
-		driver.loadTopologyStatus()
-
-		# skip any tests whose requirements are not met
-		suite.verifyRequirements(driver)
+		suite.prepare(driver)
 
 		TestDefinition.print_pre_run_summary(suite)
 

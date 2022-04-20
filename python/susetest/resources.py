@@ -1692,6 +1692,14 @@ class ResourceManager:
 			if file:
 				nodeContext.merge(file, target)
 
+	def loadTestResources(self, target, name, path):
+		nodeContext = self.getNodeResourceContext(target)
+
+		file = self.loader.loadResources(name, path)
+		nodeContext.merge(file, target)
+
+		twopence.debug(f"Loaded test resources for {name} from {path}")
+
 	def getResource(self, node, resourceType, resourceName, create = False):
 		res = self.inventory.findResource(node, resourceType, resourceName)
 		if res is None and create:
