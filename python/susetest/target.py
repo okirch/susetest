@@ -442,19 +442,7 @@ class Target(twopence.Target):
 			self.logError("SUT is dead, not running command")
 			return twopence.Status(error = twopence.OPEN_SESSION_ERROR, command = cmd)
 
-		# FIXME: we should soft-fail instead
-		t0 = time.time()
-		try:
-			status = super().run(cmd, **kwargs)
-		except twopence.Exception as e:
-			self.handleException("command execution", e)
-
-			t1 = time.time()
-			self._logInfo("Command ran for %u seconds" % (t1 - t0))
-
-			status = twopence.Status(256, bytearray(), bytearray())
-
-		return status
+		return super().run(cmd, **kwargs)
 
 	# Build/update twopence.Command instance using the kwargs dict provided
 	def _buildCommand(self, cmd, environ = None, **kwargs):
@@ -475,6 +463,8 @@ class Target(twopence.Target):
 
 	def run(self, cmd, **kwargs):
 		cmd = self._buildCommand(cmd, **kwargs)
+		if 'softfail' not in kwargs:
+			cmd.softfail = True
 
 		logHandle = self.logger.logCommand(self.name, cmd)
 
