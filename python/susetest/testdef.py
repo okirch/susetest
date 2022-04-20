@@ -592,7 +592,7 @@ class TestsuiteInfo:
 
 class TestDefinition:
 	@staticmethod
-	def loadTestResources(self, *args, **kwargs):
+	def loadTestResources(*args, **kwargs):
 		TestsuiteInfo.instance().loadTestResources(*args, **kwargs)
 
 	@staticmethod
