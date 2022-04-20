@@ -1527,12 +1527,17 @@ class BadConditional(Exception):
 # from one or more config files.
 ##################################################################
 class ResourceLoader:
-	def loadResources(self, name):
+	def loadResources(self, name, path = None):
 		name = name.lower()
 
-		found = self.findResourceFiles(name)
-		if not found:
-			raise KeyError(f"Unable to find {name}.conf")
+		if path is None:
+			found = self.findResourceFiles(name)
+			if not found:
+				raise KeyError(f"Unable to find {name}.conf")
+		else:
+			if not os.path.isfile(path):
+				raise KeyError(f"Unable to load resources from {path} - invalid path name")
+			found = [path]
 
 		context = ResourceContext(name)
 		for path in found:
