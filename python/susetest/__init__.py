@@ -55,6 +55,12 @@ def optionalStringResource(resourceName, nodeName = None, **kwargs):
 def optionalAddressResource(resourceName, nodeName = None, **kwargs):
 	TestDefinition.optionalResource('string', resourceName, nodeName, **kwargs)
 
+# If your code wants to use resources defined by a test rather than globally
+# (like, for instance, openssl), you can use this method:
+#	susetest.loadTestResources("openssl")
+def loadTestResources(testName):
+	TestDefinition.loadTestResources(testName)
+
 # You can use the following to annotate individual test cases. If the specified resource
 # not available, the test is skipped automatically.
 #

@@ -231,6 +231,7 @@ class TestsuiteInfo:
 
 	def __init__(self, name = None):
 		self._groups = {}
+		self.testResources = {}
 
 		self.setup = None
 
@@ -251,14 +252,8 @@ class TestsuiteInfo:
 
 		self._name = name
 
-		# Load testcase.conf
-		info = twopence.TestBase().findTestCase(name)
-
-		# Most test cases come with their own resource definitions
-		# We need to load them
-		self.testResources = None
-		if info:
-			self.testResources = info.resources
+		# If the test comes with its own resources.conf file, load it now
+		self.loadTestResources(name)
 
 		# List of resource requirements
 		# Scripts can specify these via
@@ -287,6 +282,25 @@ class TestsuiteInfo:
 	@property
 	def name(self):
 		return self._name
+
+	# Most test cases come with their own resource definitions
+	def loadTestResources(self, name):
+		if name in self.testResources:
+			return
+
+		info = twopence.TestBase().findTestCase(name)
+		if info is None:
+			twopence.error(f"Unable to find test case {name}")
+			return
+
+		if info.resources is None:
+			if name != self._name:
+				# We end up here when called via susetest.loadTestResources
+				twopence.warning(f"Test case {name} does not specify any resources")
+			return
+
+		twopence.verbose(f"Using {name} test resources from {info.resources}")
+		self.testResources[name] = info.resources
 
 	@property
 	def groups(self):
@@ -465,7 +479,7 @@ class TestsuiteInfo:
 	def prepare(self, driver):
 		# If the test case comes with its own resource definitions,
 		# we need to inform the driver so that it can load them
-		driver.testResourcePath = self.testResources
+		driver.addTestResources(self.testResources)
 
 		driver.loadTopologyStatus()
 
@@ -577,6 +591,10 @@ class TestsuiteInfo:
 					test.skip = True
 
 class TestDefinition:
+	@staticmethod
+	def loadTestResources(self, *args, **kwargs):
+		TestsuiteInfo.instance().loadTestResources(*args, **kwargs)
+
 	@staticmethod
 	def requireResource(*args, **kwargs):
 		TestsuiteInfo.instance().requireResource(*args, **kwargs)

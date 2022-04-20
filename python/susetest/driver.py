@@ -37,7 +37,7 @@ class Driver:
 		self._logger = None
 
 		self.resourceManager = ResourceManager(self)
-		self.testResourcePath = None
+		self.testResources = {}
 
 		if self.name is None:
 			path = self._caller_frame.filename
@@ -156,6 +156,10 @@ class Driver:
 
 	def setParameter(self, name, value):
 		self._parameters[name] = value
+
+	# resourceDict maps names of test cases to their resource files
+	def addTestResources(self, resourceDict):
+		self.testResources.update(resourceDict)
 
 	def beginSetup(self):
 		if self._setup_complete:
@@ -365,8 +369,8 @@ class Driver:
 		for node in self.targets:
 			self.resourceManager.loadPlatformResources(node, node.resource_files)
 
-			if self.testResourcePath:
-				self.resourceManager.loadTestResources(node, self.name, self.testResourcePath)
+			for name, path in self.testResources.items():
+				self.resourceManager.loadTestResources(node, name, path)
 
 			node.configureApplicationResources()
 
