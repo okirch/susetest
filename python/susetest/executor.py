@@ -600,9 +600,9 @@ class Testcase(TestThing):
 
 		info("Provisioning test nodes")
 		argv = ["create"]
-		if self.context.update_images is True:
+		if self.options.update_images is True:
 			argv.append("--update-images")
-		if self.context.update_images is False:
+		if self.options.update_images is False:
 			argv.append("--no-update-images")
 
 		if self.runProvisioner(*argv) != 0:
