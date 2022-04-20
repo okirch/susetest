@@ -1406,12 +1406,36 @@ class PackageResourceSettings(ResourceCollection):
 	def mergeNoOverride(self, other):
 		self.merge(other)
 
+##################################################################
+##################################################################
+class ResourceContextCondition(Configurable):
+	def __init__(self, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+
+		self.conditional = None
+
+	def eval(self, context):
+		if not self.conditional:
+			return False
+		return self.conditional.eval(context)
+
+	def configure(self, config):
+		self.conditional = ResourceConditional.fromConfig(config)
+
+##################################################################
+# This is currently somewhat limited, in that we cannot have
+# a context containing another context. That is mostly due to
+# limitations in how we set up the schema - there is simply no
+# straightforward way how the schema array inside a class definition
+# can refer to the class itself.
+##################################################################
 class ResourceContext(ResourceCollection):
 	resource_type = "context"
 
 	schema = [
 		makeResourceDict(PackageResource, PackageResourceSettings),
 		DictNodeSchema("_conditionals", "conditional", Expectation),
+		SingleNodeSchema("applies", itemClass = ResourceContextCondition),
 	]
 
 	@property
@@ -1454,11 +1478,15 @@ class ResourceContext(ResourceCollection):
 
 			self._conditionals.add(cond)
 
-	def merge(self, other):
-		self.mergeContext(other)
+	def merge(self, other, target):
+		context = TargetEvalContext(target = target)
+
+		if other.applies is None or other.applies.eval(context):
+			self.mergeContext(other)
 
 		for child in other.contexts:
-			self.mergeContext(child)
+			if child.applies is None or child.applies.eval(context):
+				self.mergeContext(child)
 
 	def createResource(self, node, resourceType, resourceName):
 		# Given a name like "executable", retrieve the ExecutableResource class
@@ -1660,9 +1688,9 @@ class ResourceManager:
 		# in one file, and the selinux specific information in another one.
 		nodeContext = self.getNodeResourceContext(target)
 		for name in filenames:
-			context = self.loader.loadResources(name)
-			if context:
-				nodeContext.merge(context)
+			file = self.loader.loadResources(name)
+			if file:
+				nodeContext.merge(file, target)
 
 	def getResource(self, node, resourceType, resourceName, create = False):
 		res = self.inventory.findResource(node, resourceType, resourceName)
