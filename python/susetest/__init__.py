@@ -85,7 +85,6 @@ def setup(f):
 
 # susetest.group decorator
 def group(f):
-	print("Defining group function %s (%s)" % (f, f.__doc__))
 	TestDefinition.defineGroup(f)
 	return f
 
@@ -239,7 +238,6 @@ def templateVerifyFile(resourceName, nodeName = None, **kwargs):
 			return
 
 		file = node.requireFile(resourceName)
-		print(f"resource {file} DAC user={file.dac_user} group={file.dac_group} permissions={file.dac_permissions}")
 
 		if not file.dac_user and \
 		   not file.dac_group and \
@@ -312,3 +310,4 @@ def perform():
 		print(traceback.format_exc(None))
 
 		exit(42)
+
