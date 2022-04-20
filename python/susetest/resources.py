@@ -117,6 +117,7 @@ import crypt
 import functools
 import twopence
 from twopence.schema import *
+from twopence.provision.util import NameVersionCheck, NameVersion
 from .files import FileFormatRegistry
 
 class Expectation(NamedConfigurable):
@@ -167,6 +168,165 @@ class ExpectedFailure(Expectation):
 
 class ExpectedError(Expectation):
 	status = "error"
+
+##################################################################
+# Conditionals - a boolean expression
+##################################################################
+class ResourceConditional:
+	def __init__(self):
+		pass
+
+	class Equal:
+		def __init__(self, name, value):
+			self.name = name
+			self.value = value
+
+		def dump(self):
+			return f"{self.name} == {self.value}"
+
+		def eval(self, context):
+			return context.testValue(self.name, self.value)
+
+	class OneOf:
+		def __init__(self, name, values):
+			self.name = name
+			self.values = [_.lower() for _ in values]
+
+		def dump(self):
+			return f"{self.name} in {self.values}"
+
+		def eval(self, context):
+			return context.testValues(self.name, self.values)
+
+	class FeatureTest:
+		def __init__(self, name):
+			self.name = name
+
+		def dump(self):
+			return f"feature({self.name})"
+
+		def eval(self, context):
+			return context.testFeature(self.name)
+
+	class ParameterTest:
+		def __init__(self, name, values):
+			self.name = name
+			self.values = values
+
+		def dump(self):
+			return f"parameter({self.name}) in {self.values}"
+
+		def eval(self, context):
+			return context.testParameter(self.name, self.values)
+
+	class OSTest:
+		def __init__(self, values):
+			self.values = []
+			for string in values:
+				nameVersionCheck = NameVersionCheck.parse(string)
+				if nameVersionCheck is None:
+					raise BadResource(f"Bad name-version check \"{string}\"")
+
+				self.values.append(nameVersionCheck)
+
+		def dump(self):
+			return f"OS in {', '.join(str(_) for _ in self.values)}"
+
+		def eval(self, context):
+			return any(context.testOS(check) for check in self.values)
+
+	class AndOr:
+		def __init__(self, clauses = None):
+			self.clauses = clauses or []
+
+		def add(self, term):
+			self.clauses.append(term)
+
+		def _dump(self):
+			return (term.dump() for term in self.clauses)
+
+		def eval_all(self, context):
+			return (term.eval(context) for term in self.clauses)
+
+	class AND(AndOr):
+		def dump(self):
+			return " AND ".join(self._dump())
+
+		def eval(self, context):
+			return all(self.eval_all(context))
+
+	class OR(AndOr):
+		def dump(self):
+			terms = (f"({t}" for t in self._dump())
+			return " OR ".join(terms)
+
+		def eval(self, context):
+			return any(self.eval_all(context))
+
+	class NOT:
+		def __init__(self, term):
+			self.term = term
+
+		def dump(self):
+			return f"NOT ({self.term.dump()})"
+
+		def eval(self, context):
+			return not self.term.eval(context)
+
+	@classmethod
+	def fromConfig(klass, node, termClass = AND):
+		term = termClass()
+		for attr in node.attributes:
+			test = klass.buildTest(node, attr)
+			if test is not None:
+				term.add(test)
+			# else ignore
+
+		for child in node:
+			if child.type == 'or':
+				term.add(klass.fromConfig(child, klass.OR))
+			elif child.type == 'not':
+				test = klass.fromConfig(child)
+				term.add(klass.NOT(test))
+			else:
+				raise BadConditional(f"{node.name} from {node.origin}: don't know how to handle conditional {child.type}")
+
+		# print("Parsed conditional %s: %s" % (node.name, term.dump()))
+		return term
+
+	@classmethod
+	def buildTest(klass, node, attr):
+		if attr.name == 'reason':
+			# This is handled in the caller
+			return
+		elif attr.name == 'feature':
+			test = klass.FeatureTest(attr.value)
+		elif attr.name == 'os':
+			test = klass.OSTest(attr.values)
+		elif attr.name == 'parameter':
+			test = klass.buildParameterTest(attr.values)
+			if test is None:
+				raise BadConditional(f"{node.name} from {node.origin}: unable to parse parameter test")
+		else:
+			# all other tests refer to user supplied variables
+			test = ResourceConditional.OneOf(attr.name, attr.values)
+		return test
+
+	@staticmethod
+	def buildParameterTest(kvpairs):
+		param = None
+		values = []
+		for kv in kvpairs:
+			if '=' not in kv:
+				return None
+			key, value = kv.split('=', maxsplit = 1)
+			if param is None:
+				param = key
+			elif param != key:
+				return None
+
+			values.append(value)
+		return ResourceConditional.ParameterTest(param, values)
 
 ##################################################################
 # Refer to a resource
@@ -1355,150 +1515,25 @@ class ResourceInventory:
 	def addResource(self, res):
 		self.resources.append(res)
 
-##################################################################
-# Conditionals - a boolean expression
-##################################################################
-class ResourceConditional:
-	class Equal:
-		def __init__(self, name, value):
-			self.name = name
-			self.value = value
-
-		def dump(self):
-			return f"{self.name} == {self.value}"
-
-		def eval(self, context):
-			return context.testValue(self.name, self.value)
-
-	class OneOf:
-		def __init__(self, name, values):
-			self.name = name
-			self.values = [_.lower() for _ in values]
-
-		def dump(self):
-			return f"{self.name} in {self.values}"
-
-		def eval(self, context):
-			return context.testValues(self.name, self.values)
-
-	class FeatureTest:
-		def __init__(self, name):
-			self.name = name
-
-		def dump(self):
-			return f"feature({self.name})"
-
-		def eval(self, context):
-			return context.testFeature(self.name)
-
-	class ParameterTest:
-		def __init__(self, name, values):
-			self.name = name
-			self.values = values
-
-		def dump(self):
-			return f"parameter({self.name}) in {self.values}"
-
-		def eval(self, context):
-			return context.testParameter(self.name, self.values)
-
-	class AndOr:
-		def __init__(self, clauses = None):
-			self.clauses = clauses or []
-
-		def add(self, term):
-			self.clauses.append(term)
-
-		def _dump(self):
-			return (term.dump() for term in self.clauses)
-
-		def eval_all(self, context):
-			return (term.eval(context) for term in self.clauses)
-
-	class AND(AndOr):
-		def dump(self):
-			return " AND ".join(self._dump())
-
-		def eval(self, context):
-			return all(self.eval_all(context))
-
-	class OR(AndOr):
-		def dump(self):
-			terms = (f"({t}" for t in self._dump())
-			return " OR ".join(terms)
-
-		def eval(self, context):
-			return any(self.eval_all(context))
-
-	class NOT:
-		def __init__(self, term):
-			self.term = term
-
-		def dump(self):
-			return f"NOT ({self.term.dump()})"
-
-		def eval(self, context):
-			return not self.term.eval(context)
-
-	@staticmethod
-	def fromConfig(node, termClass = AND):
-		term = termClass()
-		for attr in node.attributes:
-			if attr.name == 'reason':
-				# This is handled in the caller
-				pass
-			elif attr.name == 'feature':
-				term.add(ResourceConditional.FeatureTest(attr.value))
-			elif attr.name == 'parameter':
-				test = ResourceConditional.resourceConditionalBuildParameterTest(attr.values)
-				if test is None:
-					raise BadConditional(f"{node.name} from {node.origin}: unable to parse parameter test")
-
-				term.add(test)
-			else:
-				# all other tests refer to user supplied variables
-				test = ResourceConditional.OneOf(attr.name, attr.values)
-				term.add(test)
-
-		for child in node:
-			if child.type == 'or':
-				term.add(ResourceConditional.fromConfig(child, ResourceConditional.OR))
-			elif child.type == 'not':
-				test = ResourceConditional.fromConfig(child)
-				term.add(ResourceConditional.NOT(test))
-			else:
-				raise BadConditional(f"{node.name} from {node.origin}: don't know how to handle conditional {child.type}")
-
-		# print("Parsed conditional %s: %s" % (node.name, term.dump()))
-		return term
-
-	@staticmethod
-	def resourceConditionalBuildParameterTest(kvpairs):
-		param = None
-		values = []
-		for kv in kvpairs:
-			if '=' not in kv:
-				return None
-			key, value = kv.split('=', maxsplit = 1)
-			if param is None:
-				param = key
-			elif param != key:
-				return None
-
-			values.append(value)
-		return ResourceConditional.ParameterTest(param, values)
-
 class TargetEvalContext:
-	def __init__(self, driver, target, variables = {}):
+	def __init__(self, driver = None, target = None, variables = {}):
 		self.driver = driver
 		self.target = target
 		self.variables = variables
 
+		self._parsedOS = None
+
 	def testFeature(self, name):
+		if self.target is None:
+			return False
+
 		# print(f"   testFeature({name})")
 		return self.target.testFeature(name)
 
 	def testParameter(self, name, values):
+		if self.driver is None:
+			return False
+
 		actual = self.driver.getParameter(name)
 
 		# print(f"   testParameter({name}={actual}, values={values})")
@@ -1515,6 +1550,16 @@ class TargetEvalContext:
 			return False
 
 		return actual in values
+
+	@property
+	def parsedOS(self):
+		if self._parsedOS is None:
+			self._parsedOS = NameVersion.parse(self.target.os_release)
+		return self._parsedOS
+
+	def testOS(self, nameVersionCheck):
+		os = self.parsedOS
+		return nameVersionCheck.check(os)
 
 class BadResource(Exception):
 	pass
