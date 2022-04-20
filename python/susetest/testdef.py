@@ -750,12 +750,6 @@ class TestDefinition:
 
 		TestDefinition.print_pre_run_summary(suite)
 
-		try:
-			suite.perform(driver)
-		except Exception as e:
-			import traceback
-
-			print(f"FATAL: Caught python exception {e} in TestDefinition.perform()")
-			print(traceback.format_exc(None))
+		suite.perform(driver)
 
 		driver.close()

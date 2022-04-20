@@ -694,7 +694,7 @@ class Testcase(TestThing):
 		argv = self.buildScriptInvocation()
 
 		if self.runCommand(*argv) != 0:
-			info("Test script return non-zero exit status")
+			info("Test script returns non-zero exit status")
 
 			# FIXME: record failure; we should also return non-zero
 			# exit status in this case

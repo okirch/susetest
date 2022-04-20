@@ -302,4 +302,13 @@ def enable_libdir():
 # as test cases, and decorate these using @susetest.test
 #
 def perform():
-	TestDefinition.perform()
+	try:
+		TestDefinition.perform()
+	except Exception as e:
+		import traceback
+
+		print(f"*** CRASH BANG BOOM ***")
+		print(f"Encountered unexpected exception while performing tests: {e}")
+		print(traceback.format_exc(None))
+
+		exit(42)
