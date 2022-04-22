@@ -232,7 +232,6 @@ class TestLogger:
 
 		@property
 		def command(self):
-			susetest.say(self.process.command)
 			return self.process.command
 
 		def expect(self, values, **kwargs):

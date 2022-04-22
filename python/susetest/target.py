@@ -501,18 +501,17 @@ class Target(twopence.Target):
 		if 'tty' not in kwargs:
 			kwargs['tty'] = True
 
+		if 'softfail' not in kwargs:
+			kwargs['softfail'] = True
+
 		chat = self.chat(cmd, **kwargs)
 
 		for expect, send in chat_script:
 			susetest.say("Waiting for \"%s\"" % expect)
 
-			try:
-				found = chat.expect(expect)
-			except twopence.Exception as e:
-				self.logFailure(f"Caught exception: {e}")
-				return self._chatScriptFailed(chat, e.code)
-
+			found = chat.expect(expect)
 			if not found:
+				susetest.say("string not found")
 				return self._chatScriptFailed(chat, twopence.CHAT_TIMEOUT_ERROR)
 
 			self.logInfo("consumed: %s" % chat.consumed)
