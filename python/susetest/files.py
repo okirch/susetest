@@ -604,7 +604,7 @@ class HostsFile(LineOrientedFileFormat):
 
 		w = line.split()
 		if len(w) < 2:
-			print(f"could not parse |{raw_line}|")
+			twopence.error(f"could not parse |{raw_line}|")
 			return
 
 		return self.Entry(name = w[1], addr = w[0], aliases = w[2:], raw = raw_line)
@@ -768,7 +768,7 @@ class LinesWithColonFileFormat(LineOrientedFileFormat):
 	def entryFromLine(self, raw_line):
 		w = raw_line.split(":")
 		if len(w) != self.entryType.num_entry_fields:
-			print(f"could not parse |{raw_line}|")
+			twopence.error(f"could not parse |{raw_line}|")
 			return
 
 		return self.Entry(self.entryType, raw = raw_line, *w)
@@ -916,7 +916,7 @@ class LinesWithKeyValueFileFormat(LineOrientedFileFormat):
 
 		w = line.split(maxsplit = 1)
 		if len(w) < 2:
-			print(f"could not parse |{raw_line}|")
+			twopence.error(f"could not parse |{raw_line}|")
 			return
 
 		return self.Entry(raw = raw_line, *w)
