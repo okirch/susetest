@@ -977,6 +977,81 @@ class ListFileFormat(LineOrientedFileFormat):
 
 		return self.Entry(raw = raw_line, name = raw_line)
 
+
+##################################################################
+# This does not implement the full EBNF for sudoers; it just
+# tries to understand what's useful.
+##################################################################
+class SudoersFile(LineOrientedFileFormat):
+	file_type = "sudoers"
+
+	class Key:
+		def __init__(self, *args):
+			if not args:
+				raise ValueError(f"refusing to create empty key")
+			self.words = list(args)
+			self.count = len(self.words)
+
+		def __str__(self):
+			return f"SudoerLine({' '.join(self.words)})"
+
+		def matchEntry(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			return entry.words[:self.count] == self.words
+
+		@property
+		def name(self):
+			if self.count == 0:
+				return None
+			return self.words[0]
+
+		@property
+		def argument(self):
+			if self.count < 2:
+				return None
+			return self.words[1]
+
+	class Entry(Key):
+		def __init__(self, *args, raw = None):
+			super().__init__(*args)
+			self.raw = raw
+
+		def invalidate(self):
+			self.raw = None
+
+		def format(self):
+			if self.raw:
+				return self.raw
+			return " ".join(self.words)
+
+		def shouldReplace(self, entry):
+			if isinstance(entry, CommentOrOtherFluff):
+				return False
+
+			# For now, we're not trying to be smart about replacing any sudoer entry
+			# with another
+			return False
+
+	# FIXME: we need to handle continuation lines
+	def parseLineEntry(self, raw_line):
+		if raw_line == "" or raw_line.startswith("#") or raw_line.isspace():
+			return self.CommentLine(raw_line)
+
+		i = raw_line.find('#')
+		if i >= 0:
+			line = raw_line[:i]
+		else:
+			line = raw_line
+
+		words = line.split()
+		if len(words) == 0:
+			twopence.error(f"could not parse |{raw_line}|")
+			return
+
+		return self.Entry(*words, raw = raw_line)
+
 ##################################################################
 # FileTokenizer class.
 # Processes a file line by line, returning a mix of tokens
