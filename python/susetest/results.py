@@ -294,6 +294,9 @@ class Renderer:
 		self.output_directory = output_directory
 		self.print = print
 
+	def renderTestrun(self, testrun):
+		self.renderResults(testrun.results)
+
 	def open(self, filename):
 		if self.output_directory is None:
 			return False
@@ -320,7 +323,7 @@ class Renderer:
 		raise ValueError(f"Cannot create renderer for unknown format {format}")
 
 class TextRenderer(Renderer):
-	def renderResults(self, results, referenceMap = None):
+	def renderResults(self, results):
 		if isinstance(results, ResultsMatrix):
 			values = results.asMatrixOfValues()
 			self.renderMatrix(values, results.parameterMatrix())
@@ -380,58 +383,39 @@ class TextRenderer(Renderer):
 
 			print(f"    {row:32} {status:18} {description}")
 
-class Tabulator:
-	def __init__(self):
-		parser = self.build_arg_parser()
-		args = parser.parse_args()
+class TestRunResults:
+	def __init__(self, logspace, testrun):
+		self.testrun = testrun
+		self._results = None
 
-		self.logspace = args.logspace
+		self.logspace = logspace
 		if self.logspace is None:
 			self.logspace = os.path.expanduser("~/susetest/logs")
-		if args.testrun:
-			self.logspace = os.path.join(self.logspace, args.testrun)
+		if testrun:
+			self.logspace = os.path.join(self.logspace, testrun)
 
-		output_directory = None
-		if args.document_root:
-			output_directory = os.path.join(args.document_root,
-						args.testrun or "testrun")
-
-		self.renderer = Renderer.factory(args.format, output_directory)
-
-	def perform(self):
-		path = os.path.join(self.logspace, "results.xml")
-		if os.path.exists(path):
-			results = self.loadResults(path)
-		else:
-			results = self.scanResults()
-
-		hrefMap = {}
-		if self.renderer.canRenderTestReports:
-			if isinstance(results, ResultsMatrix):
-				for col in results.columns:
-					path = os.path.join(self.logspace, results._name, col.name)
-					for name, log in self.scanDirectory(path).items():
-						outpath = os.path.join(results._name, col.name, f"{name}.html")
-						# print(f"render {path}/{name}: {log} -> {outpath}")
-						self.renderer.open(outpath)
-						self.renderer.renderTestReport(log)
-						for group in log.groups:
-							for test in group.tests:
-								refId = f"{col.name}:{test.id}"
-								testId = test.id
-								hrefMap[refId] = f"{outpath}#{testId}"
+	@property
+	def results(self):
+		if self._results is None:
+			path = os.path.join(self.logspace, "results.xml")
+			if os.path.exists(path):
+				self._results = self.loadResults(path)
 			else:
-				for name, log in self.scanDirectory(self.logspace).items():
-					outpath = os.path.join(f"{name}.html")
-					# print(f"render {path}/{name}: {log} -> {outpath}")
-					self.renderer.open(outpath)
-					self.renderer.renderTestReport(log)
-					for group in log.groups:
-						for test in group.tests:
-							testId = test.id
-							hrefMap[test.id] = f"{outpath}#{testId}"
+				self._results = self.scanResults()
 
-		self.renderer.renderResults(results, referenceMap = hrefMap)
+		return self._results
+
+	@property
+	def reports(self):
+		results = self.results
+		if isinstance(results, ResultsMatrix):
+			for col in results.columns:
+				path = os.path.join(self.logspace, results._name, col.name)
+				for name, log in self.scanDirectory(path).items():
+					yield log, col.name
+		else:
+			for name, log in self.scanDirectory(self.logspace).items():
+				yield log, None
 
 	def loadResults(self, path):
 		twopence.info(f"Loading results from {path}")
@@ -445,7 +429,6 @@ class Tabulator:
 			results = ResultsVector()
 
 		results.deserialize(doc)
-
 		return results
 
 	def scanResults(self):
@@ -521,10 +504,26 @@ class Tabulator:
 			result[de.name] = LogParser(reportPath)
 		return result
 
+
+class Processor:
+	def __init__(self):
+		parser = self.build_arg_parser()
+		args = parser.parse_args()
+
+		self.logspace = args.logspace
+		self.testrun = TestRunResults(args.logspace, args.testrun)
+
+		output_directory = None
+		if args.document_root:
+			output_directory = os.path.join(args.document_root,
+						args.testrun or "testrun")
+
+		self.renderer = Renderer.factory(args.format, output_directory)
+
 	def build_arg_parser(self):
 		import argparse
 
-		parser = argparse.ArgumentParser(description = 'Tabulate test results.')
+		parser = argparse.ArgumentParser(description = self.description)
 		parser.add_argument('--logspace',
 			help = 'The directory to use as logspace')
 		parser.add_argument('--testrun',
@@ -534,3 +533,9 @@ class Tabulator:
 		parser.add_argument('--document-root', metavar = 'PATH',
 			help = 'Create output file(s) below the specified directory')
 		return parser
+
+class Tabulator(Processor):
+	description = 'Tabulate test results.'
+
+	def perform(self):
+		self.renderer.renderTestrun(self.testrun)

@@ -6,6 +6,7 @@
 #
 ##################################################################
 
+import os
 from .logger import *
 from .results import Renderer, ResultsMatrix
 
@@ -92,8 +93,15 @@ class HTMLRenderer(Renderer):
 
 		self.lastCommand = None
 		self.t0 = None
+		self.hrefs = HTMLReferenceMap()
 
-	def renderResults(self, results, referenceMap = None):
+	def renderTestrun(self, testrun):
+		for log, columnName in testrun.reports:
+			self.renderTestReport(log, column = columnName)
+
+		super().renderTestrun(testrun)
+
+	def renderResults(self, results):
 		if self.output_directory:
 			self.open("index.html")
 
@@ -116,10 +124,10 @@ class HTMLRenderer(Renderer):
 
 		if isinstance(results, ResultsMatrix):
 			values = results.asMatrixOfValues()
-			self.renderMatrix(values, results.parameterMatrix(), referenceMap)
+			self.renderMatrix(values, results.parameterMatrix())
 		else:
 			vector = results.asVectorOfValues()
-			self.renderVector(vector, referenceMap)
+			self.renderVector(vector)
 
 		self.print(html_trailer)
 
@@ -140,29 +148,7 @@ class HTMLRenderer(Renderer):
 				result.append((label, value))
 		return result
 
-	class CellStatusRenderer:
-		def __init__(self, hrefMap):
-			self.hrefMap = hrefMap
-
-		def render(self, value, rowName, colName = None):
-			cell = value
-
-			if value in ('success', 'warning', 'failure', 'error'):
-				cell = f"<font class='{value}'>{cell}</font>"
-
-			if self.hrefMap is not None:
-				if colName:
-					refId = f"{colName}:{rowName}"
-				else:
-					refId = rowName
-
-				href = self.hrefMap.get(refId)
-				if href is not None:
-					cell = f"<a href=\"{href}\">{cell}</a>"
-
-			return cell
-
-	def renderMatrix(self, matrix, parameters, referenceMap):
+	def renderMatrix(self, matrix, parameters):
 		print = self.print
 
 		print("<h2>Table of test results</h2>")
@@ -175,7 +161,6 @@ class HTMLRenderer(Renderer):
 		print(" </th>")
 
 		numColumns = 1 + len(matrix.columns)
-		cellRenderer = self.CellStatusRenderer(referenceMap)
 
 		currentTestName = None
 		for rowName in matrix.rows:
@@ -192,7 +177,7 @@ class HTMLRenderer(Renderer):
 			desc = self.describeRow(matrix, rowName)
 			print(f"  <td>{desc}</td>")
 			for colName in matrix.columns:
-				cell = cellRenderer.render(matrix.get(rowName, colName), rowName, colName)
+				cell = self.renderCellValue(matrix.get(rowName, colName), rowName, colName)
 				print(f"  <td>{cell}</td>")
 			print(" </tr>")
 
@@ -208,14 +193,13 @@ class HTMLRenderer(Renderer):
 				print(f" <tr><td>{paramName}</td><td>{value}</td></tr>")
 			print("</table>")
 
-	def renderVector(self, vector, referenceMap):
+	def renderVector(self, vector):
 		print = self.print
 
 		print("<h2>Test results</h2>")
 		print(html_results_radiobuttons)
 		print("<table class='results-table'>")
 
-		cellRenderer = self.CellStatusRenderer(referenceMap)
 		currentTestName = None
 		for rowName in vector.rows:
 			testName = rowName.split('.')[0]
@@ -227,7 +211,7 @@ class HTMLRenderer(Renderer):
 
 			status = vector.get(rowName)
 
-			cell = cellRenderer.render(status, rowName)
+			cell = self.renderCellValue(status, rowName)
 			description = self.describeRow(vector, rowName)
 
 			print(f"  <tr class='{status}'><td>{description}</td><td>{cell}</td>")
@@ -246,6 +230,18 @@ class HTMLRenderer(Renderer):
 			else:
 				description = id
 		return description
+
+	def renderCellValue(self, value, rowName, colName = None):
+		cell = value
+		if value in ('success', 'warning', 'failure', 'error'):
+			cell = f"<font class='{value}'>{cell}</font>"
+
+		if self.hrefs is not None:
+			href = self.hrefs.get(colName, rowName)
+			if href is not None:
+				cell = f"<a href=\"{href}\">{cell}</a>"
+
+		return cell
 
 	orderOfStates = ('success', 'warning', 'failure', 'error', 'skipped', 'disabled')
 
@@ -266,7 +262,14 @@ class HTMLRenderer(Renderer):
 	##########################################################
 	# Render junit test report as HTML
 	##########################################################
-	def renderTestReport(self, log):
+	def renderTestReport(self, log, column = None):
+		htmlFilename = f"{log.name}.html"
+		if column:
+			outPath = os.path.join(column, htmlFilename)
+		else:
+			outPath = htmlFilename
+		self.open(outPath)
+
 		print = self.print
 
 		self.lastCommand = None
@@ -284,7 +287,10 @@ class HTMLRenderer(Renderer):
 			self.renderGroupInfo(group)
 			for test in group.tests:
 				self.renderTest(test)
+				self.hrefs.add(column, test.id, f"{outPath}#{test.id}")
+
 		print(html_trailer)
+		return outPath
 
 	def renderGroupInfo(self, group):
 		print = self.print
@@ -329,6 +335,10 @@ class HTMLRenderer(Renderer):
 		print(f"<tr><td colspan='2'>Status</td><td><p class='{test.status}'>{test.status}</p></td></tr>")
 		# FIXME: look for test.error or test.failure, which should contain a message and a type attribute
 		print(f"<tr><td colspan='2'>Duration</td><td>{time}</td></tr>")
+
+		if test.log is None:
+			print("<p>No events recorded for this test</p>")
+			return
 
 		if test.log.events:
 			print(f"<tr><td colspan='3' class='caption'>Event log</td></tr>")
@@ -462,3 +472,21 @@ class HTMLRenderer(Renderer):
 			span = 4 - len(cells)
 			cells[-1] = f"<td colspan='{span}'>{args[-1]}</td>"
 		self.print("<tr>" + "".join(cells) + "</tr>")
+
+class HTMLReferenceMap:
+	def __init__(self):
+		self.hrefMap = {}
+
+	def makeId(self, colName, testId):
+		if colName:
+			return f"{colName}:{testId}"
+		return testId
+
+	def add(self, colName, testId, target):
+		hrefId = self.makeId(colName, testId)
+		self.hrefMap[hrefId] = target
+
+	def get(self, colName, testId):
+		hrefId = self.makeId(colName, testId)
+		return self.hrefMap.get(hrefId)
+
