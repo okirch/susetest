@@ -17,9 +17,6 @@ from .logger import LogParser
 from .logger import ResultsMatrixWriter, ResultsVectorWriter, ResultsParser
 
 
-def info(msg):
-	print("== %s" % msg)
-
 class FrequentWriter:
 	def __init__(self, object, writerClass, path):
 		self.object = object
@@ -34,7 +31,7 @@ class FrequentWriter:
 		self.object.serialize(writer)
 		writer.save(self.path)
 
-		info(f"Updated {self.path}")
+		twopence.info(f"Updated {self.path}")
 
 class ResultsCollection:
 	def __init__(self, name = None, writerClass = None):
@@ -158,7 +155,7 @@ class ResultsMatrix(ResultsCollection):
 		# inherit the FrequentWriter
 		column._saver = self._saver
 
-		info(f"Created results vector for matrix column {name}")
+		twopence.info(f"Created results vector for matrix column {name}")
 		return column
 
 	def _createColumn(self, name = None):
@@ -314,7 +311,7 @@ class Renderer:
 
 		path = os.path.join(self.output_directory, filename)
 
-		info(f"Writing {path}")
+		twopence.info(f"Writing {path}")
 		dirname = os.path.dirname(path)
 		if not os.path.isdir(dirname):
 			os.makedirs(dirname, 0o755)
@@ -457,7 +454,7 @@ class Tabulator:
 		self.renderer.renderResults(results, filter = filter, referenceMap = hrefMap)
 
 	def loadResults(self, path):
-		info(f"Loading results from {path}")
+		twopence.info(f"Loading results from {path}")
 		io = ResultsParser(path)
 		if io is None:
 			raise ValueError(f"Could not open {path}")
@@ -472,7 +469,7 @@ class Tabulator:
 		return results
 
 	def scanResults(self):
-		info("Scanning logspace")
+		twopence.info("Scanning logspace")
 		result = self.scanSuite()
 		if result is None:
 			result = self.scanMatrix()
