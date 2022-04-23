@@ -14,30 +14,29 @@ import os
 import curly
 
 from .logger import LogParser
-from .logger import ResultsMatrixWriter, ResultsVectorWriter, ResultsParser
+from .logger import loadResultsDocument, createResultsDocument
 
 
 class FrequentWriter:
-	def __init__(self, object, writerClass, path):
+	def __init__(self, object, documentType, path):
 		self.object = object
-		self.writerClass = writerClass
+		self.documentType = documentType
 		self.path = path
 
 		if self.path is None:
 			raise ValueError("Cannot save results; path not set")
 
 	def sync(self):
-		writer = self.writerClass()
+		writer = createResultsDocument(self.documentType)
 		self.object.serialize(writer)
 		writer.save(self.path)
 
 		twopence.info(f"Updated {self.path}")
 
 class ResultsCollection:
-	def __init__(self, name = None, writerClass = None):
+	def __init__(self, name = None):
 		self._name = name
 		self._saver = None
-		self._writerClass = writerClass
 		self.invocation = None
 
 	def attachToLogspace(self, logspace, clobber = False):
@@ -50,8 +49,8 @@ class ResultsCollection:
 		self.setPath(path)
 
 	def setPath(self, path):
-		if self._writerClass:
-			self._saver = FrequentWriter(self, self._writerClass, path)
+		if self.documentType:
+			self._saver = FrequentWriter(self, self.documentType, path)
 
 	def save(self):
 		if self._saver:
@@ -65,6 +64,8 @@ class ResultsCollection:
 		self.invocation = reader.invocation
 
 class ResultsVector(ResultsCollection):
+	documentType = "vector"
+
 	class TestResult:
 		def __init__(self, id, status, description):
 			self.id = id
@@ -72,7 +73,7 @@ class ResultsVector(ResultsCollection):
 			self.description = description
 
 	def __init__(self, name = None):
-		super().__init__(name, writerClass = ResultsVectorWriter)
+		super().__init__(name)
 		self._parameters = {}
 		self._results = []
 
@@ -122,8 +123,10 @@ class ResultsVector(ResultsCollection):
 		return vector
 
 class ResultsMatrix(ResultsCollection):
+	documentType = "matrix"
+
 	def __init__(self, name = None):
-		super().__init__(name, writerClass = ResultsMatrixWriter)
+		super().__init__(name)
 		self._columns = []
 
 	@property
@@ -131,7 +134,7 @@ class ResultsMatrix(ResultsCollection):
 		return self._columns
 
 	def serialize(self, writer):
-		writer.setName(self._name)
+		writer.name = self._name
 		super().serialize(writer)
 		for column in self._columns:
 			column.serialize(writer.createColumn(column.name))
@@ -455,16 +458,16 @@ class Tabulator:
 
 	def loadResults(self, path):
 		twopence.info(f"Loading results from {path}")
-		io = ResultsParser(path)
-		if io is None:
+		doc = loadResultsDocument(path)
+		if doc is None:
 			raise ValueError(f"Could not open {path}")
 
-		if io.type == "matrix":
+		if doc.type == "matrix":
 			results = ResultsMatrix()
 		else:
 			results = ResultsVector()
 
-		results.deserialize(io)
+		results.deserialize(doc)
 
 		return results
 

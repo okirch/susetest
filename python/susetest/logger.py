@@ -11,6 +11,7 @@ from .xmltree import XMLTree
 
 from .journal import load as loadJournal
 from .journal import create as createJournal
+from .xmltree import *
 
 class TestLoggerHooks:
 	def __init__(self):
@@ -436,6 +437,130 @@ class Logger:
 
 def LogParser(path):
 	return loadJournal(path)
+
+class InfoInvocation(XMLBackedNode):
+	def __str__(self):
+		return self.node.text
+
+	def set(self, value):
+		# FIXME: escape processing
+		self.node.text = value
+
+class InfoParameter(XMLBackedNode):
+	attributes = [
+		AttributeSchema("name"),
+		AttributeSchema("value"),
+	]
+
+class InfoParameterSet(XMLBackedNode):
+	children = [
+		ListNodeSchema("parameter", InfoParameter),
+	]
+
+	def asDict(self):
+		result = {}
+		for p in self.parameter:
+			result[p.name] = p.value
+		return result
+
+	def add(self, name, value):
+		child = self.createChild("parameter", name = name, value = value)
+
+	def update(self, parameters):
+		for name, value in parameters.items():
+			self.add(name, value)
+
+class TestResult(XMLBackedNode):
+	attributes = [
+		AttributeSchema("status"),
+		AttributeSchema("id"),
+		AttributeSchema("description"),
+	]
+
+class ResultsDocument(XMLBackedNode):
+	attributes = [
+		AttributeSchema("name"),
+		AttributeSchema("type"),
+	]
+	children = [
+		NodeSchema("invocation", InfoInvocation, attr_name = "_invocation"),
+	]
+
+	def setInvocation(self, text):
+		self.createChild("invocation").set(text)
+
+	@property
+	def invocation(self):
+		if self._invocation is not None:
+			return str(self._invocation)
+
+class ResultsVector(ResultsDocument):
+	children = [
+		ListNodeSchema("test", TestResult),
+		NodeSchema("parameters", InfoParameterSet, attr_name = "_parameters"),
+	] + ResultsDocument.children
+
+	def addParameters(self, paramDict):
+		if paramDict:
+			self.createChild("parameters").update(paramDict)
+
+	@property
+	def parameters(self):
+		if self._parameters:
+			return self._parameters.asDict()
+		return {}
+
+	def addResults(self, results):
+		for test in results:
+			self.createChild("test",
+					id = test.id,
+					status = test.status,
+					description = test.description)
+
+	@property
+	def results(self):
+		return self.test
+
+class ResultsMatrix(ResultsDocument):
+	children = [
+		ListNodeSchema("vector", ResultsVector),
+	] + ResultsDocument.children
+
+	@property
+	def columns(self):
+		return self.vector
+
+	def createColumn(self, name = None):
+		return self.createChild("vector", name = name)
+
+def loadResultsDocument(path):
+	try:
+		tree = ET.parse(path)
+	except Exception as e:
+		error(f"Unable to parse results document {path}: {e}")
+		return False
+
+	root = tree.getroot()
+	if root.tag == 'results' or root.attrib.get('type') == 'matrix':
+		return ResultsMatrix(root)
+
+	if root.tag == 'results' or root.attrib.get('type') == 'vector':
+		return ResultsVector(root)
+
+	raise ValueError(f"{path} does not look like a results document we can handle.")
+
+def createResultsDocument(type):
+	root = ET.Element("results")
+
+	if type == "matrix":
+		doc = ResultsMatrix(root)
+	elif type == "vector":
+		doc = ResultsVector(root)
+	else:
+		raise ValueError(f"Don't know how to create results document for type \"{type}\"")
+
+	doc.type = type
+	return doc
 
 class ResultsIO:
 	class GenericObject:
