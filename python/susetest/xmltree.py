@@ -49,7 +49,11 @@ class NodeSchema:
 		self.childClass = childClass
 
 	def _initer(self, object):
-		setattr(object, self.attr_name, None)
+		try:
+			setattr(object, self.attr_name, None)
+		except Exception as e:
+			print(f"Problems with XML node schema. Cannot set attribute {object}.{self.attr_name}: {e}")
+			raise e
 
 	def _adder(self, object, childObject):
 		setattr(object, self.attr_name, childObject)
