@@ -23,6 +23,12 @@ class ManagedService:
 		self.serviceManager = serviceManager
 		self.serviceResource = serviceResource
 
+	def running(self):
+		return self.serviceManager.running(self.serviceResource)
+
+	def start(self):
+		return self.serviceManager.start(self.serviceResource)
+
 	def reload(self):
 		return self.serviceManager.reload(self.serviceResource)
 
@@ -35,6 +41,14 @@ class ManagedContainer:
 		self.containerManager = target.containerManager
 
 		self.topologyConfig = topologyConfig
+
+	def running(self):
+		# The container is running
+		return True
+
+	def start(self):
+		# The container is running, so the service it provides is running, too. QED.
+		pass
 
 	def reload(self):
 		return self.restart()
@@ -102,6 +116,12 @@ class Application:
 			else:
 				raise ValueError(f"Application {self.id}: no idea how we can manage applications running on {target.name}")
 
+	def start(self):
+		if self.manager is None:
+			self.target.logError(f"don't know how to start application {self.id}")
+
+		return self.manager.start()
+
 	def reload(self):
 		if self.manager is None:
 			self.target.logError(f"don't know how to reload application {self.id}")
@@ -113,3 +133,27 @@ class Application:
 			self.target.logError(f"don't know how to restart application {self.id}")
 
 		return self.manager.restart()
+
+	def requireExecutable(self, name):
+		res = self.target.requireExecutable(name)
+		if res is None:
+			raise ValueError(f"Cannot find executable {name}")
+
+		return res
+
+	def requireFile(self, name):
+		res = self.target.requireFile(name)
+		if res is None:
+			raise ValueError(f"Cannot find file {name}")
+
+		return res
+
+	def requireUser(self, name):
+		res = self.target.requireUser(name)
+		if res is None:
+			raise ValueError(f"Cannot find user {name}")
+
+		if res.uid is None:
+			raise ValueError(f"User {name} does not seem to exist?!")
+
+		return res
