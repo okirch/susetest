@@ -36,20 +36,20 @@ tr:hover {background-color: lightgreen;}
 </style>
 
 <script>
+const showAllNames = ["imadoofus"]
+const hideSuccessNames = ["skipped", "disabled", "success"]
+const hideWarningNames = ["skipped", "disabled", "success", "warning"]
+
 function showAllRows() {
-  hideRowsWithClassname("imadoofus");
+  hideRowsWithClassname(showAllNames);
 }
 
-function hideSuccessful() {
-  hideRowsWithClassname("success");
-}
-
-function hideRowsWithClassname(className) {
+function hideRowsWithClassname(names) {
   tables = document.getElementsByClassName("results-table");
   for (let table of tables) {
     var rowList = table.getElementsByTagName("tr");
     for (let row of rowList) {
-      if (row.className == className) {
+      if (names.includes(row.className)) {
         row.style.display = "none";
       } else {
         row.style.display = "table-row";
@@ -67,10 +67,12 @@ html_results_radiobuttons = '''
 
 <fieldset style="width: 60em">
 <legend>Table filter</legend>
-<input type='radio' id='all' name='row-filter' onclick='showAllRows()' checked="checked">
+<input type='radio' id='all' name='row-filter' onclick='hideRowsWithClassname(showAllNames)' checked="checked">
  <label for='all'>Show all rows</label><br>
-<input type='radio' id='success' name='row-filter' onclick='hideSuccessful()'>
- <label for='success'>Hide successful rows</label>
+<input type='radio' id='success' name='row-filter' onclick='hideRowsWithClassname(hideSuccessNames)'>
+ <label for='success'>Hide success rows</label><br>
+<input type='radio' id='success' name='row-filter' onclick='hideRowsWithClassname(hideWarningNames)'>
+ <label for='success'>Hide success/warning rows</label>
 </input>
 </fieldset>
 <p>
