@@ -372,12 +372,14 @@ class Context:
 
 		return Context(testrun, workspace, logspace, roles, args.parameter, options)
 
-	def __init__(self, testrun, workspace, logspace, roles, parameters, options, results = None):
+	def __init__(self, testrun, workspace, logspace, roles, parameters, options,
+				results = None, resultsDocument = None):
 		self.testrun = testrun
 		self.workspace = workspace
 		self.logspace = logspace
 		self.options = options
 		self.results = results
+		self.resultsDocument = resultsDocument or results
 		self.roles = roles
 
 		self.parameters = []
@@ -411,7 +413,8 @@ class Context:
 			roles = self.roles,
 			parameters = self.parameters + extra_parameters,
 			options = self.options,
-			results = results)
+			results = results,
+			resultsDocument = self.resultsDocument)
 
 	def mergeTestReport(self, testReport):
 		if self.results is not None:
@@ -419,7 +422,7 @@ class Context:
 				for test in group.tests:
 					self.results.add(test.id, test.status, test.description)
 
-			self.results.save()
+			self.resultsDocument.save()
 
 	def createWorkspaceFor(self, name):
 		return self._makedir(os.path.join(self.workspace, name))
@@ -471,6 +474,10 @@ class Context:
 	def attachResults(self, results):
 		results.attachToLogspace(self.logspace, clobber = self.options.clobber)
 		self.results = results
+
+		# The top-level results thingy is also the document we update in
+		# Context.mergeTestReport above.
+		self.resultsDocument = results
 
 		# This records our command line in the results.xml file
 		# so that the HTML renderer can display it later.
