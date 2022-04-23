@@ -107,6 +107,16 @@ class HTMLRenderer(Renderer):
 		if filter:
 			print("Results subject to filtering. Only (partial) failures are displayed.")
 
+		print()
+		if results.roles:
+			print("<p><table>")
+			for role in results.roles:
+				print(f"<tr><td colspan='2'>Settings for role {role.name}</td></tr>")
+				for label, value in self.renderRoleAttributes(role):
+					print(f"<tr><td>&nbsp;{label}</td><td>{value}</td></tr>")
+			print("</table><p>")
+			print()
+
 		if isinstance(results, ResultsMatrix):
 			values = results.asMatrixOfValues(filter)
 			self.renderMatrix(values, results.parameterMatrix(), referenceMap)
@@ -115,6 +125,23 @@ class HTMLRenderer(Renderer):
 			self.renderVector(vector, referenceMap)
 
 		self.print(html_trailer)
+
+	roleAttrs = (
+		("os",			"OS"),
+		("vendor",		"OS Vendor"),
+		("platform",		"Platform ID"),
+		("build_timestamp",	"Build time of derived image"),
+		("base_platform",	"Base Platform ID"),
+		("base_image",		"Base Platform Image"),
+	)
+
+	def renderRoleAttributes(self, role):
+		result = []
+		for attr_name, label in self.roleAttrs:
+			value = getattr(role, attr_name, None)
+			if value is not None:
+				result.append((label, value))
+		return result
 
 	class CellStatusRenderer:
 		def __init__(self, hrefMap):

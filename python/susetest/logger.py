@@ -470,6 +470,29 @@ class InfoParameterSet(XMLBackedNode):
 		for name, value in parameters.items():
 			self.add(name, value)
 
+class InfoRole(XMLBackedNode):
+	attributes = [
+		AttributeSchema("name"),
+		AttributeSchema("os"),
+		AttributeSchema("vendor"),
+		AttributeSchema("platform"),
+		AttributeSchema("application"),
+		AttributeSchema("base-platform"),
+		AttributeSchema("base-image"),
+		AttributeSchema("build-timestamp"),
+	]
+
+class InfoRoleSet(XMLBackedNode):
+	children = [
+		ListNodeSchema("role", InfoRole, attr_name = "_roles"),
+	]
+
+	def add(self, name, **kwargs):
+		return self.createChild("role", name = name, **kwargs)
+
+	def __iter__(self):
+		return iter(self._roles)
+
 class TestResult(XMLBackedNode):
 	attributes = [
 		AttributeSchema("status"),
@@ -484,6 +507,7 @@ class ResultsDocument(XMLBackedNode):
 	]
 	children = [
 		NodeSchema("invocation", InfoInvocation, attr_name = "_invocation"),
+		NodeSchema("roles", InfoRoleSet, attr_name = "_roles"),
 	]
 
 	def setInvocation(self, text):
@@ -493,6 +517,16 @@ class ResultsDocument(XMLBackedNode):
 	def invocation(self):
 		if self._invocation is not None:
 			return str(self._invocation)
+
+	@property
+	def roles(self):
+		if not self._roles:
+			return []
+		return iter(self._roles)
+
+	def createRole(self, name, **kwargs):
+		roleSet = self.createChild("roles")
+		return roleSet.add(name, **kwargs)
 
 class ResultsVectorDocument(ResultsDocument):
 	children = [

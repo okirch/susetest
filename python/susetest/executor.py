@@ -483,6 +483,24 @@ class Context:
 		# so that the HTML renderer can display it later.
 		results.invocation = " ".join(sys.argv)
 
+		# Record the OS selected for the various roles:
+		for role in self.roles.values():
+			if not role.resolution:
+				continue
+
+			platform = role.resolution
+
+			roleInfo = results.addRole(role.name)
+			if platform.isApplication:
+				roleInfo.application = platform.name
+			else:
+				roleInfo.platform = platform.name
+			roleInfo.vendor = platform.vendor
+			roleInfo.os = platform.os
+			roleInfo.base_platform = platform.built_from
+			roleInfo.build_timestamp = platform.build_time
+			# roleInfo.base_image = None
+
 	def _makedir(self, path):
 		if not os.path.isdir(path):
 			os.makedirs(path)

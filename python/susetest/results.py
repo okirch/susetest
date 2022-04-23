@@ -16,12 +16,41 @@ import curly
 from .logger import LogParser
 from .logger import loadResultsDocument, createResultsDocument
 
+class ResultsRole:
+	attrs = (
+		'os',
+		'vendor',
+		'platform',
+		'application',
+		'base_platform',
+		'base_image',
+		'build_timestamp',
+	)
+
+	def __init__(self, name):
+		self.name = name
+
+		for attr_name in self.attrs:
+			setattr(self, attr_name, None)
+
+	def serialize(self, writer):
+		for attr_name in self.attrs:
+			value = getattr(self, attr_name, None)
+			if value is not None:
+				setattr(writer, attr_name, value)
+
+	def deserialize(self, reader):
+		for attr_name in self.attrs:
+			value = getattr(reader, attr_name, None)
+			if value is not None:
+				setattr(self, attr_name, value)
 
 class ResultsCollection:
 	def __init__(self, name = None):
 		self._name = name
 		self._path = None
 		self.invocation = None
+		self._roles = {}
 
 	def attachToLogspace(self, logspace, clobber = False):
 		path = os.path.join(logspace, "results.xml")
@@ -29,6 +58,15 @@ class ResultsCollection:
 			raise ValueError(f"Refusing to overwrite existing {path}")
 
 		self._path = path
+
+	@property
+	def roles(self):
+		return self._roles.values()
+
+	def addRole(self, name):
+		role = ResultsRole(name)
+		self._roles[name] = role
+		return role
 
 	def save(self):
 		if not self._path:
@@ -44,8 +82,15 @@ class ResultsCollection:
 		if self.invocation:
 			writer.setInvocation(self.invocation)
 
+		for role in self._roles.values():
+			role.serialize(writer.createRole(role.name))
+
 	def deserialize(self, reader):
 		self.invocation = reader.invocation
+
+		for roleInfo in reader.roles:
+			role = self.addRole(roleInfo.name)
+			role.deserialize(roleInfo)
 
 class ResultsVector(ResultsCollection):
 	documentType = "vector"
