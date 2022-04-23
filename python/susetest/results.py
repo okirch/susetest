@@ -141,14 +141,12 @@ class ResultsVector(ResultsCollection):
 		result = self.TestResult(*args, **kwargs)
 		self._results.append(result)
 
-	def asVectorOfValues(self, filter):
+	def asVectorOfValues(self):
 		vector = VectorOfValues(default_value = "(not run)")
 		for test in self.results:
 			vector.set(test.id, test.status)
 			vector.setRowInfo(test.id, test.description)
 
-		if filter:
-			filter.apply(vector)
 		return vector
 
 class ResultsMatrix(ResultsCollection):
@@ -196,15 +194,13 @@ class ResultsMatrix(ResultsCollection):
 		self._columns.append(column)
 		return column
 
-	def asMatrixOfValues(self, filter):
+	def asMatrixOfValues(self):
 		matrix = MatrixOfValues([c.name for c in self._columns], default_value = "(not run)")
 		for column in self._columns:
 			for test in column.results:
 				matrix.set(test.id, column.name, test.status)
 				matrix.setRowInfo(test.id, test.description)
 
-		if filter:
-			filter.apply(matrix)
 		return matrix
 
 	def parameterMatrix(self):
@@ -222,8 +218,6 @@ class VectorOfValues:
 		self._rowInfo = {}
 		self._default_value = default_value
 
-		self._hiddenRows = set()
-
 	def set(self, row, value):
 		self._values[row] = value
 		self._rowNames.append(row)
@@ -239,16 +233,7 @@ class VectorOfValues:
 
 	@property
 	def rows(self):
-		return filter(lambda name: name not in self._hiddenRows, self._rowNames)
-
-	def hideCellsWithValue(self, value):
-		hide = set()
-
-		for row in self.rows:
-			if self.get(row) == value:
-				hide.add(row)
-
-		self._hiddenRows.update(hide)
+		return self._rowNames
 
 class MatrixOfValues:
 	def __init__(self, columnNames = [], default_value = "-"):
@@ -257,8 +242,6 @@ class MatrixOfValues:
 		self._rowNames = []
 		self._rowInfo = {}
 		self._default_value = default_value
-
-		self._hiddenRows = set()
 
 	def set(self, row, col, value):
 		self._values[f"{row},{col}"] = value
@@ -284,7 +267,7 @@ class MatrixOfValues:
 
 	@property
 	def rows(self):
-		return filter(lambda name: name not in self._hiddenRows, self._rowNames)
+		return self._rowNames
 
 	@property
 	def columns(self):
@@ -303,29 +286,6 @@ class MatrixOfValues:
 
 	def rowHasUniformValue(self, row, value):
 		return all((self.get(row, col) == value) for col in self.columns)
-
-	def hideRowsWithValue(self, value):
-		def rowHasUniformValue(value, rowValues):
-			return all(cell == value for cell in rowValues)
-
-		hide = set()
-		for row in self.rows:
-			if self.rowHasUniformValue(row, value):
-				hide.add(row)
-
-		self._hiddenRows.update(hide)
-
-class ResultFilter:
-	def __init__(self, hide = []):
-		self.hide = hide
-
-	def apply(self, values):
-		if isinstance(values, MatrixOfValues):
-			for status in self.hide:
-				values.hideRowsWithValue(status)
-		else: # VectorOfValues
-			for status in self.hide:
-				values.hideCellsWithValue(status)
 
 class Renderer:
 	canRenderTestReports = False
@@ -360,12 +320,12 @@ class Renderer:
 		raise ValueError(f"Cannot create renderer for unknown format {format}")
 
 class TextRenderer(Renderer):
-	def renderResults(self, results, filter = None, referenceMap = None):
+	def renderResults(self, results, referenceMap = None):
 		if isinstance(results, ResultsMatrix):
-			values = results.asMatrixOfValues(filter)
+			values = results.asMatrixOfValues()
 			self.renderMatrix(values, results.parameterMatrix())
 		else:
-			vector = results.asVectorOfValues(filter)
+			vector = results.asVectorOfValues()
 			self.renderVector(vector)
 
 	def renderMatrix(self, values, parameters):
@@ -431,8 +391,6 @@ class Tabulator:
 		if args.testrun:
 			self.logspace = os.path.join(self.logspace, args.testrun)
 
-		self.terse = args.terse
-
 		output_directory = None
 		if args.document_root:
 			output_directory = os.path.join(args.document_root,
@@ -446,13 +404,6 @@ class Tabulator:
 			results = self.loadResults(path)
 		else:
 			results = self.scanResults()
-
-		filter = None
-		if self.terse:
-			if isinstance(results, ResultsMatrix):
-				filter = ResultFilter(["success", "skipped", "disabled"])
-			else:
-				filter = ResultFilter(["success", "disabled"])
 
 		hrefMap = {}
 		if self.renderer.canRenderTestReports:
@@ -480,7 +431,7 @@ class Tabulator:
 							testId = test.id
 							hrefMap[test.id] = f"{outpath}#{testId}"
 
-		self.renderer.renderResults(results, filter = filter, referenceMap = hrefMap)
+		self.renderer.renderResults(results, referenceMap = hrefMap)
 
 	def loadResults(self, path):
 		twopence.info(f"Loading results from {path}")
@@ -574,8 +525,6 @@ class Tabulator:
 		import argparse
 
 		parser = argparse.ArgumentParser(description = 'Tabulate test results.')
-		parser.add_argument('--terse', action = 'store_true',
-			help = 'Make the output more terse by focusing on failures')
 		parser.add_argument('--logspace',
 			help = 'The directory to use as logspace')
 		parser.add_argument('--testrun',

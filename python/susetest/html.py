@@ -93,7 +93,7 @@ class HTMLRenderer(Renderer):
 		self.lastCommand = None
 		self.t0 = None
 
-	def renderResults(self, results, filter = None, referenceMap = None):
+	def renderResults(self, results, referenceMap = None):
 		if self.output_directory:
 			self.open("index.html")
 
@@ -103,9 +103,6 @@ class HTMLRenderer(Renderer):
 		print("<h1>Test Run Summary</h1>")
 		if results.invocation:
 			print(f"Invocation: <code>{results.invocation}</code><p>")
-
-		if filter:
-			print("Results subject to filtering. Only (partial) failures are displayed.")
 
 		print()
 		if results.roles:
@@ -118,10 +115,10 @@ class HTMLRenderer(Renderer):
 			print()
 
 		if isinstance(results, ResultsMatrix):
-			values = results.asMatrixOfValues(filter)
+			values = results.asMatrixOfValues()
 			self.renderMatrix(values, results.parameterMatrix(), referenceMap)
 		else:
-			vector = results.asVectorOfValues(filter)
+			vector = results.asVectorOfValues()
 			self.renderVector(vector, referenceMap)
 
 		self.print(html_trailer)

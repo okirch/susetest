@@ -25,10 +25,6 @@ Specify the logspace of a previous test run.
 .BI --testrun " name
 Specify the name of the previous test run.
 .TP
-.BI --terse
-Do not display the full set of results, only those that failed and/or resulted in an
-error.
-.TP
 .BI --document-root " PATH"
 Write any generated output to files below \fIPATH\fP, rather than standard output.
 .TP
