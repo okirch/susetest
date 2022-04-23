@@ -672,7 +672,8 @@ class Testcase(TestThing):
 		with os.popen(" ".join(argv)) as f:
 			for line in f.readlines():
 				words = line.strip().split(':', maxsplit = 3)
-				schedule.append(self.ScheduledTest(*words))
+				if len(words) >= 2:
+					schedule.append(self.ScheduledTest(*words))
 
 		changed = []
 		if self._schedule:
