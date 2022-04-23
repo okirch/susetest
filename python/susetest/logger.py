@@ -575,10 +575,10 @@ def loadResultsDocument(path):
 		return False
 
 	root = tree.getroot()
-	if root.tag == 'results' or root.attrib.get('type') == 'matrix':
+	if root.tag == 'results' and root.attrib.get('type') == 'matrix':
 		return ResultsMatrixDocument(root)
 
-	if root.tag == 'results' or root.attrib.get('type') == 'vector':
+	if root.tag == 'results' and root.attrib.get('type') == 'vector':
 		return ResultsVectorDocument(root)
 
 	raise ValueError(f"{path} does not look like a results document we can handle.")
