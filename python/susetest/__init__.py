@@ -184,7 +184,7 @@ def templateSelinuxVerifyResource(resourceType, resourceName, nodeName = None):
 
 	return tc
 
-def templateVerifyExecutable(resourceName, arguments, nodeName = None, requireFeatures = [], **kwargs):
+def templateVerifyExecutable(resourceName, arguments, nodeName = None, requireFeatures = [], badOutputs = [], **kwargs):
 	def verify_executable(driver):
 		node = getTargetForTemplate(driver, nodeName)
 		if node is None:
@@ -197,6 +197,10 @@ def templateVerifyExecutable(resourceName, arguments, nodeName = None, requireFe
 			return
 
 		executable = node.requireExecutable(resourceName)
+
+		# the executable may have an "expected-failure" annotation
+		driver.predictTestResult(executable)
+
 		command = executable.path
 		if arguments:
 			command += " " + arguments
@@ -204,6 +208,12 @@ def templateVerifyExecutable(resourceName, arguments, nodeName = None, requireFe
 		if not st:
 			node.logFailure(f"{command} failed: {st.message}")
 			return
+
+		output = st.stdoutString
+		for bad in badOutputs:
+			if bad in output:
+				node.logFailure(f"{command} succeeded but produced bad output {bad}")
+				return
 
 		node.logInfo(f"OK, {command} works")
 
