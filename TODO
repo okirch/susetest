@@ -27,6 +27,13 @@ provisioning:
 		for virt images as well)
 	FEATURE: implement pure libvirt provisioner than can consume
 		vagrant images, too
+	FEATURE: change how we document applied build options and document
+		the packages that were installed
+		build-option selinux {
+			package "foo-1.2-678",
+				"bar-4.2-666";
+		}
+	FIXME: build-image should track the exact version of the base image
 
 susetest:
 	FEATURE: Separate the user creation in UserResource and move
@@ -43,6 +50,7 @@ Results processing:
 html rendering:
 	FEATURE: more grouping of activities (such as file editing).
 		Display these as HTML collapsibles
+	FEATURE: drop the --terse option?
 
 SELinux:
 	FEATURE: SELinux resources should specify domains and who
