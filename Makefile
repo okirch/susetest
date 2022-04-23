@@ -3,7 +3,7 @@ include Make.defs
 INSTALL_MOD_DIR = $(PYTHON_INSTDIR)/susetest
 SUBDIRS	= 
 
-HELPERS	= build-image run-test run-suite list-platforms tabulate-results
+HELPERS	= build-image run-test run-suite list-platforms tabulate-results regress-results
 
 INSTALL	= install-python install-helpers
 CLEAN	=

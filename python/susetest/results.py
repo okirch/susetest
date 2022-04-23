@@ -143,6 +143,9 @@ class ResultsVector(ResultsCollection):
 	def results(self):
 		return self._results
 
+	def __str__(self):
+		return f"{self.__class__.__name__}({self.name})"
+
 	def serialize(self, writer):
 		super().serialize(writer)
 		writer.addParameters(self._parameters)
@@ -313,8 +316,6 @@ class MatrixOfValues:
 		return all((self.get(row, col) == value) for col in self.columns)
 
 class Renderer:
-	canRenderTestReports = False
-
 	def __init__(self, output_directory = None):
 		self.output_directory = output_directory
 		self.print = print
@@ -335,6 +336,9 @@ class Renderer:
 
 		destfile = open(path, "w")
 		self.print = lambda msg = '', **kwargs: print(msg, file = destfile, **kwargs)
+
+	def renderRegression(self, analysis):
+		raise NotImplementedError("This output format cannot render regression reports")
 
 	@staticmethod
 	def factory(format, output_directory = None):
@@ -536,7 +540,6 @@ class Processor:
 		args = parser.parse_args()
 
 		self.logspace = args.logspace
-		self.testrun = TestRunResults(args.logspace, args.testrun)
 
 		output_directory = None
 		if args.document_root:
@@ -545,22 +548,221 @@ class Processor:
 
 		self.renderer = Renderer.factory(args.format, output_directory)
 
-	def build_arg_parser(self):
-		import argparse
+		# Process specific arguments
+		self.process_args(args)
 
-		parser = argparse.ArgumentParser(description = self.description)
+	def build_arg_parser(self):
+		parser = self.create_arg_parser()
+
+		# Add common options
 		parser.add_argument('--logspace',
 			help = 'The directory to use as logspace')
-		parser.add_argument('--testrun',
-			help = 'Name of the test run')
 		parser.add_argument('--format', default = 'text',
 			help = 'Select output format (text, html - default: text)')
 		parser.add_argument('--document-root', metavar = 'PATH',
 			help = 'Create output file(s) below the specified directory')
 		return parser
 
+	def checkRequiredArgument(self, option, value):
+		if not value:
+			twopence.error(f"Required argument {option} is missing")
+			exit(1)
+
 class Tabulator(Processor):
-	description = 'Tabulate test results.'
+	def create_arg_parser(self):
+		parser = argparse.ArgumentParser(description = 'Tabulate test results.')
+		parser.add_argument('--testrun',
+			help = 'Name of the test run')
+
+		return parser
+
+	def process_args(self, args):
+		# self.checkRequiredArgument("--testrun", args.testrun)
+
+		self.testrun = TestRunResults(self.logspace, args.testrun)
 
 	def perform(self):
 		self.renderer.renderTestrun(self.testrun)
+
+class RegressionTest:
+	# This should be somewhere global
+	orderOfStates = ('success', 'warning', 'failure', 'error', 'skipped', 'disabled')
+
+	def __init__(self, id):
+		self.id = id
+		self.description = None
+		self.status = None
+		self.baselineStatus = None
+		self.verdict = None
+
+	def regress(self, baseline, testrun):
+		if baseline and testrun:
+			self.description = baseline.description
+			self.status = testrun.status
+			self.baselineStatus = baseline.status
+			self.verdict = self.renderVerdict(baseline.status, testrun.status)
+		elif baseline is not None:
+			self.description = baseline.description
+			self.baselineStatus = baseline.status
+			self.verdict = "regression"
+		else:
+			self.description = testrun.description
+			self.verdict = "improvement"
+
+	def renderVerdict(self, baseline, testrun):
+		if baseline == testrun:
+			return "unchanged"
+
+		try:
+			change = self.orderOfStates.index(baseline) - self.orderOfStates.index(testrun)
+		except:
+			return "undefined";
+
+		if change < 0:
+			return "regression"
+		return "improvement"
+
+class RegressionAnalysis:
+	def regressInputs(self, inputs):
+		self.inputs = inputs
+		self.documentType = inputs.baseline.documentType
+		self.baselineTag = self.inputs.baselineTag
+		self.baseline = self.inputs.baseline
+		self.testrun = self.inputs.testrun
+
+		self.regress(inputs.baseline, inputs.testrun)
+
+	# either of the two arguments may be None, indicating a missing
+	# or a newly added column
+	def regress(self, baseline, testrun):
+		if baseline:
+			baselineElements = self.elementsOf(baseline)
+		else:
+			baselineElements = []
+
+		if testrun:
+			testrunElements = self.elementsOf(testrun)
+		else:
+			testrunElements = []
+
+		self.regressSequence(baselineElements, testrunElements)
+
+	def regressSequence(self, baseline, testrun):
+		# using a dict to map items from baseline to testrun works as long
+		# as all IDs are unique. If a sloppily written test uses the same ID
+		# for several different test cases, things will come apart quickly.
+		testrunDict = {}
+		for item in testrun:
+			testrunDict[self.key(item)] = item
+		processed = set()
+
+		for baselineItem in baseline:
+			name = self.key(baselineItem)
+
+			child = self.createChild(name)
+
+			testrunItem = testrunDict.get(name)
+			child.regress(baselineItem, testrunItem)
+			processed.add(testrunItem)
+
+		for testrunItem in testrun:
+			if testrunItem not in processed:
+				name = self.key(testrunItem)
+				child = self.createChild(name)
+				child.regress(None, testrunItem)
+
+class RegressionReport1D(RegressionAnalysis):
+	def __init__(self, name = None):
+		self.name = name
+		self.tests = []
+
+	def key(self, test):
+		return test.id
+
+	def elementsOf(self, column):
+		return column.results
+
+	def createChild(self, name):
+		test = RegressionTest(name)
+		self.tests.append(test)
+		return test
+
+class RegressionReport2D(RegressionAnalysis):
+	def __init__(self):
+		self.columns = []
+
+	def key(self, column):
+		return column.name
+
+	def elementsOf(self, matrix):
+		return matrix.columns
+
+	def createChild(self, name):
+		col = RegressionReport1D(name)
+		self.columns.append(col)
+		return col
+
+	def asMatrixOfValues(self):
+		matrix = MatrixOfValues([c.name for c in self.columns], default_value = None)
+		for column in self.columns:
+			for test in column.tests:
+				matrix.set(test.id, column.name, test)
+				matrix.setRowInfo(test.id, test.description)
+
+		return matrix
+
+class RegressionInputs:
+	def __init__(self, baselineTag, baselineResults, testrunResults):
+		self.baselineTag = baselineTag
+		self.baseline = baselineResults
+		self.testrun = testrunResults
+
+class RegressionMatrix(RegressionReport2D):
+	def __init__(self, inputs):
+		super().__init__()
+
+		self.regressInputs(inputs)
+
+class RegressionVector(RegressionReport1D):
+	def __init__(self, inputs):
+		super().__init__()
+
+		self.regressInputs(inputs)
+
+class Regressor(Processor):
+	def create_arg_parser(self):
+		parser = argparse.ArgumentParser(description = 'Perform regression analysis between test runs')
+		parser.add_argument('--baseline',
+			help = 'Name of the baseline test run to compare against')
+		parser.add_argument('--baseline-tag',
+			help = 'Tag identifying the baseline in the generated report.')
+		parser.add_argument('--testrun',
+			help = 'Name of the test run')
+
+		return parser
+
+	def process_args(self, args):
+		self.checkRequiredArgument("--baseline", args.baseline)
+		# self.checkRequiredArgument("--testrun", args.testrun)
+
+		self.baselineTag = args.baseline_tag or "baseline"
+
+		self.baseline = TestRunResults(self.logspace, args.baseline)
+		self.testrun = TestRunResults(self.logspace, args.testrun)
+
+	def perform(self):
+		baseline = self.baseline.results
+		testrun = self.testrun.results
+		if baseline.__class__ != testrun.__class__:
+			twopence.error("Cannot compare results of different dimensions")
+			twopence.error(f"Baseline is a {baseline.documentType}, while testrun is a {testrun.documentType}")
+			exit(1)
+
+		inputs = RegressionInputs(self.baselineTag, baseline, testrun)
+
+		if isinstance(baseline, ResultsMatrix):
+			analysis = RegressionMatrix(inputs)
+		else:
+			analysis = RegressionVector(inputs)
+		self.renderer.renderRegression(analysis)
+

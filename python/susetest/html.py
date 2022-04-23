@@ -7,6 +7,7 @@
 ##################################################################
 
 import os
+import twopence
 from .logger import *
 from .results import Results, Renderer, ResultsMatrix
 
@@ -33,6 +34,8 @@ font.success { color: blue; }
 font.error { color: red; }
 font.failure { color: red; }
 font.warning { color: red; }
+font.improvement { color: green; }
+font.regression { color: red; }
 tr:hover {background-color: lightgreen;}
 </style>
 
@@ -40,6 +43,8 @@ tr:hover {background-color: lightgreen;}
 const showAllNames = ["imadoofus"]
 const hideSuccessNames = ["skipped", "disabled", "success"]
 const hideWarningNames = ["skipped", "disabled", "success", "warning"]
+const onlyImprovements = ["unchanged", "regression"]
+const onlyRegressions = ["unchanged", "improvement"]
 
 function showAllRows() {
   hideRowsWithClassname(showAllNames);
@@ -80,6 +85,22 @@ html_results_radiobuttons = '''
 
 '''
 
+html_regression_radiobuttons = '''
+
+<fieldset style="width: 60em">
+<legend>Table filter</legend>
+<input type='radio' id='all' name='row-filter' onclick='hideRowsWithClassname(showAllNames)' checked="checked">
+ <label for='all'>Show all rows</label><br>
+<input type='radio' id='success' name='row-filter' onclick='hideRowsWithClassname(onlyRegressions)'>
+ <label for='success'>Show regressions</label><br>
+<input type='radio' id='success' name='row-filter' onclick='hideRowsWithClassname(onlyImprovements)'>
+ <label for='success'>Show improvements only</label>
+</input>
+</fieldset>
+<p>
+
+'''
+
 html_trailer = '''
 </body>
 </html>
@@ -109,6 +130,20 @@ class HTMLRenderer(Renderer):
 		print(html_preamble)
 
 		print("<h1>Test Run Summary</h1>")
+		self.renderResultsMeta(results)
+
+		if isinstance(results, ResultsMatrix):
+			values = results.asMatrixOfValues()
+			self.renderMatrix(values, results.parameterMatrix())
+		else:
+			vector = results.asVectorOfValues()
+			self.renderVector(vector)
+
+		self.print(html_trailer)
+
+	def renderResultsMeta(self, results):
+		print = self.print
+
 		if results.invocation:
 			print(f"Invocation: <code>{results.invocation}</code><p>")
 
@@ -121,15 +156,6 @@ class HTMLRenderer(Renderer):
 					print(f"<tr><td>&nbsp;{label}</td><td>{value}</td></tr>")
 			print("</table><p>")
 			print()
-
-		if isinstance(results, ResultsMatrix):
-			values = results.asMatrixOfValues()
-			self.renderMatrix(values, results.parameterMatrix())
-		else:
-			vector = results.asVectorOfValues()
-			self.renderVector(vector)
-
-		self.print(html_trailer)
 
 	roleAttrs = (
 		("os",			"OS"),
@@ -167,6 +193,15 @@ class HTMLRenderer(Renderer):
 				print(f" <tr><td>{paramName}</td><td>{value}</td></tr>")
 			print("</table>")
 
+	def renderRegressionMatrix(self, matrix):
+		print = self.print
+
+		print("<h2>Table of test regressions</h2>")
+		print(html_regression_radiobuttons)
+
+		matrixDecorator = RegressionMatrixDecorator(matrix)
+		HTMLMatrixRenderer(self).render(matrixDecorator, tableClass = 'results-table')
+
 	def renderVector(self, vector):
 		print = self.print
 
@@ -175,6 +210,34 @@ class HTMLRenderer(Renderer):
 
 		vectorDecorator = VectorDecorator(vector, self.hrefs)
 		HTMLVectorRenderer(self).render(vectorDecorator, tableClass = 'results-table')
+
+	##########################################################
+	# Render a regression analysis
+	##########################################################
+	def renderRegression(self, analysis):
+		baselineTag = analysis.baselineTag
+
+		htmlFilename = f"regress-{baselineTag}.html"
+		self.open(htmlFilename)
+
+		print = self.print
+
+		print(html_preamble)
+		print(f"<h1>Regression report vs {baselineTag}</h1>")
+
+		print("<h2>Baseline metadata</h2>")
+		self.renderResultsMeta(analysis.baseline)
+
+		print("<h2>Test run metadata</h2>")
+		self.renderResultsMeta(analysis.testrun)
+
+		if analysis.documentType == "matrix":
+			values = analysis.asMatrixOfValues()
+			self.renderRegressionMatrix(values)
+		else:
+			raise NotImplementedError()
+
+		print(html_trailer)
 
 	##########################################################
 	# Render junit test report as HTML
@@ -462,10 +525,16 @@ class HTMLVectorRenderer:
 		print("</table>")
 
 class Decorator:
-	def decorateStatus(self, value):
-		cell = value
+	def decorateStatus(self, value, tendency = None):
+		cell = value or "(not run)"
 		if value in ('success', 'warning', 'failure', 'error'):
 			cell = f"<font class='{value}'>{cell}</font>"
+
+		if tendency == "regression":
+			cell += "<font class='regression'>&#x25BC;</font>"
+		elif tendency == "improvement":
+			cell += "<font class='improvement'>&#x25B2;</font>"
+
 		return cell
 
 class VectorDecorator(Decorator):
@@ -519,6 +588,49 @@ class MatrixDecorator(Decorator):
 	def getTableRowClass(self, rowName):
 		matrix = self.values
 		return Results.filterMostSignficantStatus(matrix.get(rowName, colName) for colName in matrix.columns)
+
+class RegressionMatrixDecorator(Decorator):
+	def __init__(self, values, hrefs = None):
+		self.values = values
+		self.hrefs = hrefs
+
+	@property
+	def rows(self):
+		return self.values.rows
+
+	@property
+	def columns(self):
+		return self.values.columns
+
+	def getTableCell(self, rowName, colName):
+		test = self.values.get(rowName, colName)
+
+		if test is not None:
+			cell = self.decorateStatus(test.status, test.verdict)
+		else:
+			cell = self.decorateStatus("(not run)")
+
+		if self.hrefs is not None:
+			href = self.hrefs.get(colName, rowName)
+			if href is not None:
+				cell = f"<a href=\"{href}\">{cell}</a>"
+
+		return cell
+
+	def getRowDescription(self, id):
+		return self.values.getRowInfo(id)
+
+	def getTableRowClass(self, rowName):
+		rowVerdict = "unchanged"
+		for colName in self.values.columns:
+			test = self.values.get(rowName, colName)
+			verdict = test.verdict
+			if verdict == "regression":
+				return verdict
+			if verdict == "improvement":
+				rowVerdict = verdict
+
+		return rowVerdict
 
 class HTMLReferenceMap:
 	def __init__(self):

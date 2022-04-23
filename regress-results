@@ -1,0 +1,11 @@
+#!/usr/bin/python3
+#
+# Compare the results of a testrun against a baseline
+#
+
+from susetest.results import Regressor
+
+regressor = Regressor()
+regressor.perform()
+
+
