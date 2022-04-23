@@ -340,6 +340,8 @@ class Target(twopence.Target):
 
 		if not defer:
 			self.acquireResource(res, **stateArgs)
+			if not res.is_active:
+				return None
 
 		return res
 
