@@ -15,13 +15,6 @@ import susetest
 from .feature import Feature
 
 class PackageManager(Feature):
-	def __init__(self):
-		pass
-
-	def activate(self, driver, node):
-		node.logInfo(f"Setting package manager to {self.name}")
-		node.setPackageManager(self)
-
 	def run(self, node, cmd, **kwargs):
 		st = node.run(cmd, user = "root", **kwargs)
 		if not st:
@@ -29,9 +22,6 @@ class PackageManager(Feature):
 		return bool(st)
 
 class PackageManagerRPM(PackageManager):
-	def __init__(self):
-		pass
-
 	def checkPackage(self, node, packageName):
 		return self.run(node, f"rpm -q {packageName}")
 

@@ -159,9 +159,11 @@ class Target(twopence.Target):
 		return True
 
 	def setServiceManager(self, serviceManager):
+		susetest.say(f"Setting service manager to {serviceManager.name}")
 		self.serviceManager = serviceManager
 
 	def setPackageManager(self, packageManager):
+		susetest.say(f"Setting package manager to {packageManager.name}")
 		self.packageManager = packageManager
 
 	def setContainerManager(self, containerManager):

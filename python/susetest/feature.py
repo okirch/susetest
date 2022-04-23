@@ -67,10 +67,6 @@ class Feature(object):
 		# raise ValueError("Feature %s not yet implemented" % name)
 		return UnsupportedFeature(name)
 
-	@property
-	def requiresActivation(self):
-		return True
-
 	def activate(self, driver, node):
 		raise NotImplementedError()
 
@@ -84,7 +80,3 @@ class UnsupportedFeature(Feature):
 class DummyFeature(Feature):
 	def __init__(self, name):
 		self.name = name
-
-	@property
-	def requiresActivation(self):
-		return False

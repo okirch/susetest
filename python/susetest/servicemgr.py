@@ -18,12 +18,7 @@ import susetest
 from .feature import Feature
 
 class ServiceManager(Feature):
-	def __init__(self):
-		pass
-
-	def activate(self, driver, node):
-		node.logInfo(f"Setting service manager to {self.name}")
-		node.setServiceManager(self)
+	pass
 
 class ServiceManagerSystemd(ServiceManager):
 	name = "systemd"

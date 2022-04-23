@@ -13,8 +13,10 @@ import re
 import time
 
 from .resources import Resource, ResourceManager
-from .feature import Feature
+from .feature import Feature, DummyFeature
 from .logger import Logger
+from .servicemgr import ServiceManager
+from .packagemgr import PackageManager
 from .containermgr import ContainerManager
 import susetest
 import twopence.provision
@@ -143,11 +145,20 @@ class Driver:
 		feature = self.createFeature(featureName)
 
 		# ignore duplicates
-		if not node.testFeature(feature) and feature.requiresActivation:
-			group.beginTest(name = f"{node.name}-enable-{featureName}", description = f"enable {featureName} on node {node.name}")
-			feature.activate(self, node)
+		if not node.testFeature(feature):
+			# Short-circuit trivial stuff here so that it doesn't appear in the report
+			if isinstance(feature, ServiceManager):
+				node.setServiceManager(feature)
+			elif isinstance(feature, PackageManager):
+				node.setPackageManager(feature)
+			elif isinstance(feature, DummyFeature):
+				pass
+			else:
+				group.beginTest(name = f"{node.name}-enable-{featureName}", description = f"enable {featureName} on node {node.name}")
+				feature.activate(self, node)
+				group.endTest()
+
 			susetest.say(f"{node.name}: enabled feature {featureName}")
-			group.endTest()
 
 		node.enabledFeature(feature)
 
