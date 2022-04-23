@@ -17,26 +17,10 @@ from .logger import LogParser
 from .logger import loadResultsDocument, createResultsDocument
 
 
-class FrequentWriter:
-	def __init__(self, object, documentType, path):
-		self.object = object
-		self.documentType = documentType
-		self.path = path
-
-		if self.path is None:
-			raise ValueError("Cannot save results; path not set")
-
-	def sync(self):
-		writer = createResultsDocument(self.documentType)
-		self.object.serialize(writer)
-		writer.save(self.path)
-
-		twopence.info(f"Updated {self.path}")
-
 class ResultsCollection:
 	def __init__(self, name = None):
 		self._name = name
-		self._saver = None
+		self._path = None
 		self.invocation = None
 
 	def attachToLogspace(self, logspace, clobber = False):
@@ -44,17 +28,17 @@ class ResultsCollection:
 		if not clobber and os.path.exists(path):
 			raise ValueError(f"Refusing to overwrite existing {path}")
 
-		# whenver results.save() is called, write the results
-		# vector to the file
-		self.setPath(path)
-
-	def setPath(self, path):
-		if self.documentType:
-			self._saver = FrequentWriter(self, self.documentType, path)
+		self._path = path
 
 	def save(self):
-		if self._saver:
-			self._saver.sync()
+		if not self._path:
+			raise ValueError("Cannot save results; path not set")
+
+		writer = createResultsDocument(self.documentType)
+		self.serialize(writer)
+		writer.save(self._path)
+
+		twopence.info(f"Updated {self._path}")
 
 	def serialize(self, writer):
 		if self.invocation:
@@ -154,9 +138,6 @@ class ResultsMatrix(ResultsCollection):
 				raise ValueError(f"Invalid parameter settings {kvpair}")
 			key, value = kvpair.split("=", maxsplit = 1)
 			column.setParameter(key, value)
-
-		# inherit the FrequentWriter
-		column._saver = self._saver
 
 		twopence.info(f"Created results vector for matrix column {name}")
 		return column
