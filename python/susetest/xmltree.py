@@ -145,6 +145,50 @@ class XMLBackedNode:
 					raise KeyError(f"Invalid attribute {name}: no information for this attribute of {self}")
 				type._setter(self, value)
 
+	def save(self, filename):
+		import os
+
+		tree = ET.ElementTree(self.node)
+
+		# ElementTree.indent was added in 3.9
+		if getattr(ET, 'indent', None):
+			ET.indent(tree)
+		else:
+			def diy_indent(node, space = "  "):
+				indent = "\n" + space
+				space += "  "
+
+				# Setting our own tail indents our right hand sibling, or,
+				# if we're the last element, the closing element of our parent
+				# node.
+				# The default is to set .tail to indent our sibling. If we
+				# are the last child, the caller will take care to adjust our .tail
+				node.tail = indent[:-2]
+
+				children = list(iter(node))
+				if not children:
+					# No children, no whitespace
+					return
+
+				# Indent the first child node by setting our .text
+				if node.text is None:
+					node.text = indent
+
+				for child in children:
+					diy_indent(child, space)
+
+				lastChild = children[-1]
+				lastChild.tail = indent[:-2]
+
+			diy_indent(tree.getroot())
+
+		tree.write(filename + ".new", "UTF-8", xml_declaration = True)
+		os.rename(filename + ".new", filename)
+
+		if False:
+			print(f"--- {filename} ---")
+			ET.dump(tree.getroot())
+			print("---")
 
 ##################################################################
 # Obsolete stuff, will go away
