@@ -112,7 +112,7 @@ class JournalMessages(JournalEvent):
 class JournalCommandStatus(XMLBackedNode):
 	attributes = [
 		IntAttributeSchema("exit-code"),
-		IntAttributeSchema("exit-signal"),
+		AttributeSchema("exit-signal"),
 		AttributeSchema("timeout"),
 		AttributeSchema("message"),
 
