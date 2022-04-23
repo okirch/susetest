@@ -43,9 +43,9 @@ class FloatAttributeSchema(AttributeSchema):
 
 ##################################################################
 class NodeSchema:
-	def __init__(self, name, childClass):
+	def __init__(self, name, childClass, attr_name = None):
 		self.name = name
-		self.attr_name = name.replace('-', '_')
+		self.attr_name = attr_name or name.replace('-', '_')
 		self.childClass = childClass
 
 	def _initer(self, object):
