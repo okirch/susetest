@@ -494,7 +494,7 @@ class ResultsDocument(XMLBackedNode):
 		if self._invocation is not None:
 			return str(self._invocation)
 
-class ResultsVector(ResultsDocument):
+class ResultsVectorDocument(ResultsDocument):
 	children = [
 		ListNodeSchema("test", TestResult),
 		NodeSchema("parameters", InfoParameterSet, attr_name = "_parameters"),
@@ -521,9 +521,9 @@ class ResultsVector(ResultsDocument):
 	def results(self):
 		return self.test
 
-class ResultsMatrix(ResultsDocument):
+class ResultsMatrixDocument(ResultsDocument):
 	children = [
-		ListNodeSchema("vector", ResultsVector),
+		ListNodeSchema("vector", ResultsVectorDocument),
 	] + ResultsDocument.children
 
 	@property
@@ -542,10 +542,10 @@ def loadResultsDocument(path):
 
 	root = tree.getroot()
 	if root.tag == 'results' or root.attrib.get('type') == 'matrix':
-		return ResultsMatrix(root)
+		return ResultsMatrixDocument(root)
 
 	if root.tag == 'results' or root.attrib.get('type') == 'vector':
-		return ResultsVector(root)
+		return ResultsVectorDocument(root)
 
 	raise ValueError(f"{path} does not look like a results document we can handle.")
 
@@ -553,9 +553,9 @@ def createResultsDocument(type):
 	root = ET.Element("results")
 
 	if type == "matrix":
-		doc = ResultsMatrix(root)
+		doc = ResultsMatrixDocument(root)
 	elif type == "vector":
-		doc = ResultsVector(root)
+		doc = ResultsVectorDocument(root)
 	else:
 		raise ValueError(f"Don't know how to create results document for type \"{type}\"")
 
