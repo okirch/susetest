@@ -16,6 +16,31 @@ import curly
 from .logger import LogParser
 from .logger import loadResultsDocument, createResultsDocument
 
+class Results:
+	validStatesOrdered = ('success', 'warning', 'failure', 'error', 'skipped', 'disabled')
+
+	@classmethod
+	def statusToSeverity(klass, status):
+		try:
+			return klass.validStatesOrdered.index(status)
+		except:
+			return None
+
+	@classmethod
+	def filterMostSignficantStatus(klass, states):
+		className = None
+		classPrio = -1
+
+		for state in states:
+			prio = klass.statusToSeverity(state)
+			if prio is None:
+				return state
+			if prio > classPrio:
+				className = state
+				classPrio = prio
+
+		return className or "success"
+
 class ResultsRole:
 	attrs = (
 		'os',

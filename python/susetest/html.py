@@ -8,7 +8,7 @@
 
 import os
 from .logger import *
-from .results import Renderer, ResultsMatrix
+from .results import Results, Renderer, ResultsMatrix
 
 html_preamble = '''
 <html>
@@ -243,21 +243,8 @@ class HTMLRenderer(Renderer):
 
 		return cell
 
-	orderOfStates = ('success', 'warning', 'failure', 'error', 'skipped', 'disabled')
-
 	def getTableRowClass(self, states):
-		className = None
-		classPrio = -1
-
-		for state in states:
-			if state not in self.orderOfStates:
-				return state
-			prio = self.orderOfStates.index(state)
-			if prio > classPrio:
-				className = state
-				classPrio = prio
-
-		return state or "success"
+		return Results.filterMostSignficantStatus(states)
 
 	##########################################################
 	# Render junit test report as HTML
