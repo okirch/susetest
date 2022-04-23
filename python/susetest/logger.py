@@ -59,11 +59,11 @@ class GroupLogger:
 
 	@property
 	def errors(self):
-		fart
+		raise NotImplementedError()
 
 	@property
 	def failures(self):
-		fart
+		raise NotImplementedError()
 
 	def beginTest(self, *args, **kwargs):
 		self.endTest()
@@ -561,127 +561,3 @@ def createResultsDocument(type):
 
 	doc.type = type
 	return doc
-
-class ResultsIO:
-	class GenericObject:
-		pass
-
-	class NodeIO:
-		def __init__(self, node):
-			self._node = node
-
-		def setName(self, name):
-			self._node.setAttributes(name = name)
-
-		@property
-		def name(self):
-			return self._node.attrib.get('name')
-
-		def setInvocation(self, command):
-			node = self._node.createChild("invocation")
-			node.setText(command)
-
-		@property
-		def invocation(self):
-			node = self._node.find("invocation")
-			if node is not None:
-				return node.text.strip()
-
-		def addParameters(self, parameters):
-			if not parameters:
-				return
-
-			node = self._node.createChild("parameters")
-			for name, value in parameters.items():
-				child = node.createChild("parameter")
-				child.setAttributes(name = name, value = value)
-
-		@property
-		def parameters(self):
-			d = {}
-
-			node = self._node.find("parameters")
-			if node is not None:
-				for child in node.findall("parameter"):
-					name = child.attrib.get("name")
-					value = child.attrib.get("value")
-					if name is None or value is None:
-						continue
-					d[name] = value
-
-			return d
-
-		def addResults(self, results):
-			assert(self._node)
-			for test in results:
-				node = self._node.createChild("test")
-				node.setAttributes(id = test.id,
-						status = test.status,
-						description = test.description)
-
-		@property
-		def results(self):
-			ret = []
-			for child in self._node:
-				if child.tag != "test":
-					continue
-
-				res = ResultsIO.GenericObject()
-				for name, value in child.attrib.items():
-					setattr(res, name, value)
-				ret.append(res)
-			return ret
-
-	class DocumentIO(NodeIO):
-		@property
-		def type(self):
-			return self._node.attrib.get('type')
-
-		def createColumn(self, name = None):
-			node = self._node.createChild("vector")
-			if name:
-				node.setAttributes(name = name)
-
-			return ResultsIO.NodeIO(node)
-
-		@property
-		def columns(self):
-			if self._node is not None:
-				for node in self._node:
-					if node.tag == "vector":
-						yield ResultsIO.NodeIO(node)
-
-	class DocumentWriter(DocumentIO):
-		def __init__(self, type):
-			self._tree = XMLTree("results")
-
-			super().__init__(self._tree.root)
-			self._node.setAttributes(type = type)
-
-		def save(self, path):
-			self._tree.write(path)
-
-	class DocumentReader(DocumentIO):
-		def __init__(self, path):
-			import xml.etree.ElementTree as ET
-
-			try:
-				self._tree = ET.parse(path)
-			except Exception as e:
-				raise ValueError(f"{path}: cannot parse XML document: {e}")
-
-			super().__init__(self._tree.getroot())
-
-			if self._node.tag != "results":
-				raise ValueError(f"{path}: unexpected root node <{self._node.tag}>")
-
-class ResultsMatrixWriter(ResultsIO.DocumentWriter):
-	def __init__(self):
-		super().__init__("matrix")
-
-class ResultsVectorWriter(ResultsIO.DocumentWriter):
-	def __init__(self):
-		super().__init__("vector")
-
-def ResultsParser(path):
-	return ResultsIO.DocumentReader(path)
