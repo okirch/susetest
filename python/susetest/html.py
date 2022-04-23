@@ -153,35 +153,9 @@ class HTMLRenderer(Renderer):
 
 		print("<h2>Table of test results</h2>")
 		print(html_results_radiobuttons)
-		print("<table class='results-table'>")
 
-		print(" <th>")
-		for name in matrix.columns:
-			print(f"  <td><a href='#col:{name}'>{name}</td>")
-		print(" </th>")
-
-		numColumns = 1 + len(matrix.columns)
-
-		currentTestName = None
-		for rowName in matrix.rows:
-			testName = rowName.split('.')[0]
-			if testName != currentTestName:
-				currentTestName = testName
-				print(" <tr>")
-				print(f"  <td colspan={numColumns} class='caption'>{testName}</td>")
-				print(" </tr>")
-
-			className = self.getTableRowClass(matrix.get(rowName, colName) for colName in matrix.columns)
-
-			print(f" <tr class='{className}'>")
-			desc = self.describeRow(matrix, rowName)
-			print(f"  <td>{desc}</td>")
-			for colName in matrix.columns:
-				cell = self.renderCellValue(matrix.get(rowName, colName), rowName, colName)
-				print(f"  <td>{cell}</td>")
-			print(" </tr>")
-
-		print("</table>")
+		matrixDecorator = MatrixDecorator(matrix, self.hrefs)
+		HTMLMatrixRenderer(self).render(matrixDecorator, tableClass = 'results-table')
 
 		for matrixColumn in parameters.columns:
 			print(f"<h2 id='col:{matrixColumn}'>Matrix parameters for column {matrixColumn}</h2>")
@@ -198,53 +172,9 @@ class HTMLRenderer(Renderer):
 
 		print("<h2>Test results</h2>")
 		print(html_results_radiobuttons)
-		print("<table class='results-table'>")
 
-		currentTestName = None
-		for rowName in vector.rows:
-			testName = rowName.split('.')[0]
-			if testName != currentTestName:
-				currentTestName = testName
-				print(" <tr>")
-				print(f"  <td colspan=2 class='caption'>{testName}</td>")
-				print(" </tr>")
-
-			status = vector.get(rowName)
-
-			cell = self.renderCellValue(status, rowName)
-			description = self.describeRow(vector, rowName)
-
-			print(f"  <tr class='{status}'><td>{description}</td><td>{cell}</td>")
-		print("</table>")
-
-	def describeRow(self, matrix, id):
-		description = matrix.getRowInfo(id)
-		if description is None:
-			if '__resources__.resource-acquire:' in id:
-				# ids for resource mgmt look like this:
-				# traceroute.__resources__.resource-acquire:client:optional:executable:traceroute
-				words = id.split()[1:]
-				if words[0] == "None":
-					words.pop(0)
-				description = " ".join(words)
-			else:
-				description = id
-		return description
-
-	def renderCellValue(self, value, rowName, colName = None):
-		cell = value
-		if value in ('success', 'warning', 'failure', 'error'):
-			cell = f"<font class='{value}'>{cell}</font>"
-
-		if self.hrefs is not None:
-			href = self.hrefs.get(colName, rowName)
-			if href is not None:
-				cell = f"<a href=\"{href}\">{cell}</a>"
-
-		return cell
-
-	def getTableRowClass(self, states):
-		return Results.filterMostSignficantStatus(states)
+		vectorDecorator = VectorDecorator(vector, self.hrefs)
+		HTMLVectorRenderer(self).render(vectorDecorator, tableClass = 'results-table')
 
 	##########################################################
 	# Render junit test report as HTML
@@ -459,6 +389,136 @@ class HTMLRenderer(Renderer):
 			span = 4 - len(cells)
 			cells[-1] = f"<td colspan='{span}'>{args[-1]}</td>"
 		self.print("<tr>" + "".join(cells) + "</tr>")
+
+class HTMLMatrixRenderer:
+	def __init__(self, renderer):
+		self.hrefs = renderer.hrefs
+		self.print = renderer.print
+
+	def render(self, matrix, tableClass = None):
+		print = self.print
+
+		if tableClass:
+			print(f"<table class='{tableClass}'>")
+		else:
+			print("<table>")
+
+		print(" <th>")
+		for name in matrix.columns:
+			print(f"  <td><a href='#col:{name}'>{name}</td>")
+		print(" </th>")
+
+		numColumns = 1 + len(matrix.columns)
+
+		currentTestName = None
+		for rowName in matrix.rows:
+			testName = rowName.split('.')[0]
+			if testName != currentTestName:
+				currentTestName = testName
+				print(" <tr>")
+				print(f"  <td colspan={numColumns} class='caption'>{testName}</td>")
+				print(" </tr>")
+
+			className = matrix.getTableRowClass(rowName)
+
+			print(f" <tr class='{className}'>")
+			desc = matrix.getRowDescription(rowName)
+			print(f"  <td>{desc}</td>")
+			for colName in matrix.columns:
+				cell = matrix.getTableCell(rowName, colName)
+				print(f"  <td>{cell}</td>")
+			print(" </tr>")
+
+		print("</table>")
+
+class HTMLVectorRenderer:
+	def __init__(self, renderer):
+		self.hrefs = renderer.hrefs
+		self.print = renderer.print
+
+	def render(self, vector, tableClass = None):
+		print = self.print
+
+		if tableClass:
+			print(f"<table class='{tableClass}'>")
+		else:
+			print("<table>")
+
+		currentTestName = None
+		for rowName in vector.rows:
+			testName = rowName.split('.')[0]
+			if testName != currentTestName:
+				currentTestName = testName
+				print(" <tr>")
+				print(f"  <td colspan=2 class='caption'>{testName}</td>")
+				print(" </tr>")
+
+			status = vector.get(rowName)
+
+			cell = vector.getTableCell(rowName)
+			desc = vector.getRowDescription(rowName)
+
+			print(f"  <tr class='{status}'><td>{desc}</td><td>{cell}</td>")
+		print("</table>")
+
+class Decorator:
+	def decorateStatus(self, value):
+		cell = value
+		if value in ('success', 'warning', 'failure', 'error'):
+			cell = f"<font class='{value}'>{cell}</font>"
+		return cell
+
+class VectorDecorator(Decorator):
+	def __init__(self, values, hrefs = None):
+		self.values = values
+		self.hrefs = hrefs
+
+	@property
+	def rows(self):
+		return self.values.rows
+
+	def getTableCell(self, rowName):
+		cell = self.decorateStatus(self.values.get(rowName))
+
+		if self.hrefs is not None:
+			href = self.hrefs.get(None, rowName)
+			if href is not None:
+				cell = f"<a href=\"{href}\">{cell}</a>"
+
+		return cell
+
+	def getRowDescription(self, id):
+		return self.values.getRowInfo(id)
+
+class MatrixDecorator(Decorator):
+	def __init__(self, values, hrefs = None):
+		self.values = values
+		self.hrefs = hrefs
+
+	@property
+	def rows(self):
+		return self.values.rows
+
+	@property
+	def columns(self):
+		return self.values.columns
+
+	def getTableCell(self, rowName, colName):
+		cell = self.decorateStatus(self.values.get(rowName, colName))
+
+		if self.hrefs is not None:
+			href = self.hrefs.get(colName, rowName)
+			if href is not None:
+				cell = f"<a href=\"{href}\">{cell}</a>"
+
+		return cell
+
+	def getRowDescription(self, id):
+		return self.values.getRowInfo(id)
+
+	def getTableRowClass(self, rowName):
+		matrix = self.values
+		return Results.filterMostSignficantStatus(matrix.get(rowName, colName) for colName in matrix.columns)
 
 class HTMLReferenceMap:
 	def __init__(self):
