@@ -507,20 +507,18 @@ class HTMLVectorRenderer:
 			print("<table>")
 
 		currentTestName = None
-		for rowName in vector.rows:
-			testName = rowName.split('.')[0]
+		for rowKey in vector.rows:
+			testName = rowKey.id.split('.')[0]
 			if testName != currentTestName:
 				currentTestName = testName
 				print(" <tr>")
 				print(f"  <td colspan=2 class='caption'>{testName}</td>")
 				print(" </tr>")
 
-			status = vector.get(rowName)
+			status = vector.get(rowKey)
+			cell = vector.getTableCell(rowKey)
 
-			cell = vector.getTableCell(rowName)
-			desc = vector.getRowDescription(rowName)
-
-			print(f"  <tr class='{status}'><td>{desc}</td><td>{cell}</td>")
+			print(f"  <tr class='{status}'><td>{rowKey.label}</td><td>{cell}</td>")
 		print("</table>")
 
 class Decorator:
@@ -545,11 +543,11 @@ class VectorDecorator(Decorator):
 	def rows(self):
 		return self.values.rows
 
-	def getTableCell(self, rowName):
-		cell = self.decorateStatus(self.values.get(rowName))
+	def getTableCell(self, rowKey):
+		cell = self.decorateStatus(self.values.get(rowKey))
 
 		if self.hrefs is not None:
-			href = self.hrefs.get(None, rowName)
+			href = self.hrefs.get(None, rowKey.id)
 			if href is not None:
 				cell = f"<a href=\"{href}\">{cell}</a>"
 

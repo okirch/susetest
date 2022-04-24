@@ -194,8 +194,8 @@ class ResultsVector(ResultsCollection):
 	def asVectorOfValues(self):
 		vector = VectorOfValues(default_value = "(not run)")
 		for test in self.results:
-			vector.set(test.id, test.status)
-			vector.setRowInfo(test.id, test.description)
+			key = vector.makeKey(test.id, test.description)
+			vector.set(key, test.status)
 
 		return vector
 
@@ -402,26 +402,22 @@ class SomethingOfValue:
 class VectorOfValues(SomethingOfValue):
 	def __init__(self, default_value = "-"):
 		self._values = {}
-		self._rowNames = []
-		self._rowInfo = {}
+		self._rows = self.Dimension()
 		self._default_value = default_value
 
-	def set(self, row, value):
-		self._values[row] = value
-		self._rowNames.append(row)
+	def set(self, rowKey, value):
+		self._values[rowKey._hash] = value
 
-	def get(self, row):
-		return self._values.get(row) or self._default_value
-
-	def setRowInfo(self, row, info):
-		self._rowInfo[row] = info
-
-	def getRowInfo(self, row):
-		return self._rowInfo.get(row) or "-"
+	def get(self, rowKey):
+		return self._values.get(rowKey._hash) or self._default_value
 
 	@property
 	def rows(self):
-		return self._rowNames
+		return self._rows
+
+	@property
+	def rowCount(self):
+		return self._rows.size
 
 class MatrixOfValues(SomethingOfValue):
 	def __init__(self, columnNames = [], default_value = "-"):
@@ -561,11 +557,9 @@ class TextRenderer(Renderer):
 
 	def displayVector(self, vector):
 		print = self.print
-		for row in vector.rows:
-			status = vector.get(row)
-			description = vector.getRowInfo(row)
-
-			print(f"    {row:32} {status:18} {description}")
+		for rowKey in vector.rows:
+			status = vector.get(rowKey)
+			print(f"    {rowKey.id:32} {status:18} {rowKey.label}")
 
 class TestRunResults:
 	def __init__(self, logspace, testrun):
