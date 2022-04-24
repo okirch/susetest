@@ -126,6 +126,14 @@ class ResultsVector(ResultsCollection):
 			self.status = status
 			self.description = description
 
+	class TestSchedule:
+		def __init__(self, testScriptName):
+			self.name = testScriptName
+			self.ids = []
+
+		def add(self, test):
+			self.ids.append(test.id)
+
 	def __init__(self, name = None):
 		super().__init__(name)
 		self._parameters = {}
@@ -142,6 +150,20 @@ class ResultsVector(ResultsCollection):
 	@property
 	def results(self):
 		return self._results
+
+	@property
+	def schedules(self):
+		result = []
+		found = {}
+		for test in self.results:
+			testScriptName = test.id.split('.')[0]
+			schedule = found.get(testScriptName)
+			if schedule is None:
+				schedule = self.TestSchedule(testScriptName)
+				found[testScriptName] = schedule
+				result.append(schedule)
+			schedule.add(test)
+		return result
 
 	def __str__(self):
 		return f"{self.__class__.__name__}({self.name})"
@@ -176,6 +198,106 @@ class ResultsVector(ResultsCollection):
 			vector.setRowInfo(test.id, test.description)
 
 		return vector
+
+# These classes should live elsewhere
+class IdealizedOrder:
+	def __init__(self, name = None):
+		self.name = name
+		self.order = []
+
+	# This tries to merge 2 or more runs of test IDs into a reasonable order.
+	# Given inputs like this:
+	# 	['a', 'b', 'd', 'z']
+	#	['b', 'c', 'd', 'e', 'f', 'g', 'z']
+	# it will create an ordered list
+	#	['a', 'b', 'c', 'd', 'e', 'f', 'g', 'z']
+	def merge(self, ids):
+		lastIndex = None
+
+		if not self.order:
+			self.order += ids
+			return
+
+		for id in ids:
+			try:
+				index = self.order.index(id)
+			except:
+				index = None
+
+			if index is not None:
+				lastIndex = index
+			elif lastIndex is not None:
+				lastIndex += 1
+				self.order.insert(lastIndex, id)
+			else:
+				self.order.append(id)
+
+class IdealizedOrder2D(IdealizedOrder):
+	def __init__(self):
+		super().__init__()
+
+		self.children = {}
+
+	@property
+	def totalOrder(self):
+		result = []
+		for name in self.order:
+			result += self.children[name].order
+		return result
+
+	def mergeChildren(self, name, ids):
+		child = self.children.get(name)
+		if child is None:
+			child = IdealizedOrder(name)
+			self.children[name] = child
+		child.merge(ids)
+
+	def sort(self, values, key = None):
+		totalOrder = self.totalOrder
+		if key:
+			sortKey = lambda item: totalOrder.index(key(item))
+		else:
+			sortKey = lambda item: totalOrder.index(item)
+
+		return sorted(values, key = sortKey)
+
+class IdealizedMatrixSchedule:
+	def __init__(self):
+		self.order = IdealizedOrder2D()
+		self.descriptions = {}
+
+		self._totalOrder = None
+
+	def learn(self, column):
+		schedules = column.schedules
+
+		# Merge the list of test cases run for this column, in order
+		self.order.merge(sched.name for sched in schedules)
+
+		# Then, merge the test case ids for each schedule
+		for sched in schedules:
+			self.order.mergeChildren(sched.name, sched.ids)
+
+		for test in column.results:
+			if (test.id not in self.descriptions) and test.description:
+				self.descriptions[test.id] = test.description
+
+		self._totalOrder = None
+
+	@property
+	def totalOrder(self):
+		if self._totalOrder is None:
+			self._totalOrder = self.order.totalOrder
+		return self._totalOrder
+
+	def apply(self, column):
+		allIds = set(test.id for test in column.results)
+
+		missingIds = set(self.totalOrder).difference(allIds)
+		for id in missingIds:
+			column.add(id, None, self.descriptions.get(id))
+
+		column._results = self.order.sort(column.results, key = lambda test: test.id)
 
 class ResultsMatrix(ResultsCollection):
 	documentType = "matrix"
@@ -222,8 +344,17 @@ class ResultsMatrix(ResultsCollection):
 		self._columns.append(column)
 		return column
 
+	def getIdealizedOrder(self, heavenlyHarmony):
+		for column in self._columns:
+			heavenlyHarmony.learn(column)
+
+	def applyIdealizedOrder(self, heavenlyHarmony):
+		for column in self._columns:
+			heavenlyHarmony.apply(column)
+
 	def asMatrixOfValues(self):
 		matrix = MatrixOfValues([c.name for c in self._columns], default_value = "(not run)")
+
 		for column in self._columns:
 			for test in column.results:
 				matrix.set(test.id, column.name, test.status)
@@ -761,6 +892,14 @@ class Regressor(Processor):
 		inputs = RegressionInputs(self.baselineTag, baseline, testrun)
 
 		if isinstance(baseline, ResultsMatrix):
+			order = IdealizedMatrixSchedule()
+
+			baseline.getIdealizedOrder(order)
+			testrun.getIdealizedOrder(order)
+
+			baseline.applyIdealizedOrder(order)
+			testrun.applyIdealizedOrder(order)
+
 			analysis = RegressionMatrix(inputs)
 		else:
 			analysis = RegressionVector(inputs)
