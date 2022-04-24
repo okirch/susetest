@@ -522,17 +522,41 @@ class HTMLVectorRenderer:
 		print("</table>")
 
 class Decorator:
-	def decorateStatus(self, value, tendency = None):
+	statusClassNames = ('success', 'warning', 'failure', 'error')
+	shortStatusNames = {
+		'success':	'OK',
+		'warning':	'warn',
+		'failure':	'fail',
+		'error':	'err',
+		'skipped':	'skip',
+		'disabled':	'off',
+	}
+
+	def decorateStatus(self, value):
 		cell = value or "(not run)"
-		if value in ('success', 'warning', 'failure', 'error'):
+		if value in self.statusClassNames:
 			cell = f"<font class='{value}'>{cell}</font>"
-
-		if tendency == "regression":
-			cell += "<font class='regression'>&#x25BC;</font>"
-		elif tendency == "improvement":
-			cell += "<font class='improvement'>&#x25B2;</font>"
-
 		return cell
+
+	def decorateStatusShort(self, value):
+		if value is None:
+			cell = "n/a"
+		else:
+			cell = self.shortStatusNames.get(value)
+			if cell is None:
+				cell = value
+
+		if value in self.statusClassNames:
+			cell = f"<font class='{value}'>{cell}</font>"
+		return cell
+
+	def decorateTendency(self, tendency):
+		if tendency == "regression":
+			return "<font class='regression'>&#x25BC;</font>"
+		elif tendency == "improvement":
+			return "<font class='improvement'>&#x25B2;</font>"
+
+		return ""
 
 class VectorDecorator(Decorator):
 	def __init__(self, values, hrefs = None):
@@ -599,10 +623,12 @@ class RegressionMatrixDecorator(MatrixDecorator):
 		test = self.values.get(rowKey, colKey)
 		assert(test)
 
-		if test is not None:
-			cell = self.decorateStatus(test.status, test.verdict)
+		if test.verdict == 'unchanged':
+			cell = self.decorateStatus(test.status)
 		else:
-			cell = self.decorateStatus("(not run)")
+			old = self.decorateStatusShort(test.baselineStatus)
+			new = self.decorateStatusShort(test.status)
+			cell = self.decorateTendency(test.verdict) + f"{old} -> {new}"
 
 		if self.hrefs is not None:
 			href = self.hrefs.get(colKey.id, rowKey.id)
