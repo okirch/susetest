@@ -134,7 +134,8 @@ class Target(twopence.Target):
 
 	def configureApplications(self, driver):
 		for app in self.nodeStatus.application_managers:
-			driver.beginTest(name = f"init-{app.name}-manager", description = f"Load the application manager for {app.name}")
+			driver.beginTest(name = f"{self.name}-init-{app.name}-manager",
+					 description = f"{self.name}: load the application manager for {app.name}")
 
 			res = self.instantiateResourceTypeAndName('application-manager', app.name, strict = None)
 			if app.class_id:
