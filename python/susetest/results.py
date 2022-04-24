@@ -802,7 +802,10 @@ class RegressionAnalysis:
 		# for several different test cases, things will come apart quickly.
 		testrunDict = {}
 		for item in testrun:
-			testrunDict[self.key(item)] = item
+			key = self.key(item)
+			if key not in testrunDict:
+				testrunDict[key] = []
+			testrunDict[key].append(item)
 		processed = set()
 
 		for baselineItem in baseline:
@@ -810,7 +813,12 @@ class RegressionAnalysis:
 
 			child = self.createChild(name)
 
-			testrunItem = testrunDict.get(name)
+			items = testrunDict.get(name)
+			if items:
+				testrunItem = items.pop(0)
+			else:
+				testrunItem = None
+
 			child.regress(baselineItem, testrunItem)
 			processed.add(testrunItem)
 
@@ -826,7 +834,7 @@ class RegressionReport1D(RegressionAnalysis):
 		self.tests = []
 
 	def key(self, test):
-		return test.id
+		return f"{test.id}:{test.description}"
 
 	def elementsOf(self, column):
 		return column.results
