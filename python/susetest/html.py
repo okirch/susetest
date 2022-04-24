@@ -183,14 +183,14 @@ class HTMLRenderer(Renderer):
 		matrixDecorator = MatrixDecorator(matrix, self.hrefs)
 		HTMLMatrixRenderer(self).render(matrixDecorator, tableClass = 'results-table')
 
-		for matrixColumn in parameters.columns:
-			print(f"<h2 id='col:{matrixColumn}'>Matrix parameters for column {matrixColumn}</h2>")
+		for colKey in parameters.columns:
+			print(f"<h2 id='col:{colKey.id}'>Matrix parameters for column {colKey.label}</h2>")
 
 			print("<table class='params'>")
 			print(f" <tr><th width='50%'>Parameter</td><td>Value</td></tr>")
-			for paramName in parameters.rows:
-				value = parameters.get(paramName, matrixColumn)
-				print(f" <tr><td>{paramName}</td><td>{value}</td></tr>")
+			for rowKey in parameters.rows:
+				value = parameters.get(rowKey, colKey)
+				print(f" <tr><td>{rowKey.label}</td><td>{value}</td></tr>")
 			print("</table>")
 
 	def renderRegressionMatrix(self, matrix):
@@ -467,28 +467,27 @@ class HTMLMatrixRenderer:
 			print("<table>")
 
 		print(" <th>")
-		for name in matrix.columns:
-			print(f"  <td><a href='#col:{name}'>{name}</td>")
+		for colKey in matrix.columns:
+			print(f"  <td><a href='#col:{colKey.label}'>{colKey.label}</td>")
 		print(" </th>")
 
-		numColumns = 1 + len(matrix.columns)
+		numColumns = 1 + matrix.columnCount
 
 		currentTestName = None
-		for rowName in matrix.rows:
-			testName = rowName.split('.')[0]
+		for rowKey in matrix.rows:
+			testName = rowKey.id.split('.')[0]
 			if testName != currentTestName:
 				currentTestName = testName
 				print(" <tr>")
 				print(f"  <td colspan={numColumns} class='caption'>{testName}</td>")
 				print(" </tr>")
 
-			className = matrix.getTableRowClass(rowName)
+			className = matrix.getTableRowClass(rowKey)
 
 			print(f" <tr class='{className}'>")
-			desc = matrix.getRowDescription(rowName)
-			print(f"  <td>{desc}</td>")
-			for colName in matrix.columns:
-				cell = matrix.getTableCell(rowName, colName)
+			print(f"  <td>{rowKey.label}</td>")
+			for colKey in matrix.columns:
+				cell = matrix.getTableCell(rowKey, colKey)
 				print(f"  <td>{cell}</td>")
 			print(" </tr>")
 
@@ -572,11 +571,19 @@ class MatrixDecorator(Decorator):
 	def columns(self):
 		return self.values.columns
 
-	def getTableCell(self, rowName, colName):
-		cell = self.decorateStatus(self.values.get(rowName, colName))
+	@property
+	def rowCount(self):
+		return self.values.rowCount
+
+	@property
+	def columnCount(self):
+		return self.values.columnCount
+
+	def getTableCell(self, rowKey, colKey):
+		cell = self.decorateStatus(self.values.get(rowKey, colKey))
 
 		if self.hrefs is not None:
-			href = self.hrefs.get(colName, rowName)
+			href = self.hrefs.get(colKey.id, rowKey.id)
 			if href is not None:
 				cell = f"<a href=\"{href}\">{cell}</a>"
 
@@ -585,25 +592,14 @@ class MatrixDecorator(Decorator):
 	def getRowDescription(self, id):
 		return self.values.getRowInfo(id)
 
-	def getTableRowClass(self, rowName):
+	def getTableRowClass(self, rowKey):
 		matrix = self.values
-		return Results.filterMostSignficantStatus(matrix.get(rowName, colName) for colName in matrix.columns)
+		return Results.filterMostSignficantStatus(matrix.get(rowKey, colKey) for colKey in matrix.columns)
 
-class RegressionMatrixDecorator(Decorator):
-	def __init__(self, values, hrefs = None):
-		self.values = values
-		self.hrefs = hrefs
-
-	@property
-	def rows(self):
-		return self.values.rows
-
-	@property
-	def columns(self):
-		return self.values.columns
-
-	def getTableCell(self, rowName, colName):
-		test = self.values.get(rowName, colName)
+class RegressionMatrixDecorator(MatrixDecorator):
+	def getTableCell(self, rowKey, colKey):
+		test = self.values.get(rowKey, colKey)
+		assert(test)
 
 		if test is not None:
 			cell = self.decorateStatus(test.status, test.verdict)
@@ -611,7 +607,7 @@ class RegressionMatrixDecorator(Decorator):
 			cell = self.decorateStatus("(not run)")
 
 		if self.hrefs is not None:
-			href = self.hrefs.get(colName, rowName)
+			href = self.hrefs.get(colKey.id, rowKey.id)
 			if href is not None:
 				cell = f"<a href=\"{href}\">{cell}</a>"
 
@@ -620,10 +616,10 @@ class RegressionMatrixDecorator(Decorator):
 	def getRowDescription(self, id):
 		return self.values.getRowInfo(id)
 
-	def getTableRowClass(self, rowName):
+	def getTableRowClass(self, rowKey):
 		rowVerdict = "unchanged"
-		for colName in self.values.columns:
-			test = self.values.get(rowName, colName)
+		for colKey in self.values.columns:
+			test = self.values.get(rowKey, colKey)
 			verdict = test.verdict
 			if verdict == "regression":
 				return verdict

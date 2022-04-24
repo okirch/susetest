@@ -356,21 +356,50 @@ class ResultsMatrix(ResultsCollection):
 		matrix = MatrixOfValues([c.name for c in self._columns], default_value = "(not run)")
 
 		for column in self._columns:
+			colKey = matrix.makeKey(column.name)
 			for test in column.results:
-				matrix.set(test.id, column.name, test.status)
-				matrix.setRowInfo(test.id, test.description)
+				rowKey = matrix.makeKey(test.id, test.description)
+				matrix.set(rowKey, colKey, test.status)
 
 		return matrix
 
 	def parameterMatrix(self):
 		matrix = MatrixOfValues([c.name for c in self._columns], default_value = "(not set)")
 		for column in self._columns:
+			colKey = matrix.makeKey(column.name)
+
 			pd = column.parameters
 			for name, value in pd.items():
-				matrix.set(name, column.name, value)
+				rowKey = matrix.makeKey(name, name)
+				matrix.set(rowKey, colKey, value)
 		return matrix
 
-class VectorOfValues:
+class SomethingOfValue:
+	class Key:
+		def __init__(self, id, label = None):
+			self.id = id
+			self.label = label or id
+
+			self._hash = hash(f"{self.id}:{self.label}")
+
+	class Dimension:
+		def __init__(self):
+			self._known = set()
+			self._order = []
+
+		@property
+		def size(self):
+			return len(self._order)
+
+		def add(self, key):
+			if key._hash not in self._known:
+				self._known.add(key._hash)
+				self._order.append(key)
+
+		def __iter__(self):
+			return iter(self._order)
+
+class VectorOfValues(SomethingOfValue):
 	def __init__(self, default_value = "-"):
 		self._values = {}
 		self._rowNames = []
@@ -394,57 +423,52 @@ class VectorOfValues:
 	def rows(self):
 		return self._rowNames
 
-class MatrixOfValues:
+class MatrixOfValues(SomethingOfValue):
 	def __init__(self, columnNames = [], default_value = "-"):
 		self._values = {}
-		self._columnNames = columnNames or []
-		self._rowNames = []
-		self._rowInfo = {}
+
+		self._rows = self.Dimension()
+		self._columns = self.Dimension()
+
 		self._default_value = default_value
 
-	def set(self, row, col, value):
-		self._values[f"{row},{col}"] = value
-		if col not in self._columnNames:
-			self._columnNames.append(col)
-		if row not in self._rowNames:
-			self._rowNames.append(row)
+	def makeKey(self, id, label = None):
+		return self.Key(id, label)
 
-	def get(self, row, col):
-		return self._values.get(f"{row},{col}") or self._default_value
+	def set(self, rowKey, colKey, value):
+		self._rows.add(rowKey)
+		self._columns.add(colKey)
 
-	def setRowInfo(self, row, info):
-		self._rowInfo[row] = info
+		self._values[f"{rowKey._hash},{colKey._hash}"] = value
 
-	def getRowInfo(self, row):
-		return self._rowInfo.get(row) or "-"
+	def get(self, rowKey, colKey):
+		return self._values.get(f"{rowKey._hash},{colKey._hash}") or self._default_value
 
-	def getRow(self, row):
-		return (self.get(row, col) for col in self.columns)
+	def getRow(self, rowKey):
+		return (self.get(rowKey, colKey) for colKey in self.columns)
 
-	def getColumn(self, col):
-		return (self.get(row, col) for row in self.rows)
+	def getColumn(self, colKey):
+		return (self.get(rowKey, colKey) for rowKey in self.rows)
+
+	@property
+	def rowCount(self):
+		return self._rows.size
+
+	@property
+	def columnCount(self):
+		return self._columns.size
 
 	@property
 	def rows(self):
-		return self._rowNames
+		return iter(self._rows)
 
 	@property
 	def columns(self):
-		return self._columnNames
+		return iter(self._columns)
 
 	@property
 	def firstColumn(self):
-		return self._columnNames[0]
-
-	def uniformStatus(self):
-		values = set()
-		for row in self.rows:
-			for col in self.columns:
-				values.add(self.get(row, col))
-		return len(values) == 1
-
-	def rowHasUniformValue(self, row, value):
-		return all((self.get(row, col) == value) for col in self.columns)
+		return self._columns[0]
 
 class Renderer:
 	def __init__(self, output_directory = None):
@@ -510,9 +534,8 @@ class TextRenderer(Renderer):
 
 		print()
 		print("Description of failed test(s):")
-		for id in matrix.rows:
-			description = matrix.getRowInfo(id)
-			print(f"    {id:24} {description}")
+		for rowKey in matrix.rows:
+			print(f"    {rowKey.id:24} {rowKey.label}")
 
 	def displayMatrix(self, matrix):
 		print = self.print
@@ -520,18 +543,19 @@ class TextRenderer(Renderer):
 
 		print()
 		print(f"{empty:24}", end = "")
-		for name in matrix.columns:
-			print(f" {name:18}", end = "")
+		for colKey in matrix.columns:
+			print(f" {colKey.label}", end = "")
 		print()
 
-		for rowName in matrix.rows:
+		for rowKey in matrix.rows:
+			rowName = rowKey.id
 			if len(rowName) <= 24:
 				print(f"{rowName:24}", end = "")
 			else:
 				print(f"{rowName}:")
 				print(f"{empty:24}", end = "")
-			for colName in matrix.columns:
-				cell = matrix.get(rowName, colName)
+			for colKey in matrix.columns:
+				cell = matrix.get(rowKey, colKey)
 				print(f" {cell:18}", end = "")
 			print()
 
@@ -836,9 +860,10 @@ class RegressionReport2D(RegressionAnalysis):
 	def asMatrixOfValues(self):
 		matrix = MatrixOfValues([c.name for c in self.columns], default_value = None)
 		for column in self.columns:
+			colKey = matrix.makeKey(column.name)
 			for test in column.tests:
-				matrix.set(test.id, column.name, test)
-				matrix.setRowInfo(test.id, test.description)
+				rowKey = matrix.makeKey(test.id, test.description)
+				matrix.set(rowKey, colKey, test)
 
 		return matrix
 
